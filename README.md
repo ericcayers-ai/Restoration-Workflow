@@ -1,5 +1,9 @@
 # Restoration Workflow - Planning
 
+> This file is the original raw idea dump. The actual build plan — fact-checked model
+> research, system architecture, UI identity, and a phased roadmap for an AI agent to
+> execute — lives in **[`ROADMAP.md`](ROADMAP.md)** and `docs/`. Start there.
+
 ## Generative & Diffusion Restoration
 
 - **RealRestorer:** Baseline for high-fidelity blind restoration.

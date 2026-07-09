@@ -1,0 +1,32 @@
+{
+  "README.md": {
+    "mtime": 1783594091.7354486,
+    "ast_hash": "2b084eceaf5db9876ca82e469380fad5",
+    "semantic_hash": "2b084eceaf5db9876ca82e469380fad5"
+  },
+  "ROADMAP.md": {
+    "mtime": 1783593982.731987,
+    "ast_hash": "02968ea960b2fec330cf5f321f904697",
+    "semantic_hash": "02968ea960b2fec330cf5f321f904697"
+  },
+  "docs/ARCHITECTURE.md": {
+    "mtime": 1783594054.8734486,
+    "ast_hash": "30f24f0481dadce373e29aee0f8114e4",
+    "semantic_hash": "30f24f0481dadce373e29aee0f8114e4"
+  },
+  "docs/GRAPHIFY_WORKFLOW.md": {
+    "mtime": 1783593846.5859032,
+    "ast_hash": "6d5692af596a14831f15c37906184a49",
+    "semantic_hash": "6d5692af596a14831f15c37906184a49"
+  },
+  "docs/MODEL_STACK.md": {
+    "mtime": 1783593817.4310243,
+    "ast_hash": "af5659f97ca1154921bfffa4005db9db",
+    "semantic_hash": "af5659f97ca1154921bfffa4005db9db"
+  },
+  "docs/UI_DESIGN.md": {
+    "mtime": 1783593654.002842,
+    "ast_hash": "bcd737051fe1db4c56fdf57a5a47aaf6",
+    "semantic_hash": "bcd737051fe1db4c56fdf57a5a47aaf6"
+  }
+}
