@@ -1,0 +1,137 @@
+"""Background weight downloads with pollable progress.
+
+A weight download is minutes of network I/O against a multi-gigabyte file, so it
+cannot block a request. It also isn't a pipeline job, so it doesn't belong in the
+job queue: a download must be able to proceed while a job runs, and a queued job
+must never wait behind a 3GB transfer.
+
+The licence acknowledgement and disk-space gates live in ``WeightManager`` and
+are enforced there, not here — this class only decides *when* work runs, never
+*whether* it is allowed to.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import enum
+import time
+import uuid
+from dataclasses import dataclass, field
+from typing import Any
+
+from ..core.errors import RestorationError
+from ..service import AppServices
+
+
+class DownloadState(str, enum.Enum):
+    RUNNING = "running"
+    DONE = "done"
+    ERROR = "error"
+
+
+@dataclass
+class Download:
+    id: str
+    node_id: str
+    state: DownloadState = DownloadState.RUNNING
+    filename: str | None = None
+    bytes_done: int = 0
+    bytes_total: int = 0
+    error: str | None = None
+    started_at: float = field(default_factory=time.time)
+    finished_at: float | None = None
+
+    @property
+    def progress(self) -> float:
+        if self.state is DownloadState.DONE:
+            return 1.0
+        if self.bytes_total <= 0:
+            return 0.0
+        return min(1.0, self.bytes_done / self.bytes_total)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "node_id": self.node_id,
+            "state": self.state.value,
+            "filename": self.filename,
+            "bytes_done": self.bytes_done,
+            "bytes_total": self.bytes_total,
+            "progress": round(self.progress, 4),
+            "error": self.error,
+            "started_at": self.started_at,
+            "finished_at": self.finished_at,
+        }
+
+
+class DownloadManager:
+    def __init__(self, services: AppServices) -> None:
+        self.services = services
+        self._downloads: dict[str, Download] = {}
+        self._by_node: dict[str, str] = {}
+        self._tasks: set[asyncio.Task] = set()
+
+    def get(self, download_id: str) -> Download | None:
+        return self._downloads.get(download_id)
+
+    def start(self, node_id: str) -> Download:
+        """Idempotent per node: asking twice returns the download already running."""
+        existing_id = self._by_node.get(node_id)
+        if existing_id is not None:
+            existing = self._downloads[existing_id]
+            if existing.state is DownloadState.RUNNING:
+                return existing
+
+        node = self.services.registry.create(node_id)  # raises on unknown node
+        # Surface the licence gate synchronously, so the caller gets a 403 rather
+        # than a background task that fails invisibly a moment later.
+        if node.license.requires_acknowledgement and not self.services.weights.is_acknowledged(
+            node_id
+        ):
+            from ..core.errors import LicenseNotAcknowledgedError  # noqa: PLC0415
+
+            raise LicenseNotAcknowledgedError(node_id, node.license.spdx_id)
+
+        download = Download(
+            id=uuid.uuid4().hex[:16],
+            node_id=node_id,
+            bytes_total=sum(w.size_bytes for w in node.weight_manifest),
+        )
+        self._downloads[download.id] = download
+        self._by_node[node_id] = download.id
+
+        task = asyncio.create_task(self._run(download, node))
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
+        return download
+
+    async def _run(self, download: Download, node: Any) -> None:
+        loop = asyncio.get_running_loop()
+        # Downloaded-so-far for files that already finished, so progress across a
+        # multi-file manifest is monotonic rather than restarting per file.
+        completed = {"bytes": 0, "current": ""}
+
+        def on_progress(filename: str, done: int, total: int) -> None:
+            if completed["current"] and filename != completed["current"]:
+                completed["bytes"] = download.bytes_done
+            completed["current"] = filename
+
+            def update() -> None:
+                download.filename = filename
+                download.bytes_done = completed["bytes"] + done
+
+            loop.call_soon_threadsafe(update)
+
+        try:
+            await asyncio.to_thread(self.services.weights.download, node, on_progress)
+        except RestorationError as exc:
+            download.state = DownloadState.ERROR
+            download.error = str(exc)
+        except Exception as exc:  # pragma: no cover - defensive
+            download.state = DownloadState.ERROR
+            download.error = f"unexpected {type(exc).__name__}: {exc}"
+        else:
+            download.state = DownloadState.DONE
+            download.bytes_done = download.bytes_total
+        finally:
+            download.finished_at = time.time()

@@ -1,2 +1,23 @@
 # graphify output - regenerate locally with `/graphify .` (see docs/GRAPHIFY_WORKFLOW.md)
 graphify-out/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# Test & tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Model weights are never committed: multi-gigabyte, checksum-pinned in each
+# node's weight manifest, and fetched on first use.
+weights/

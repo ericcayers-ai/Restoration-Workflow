@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "comment": "Hand-authored degradation-profile -> node-chain routing for Simple Mode. Stages are evaluated in order; each stage whose conditions all match appends its node to the chain. Metrics come from DegradationProfile.metrics(). Every node here must be permissively licensed (enforced by RuleTable.validate). Thresholds: blur_score is Laplacian variance on a 0-255 scale (< ~100 = soft, < ~40 = clearly blurry); noise_score is a robust sigma on 0-1 luma (> ~0.008 = visibly noisy); jpeg_blockiness is boundary/interior gradient excess (> ~0.12 = visible 8x8 blocking).",
+  "fallback_chain": ["realesrgan"],
+  "stages": [
+    {
+      "node": "fbcnn",
+      "when": { "jpeg_blockiness": { "gte": 0.12 } },
+      "params": {},
+      "reason": "visible JPEG block artifacts — remove compression artifacts first so later models don't amplify them"
+    },
+    {
+      "node": "realesrgan",
+      "when": { "min_dimension": { "lt": 1600 } },
+      "params": { "scale": 4 },
+      "reason": "low resolution — general blind super-resolution"
+    },
+    {
+      "node": "realesrgan",
+      "when": { "noise_score": { "gte": 0.008 }, "min_dimension": { "gte": 1600 } },
+      "params": { "scale": 2 },
+      "reason": "visible noise at native resolution — RealESRGAN's degradation model doubles as a denoiser"
+    },
+    {
+      "node": "gfpgan",
+      "when": { "face_count": { "gte": 1 } },
+      "params": {},
+      "reason": "faces detected — fast face restoration baseline (the default fast face node)"
+    },
+    {
+      "node": "restoreformer",
+      "when": { "face_count": { "gte": 1 }, "blur_score": { "lt": 100 } },
+      "params": {},
+      "reason": "soft/blurred faces — follow up with the default quality face node"
+    }
+  ]
+}

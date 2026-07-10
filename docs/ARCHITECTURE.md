@@ -197,6 +197,23 @@ generic URL+checksum path for anything not on the Hub. Before any download:
    disk-space check is advisory-only (it warns, it doesn't block), so this hard gate has to
    be the app's own logic, not something inherited for free from the download library.
 3. Verify checksums post-download; a corrupt/partial weight file must never silently load.
+   Every in-box model pins a SHA-256 in its manifest. Trust-on-first-use pinning exists for
+   third-party plugins whose upstream publishes no checksum — it defers verification, it never
+   skips it.
+4. **Load weights without executing them.** A `.pth`/`.ckpt` file is a pickle, and unpickling
+   is arbitrary code execution — a checksum proves a file is the one we expected, not that the
+   file is safe. Checkpoints are therefore read with `torch.load(..., weights_only=True)`, or
+   directly when they are `safetensors`, and handed to `spandrel` as a plain state dict;
+   `spandrel.ModelLoader.load_from_file`, which permits arbitrary pickle globals, is never
+   called. The two gates are complementary: the checksum stops a *substituted* file, safe
+   deserialization stops a *malicious* one, and neither is sufficient alone. A checkpoint that
+   cannot be loaded this way is not shipped — see `MODEL_STACK.md`'s LaMa note for a model this
+   rule actually changed.
+
+Model architectures come from `spandrel`'s main registry, which is MIT-licensed and
+deliberately excludes the non-commercial architectures (CodeFormer, MAT, …) that upstream
+ships separately in `spandrel_extra_arches`. Depending only on the main package is a licensing
+guardrail that holds even if someone forgets to check a manifest.
 
 Cache directory is user-configurable (defaults to a per-OS app-data location), and weights
 can be listed/removed from Studio Mode settings — a user should be able to reclaim tens of

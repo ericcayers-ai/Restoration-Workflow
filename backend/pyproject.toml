@@ -1,0 +1,65 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "restoration-workflow"
+version = "0.1.0"
+description = "Local-first photo restoration engine: DAG pipeline executor, restoration node plugins, weight manager, and REST/WebSocket API."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "pydantic>=2.5",
+    "numpy>=1.26",
+    "pillow>=10.0",
+    "httpx>=0.27",
+    "huggingface_hub>=0.23",
+    "python-multipart>=0.0.9",
+]
+
+[project.optional-dependencies]
+# Real model inference. The engine, API, CLI, analyzer, and all non-inference
+# tests work without these; nodes report themselves as not runnable instead.
+inference = [
+    "torch>=2.1",
+    "spandrel>=0.4",
+    "opencv-python-headless>=4.9",
+    # LaMa's only checkpoint that torch.load(weights_only=True) will accept.
+    "safetensors>=0.4",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+]
+
+[project.scripts]
+restore = "restoration.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+restoration = ["core/data/*.json"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 96
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "I", "UP", "PLC0415"]
+ignore = [
+    # FastAPI's dependency-injection idiom *is* a call in an argument default.
+    "B008",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests import fixtures and node classes inside functions to keep the module
+# import graph free of torch.
+"tests/*" = ["PLC0415"]

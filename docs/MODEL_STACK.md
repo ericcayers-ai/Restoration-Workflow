@@ -78,15 +78,31 @@ of licensing.
 | [OSDFace](https://github.com/jkwang28/OSDFace) | 284★, active | Unclear — verify before shipping | One-step diffusion, near-GAN speed | None found | The diffusion-quality-at-GAN-speed tier; needs a custom node and a license answer before it can ship |
 | SDFace | No installable repo (NTIRE 2025 challenge entry) | N/A | — | — | Real but unreleased — **use OSDFace instead**, do not plan around this name |
 | [CodeFormer](https://github.com/sczhou/CodeFormer) | 17.9k★ | **Non-commercial** (S-Lab NTU 1.0) | Fast, ~2-3GB | [mav-rik/facerestore_cf](https://github.com/mav-rik/facerestore_cf), ReActor | Most popular/controllable face restorer; license blocks it from Simple Mode's default path |
-| [RestoreFormer++](https://github.com/wzhouxiff/RestoreFormerPlusPlus) | 284★, stale since 2023 | **Apache-2.0** | GAN-class speed | None found | Same codebook-transformer family as CodeFormer, commercial-safe — **the default "quality" face node** |
+| [RestoreFormer / RestoreFormer++](https://github.com/wzhouxiff/RestoreFormerPlusPlus) | 284★, stale since 2023 | **Apache-2.0** | GAN-class speed | None found | Same codebook-transformer family as CodeFormer, commercial-safe — **the default "quality" face node**. See the implementation note below: **v1 ships, ++ does not (yet)** |
 | [GFPGAN](https://github.com/TencentARC/GFPGAN) | 37.5k★, unmaintained since Apr 2024 | Apache-2.0 | Fast, ~2-4GB, real-time | [comfyorg](https://github.com/comfyorg/comfyui_gfpgan), ReActor | Most battle-tested baseline — **the default "fast" face node** for Simple Mode |
 | [GPEN](https://github.com/yangxy/GPEN) | 2.6k★ | Non-commercial (Alibaba academic) | Fast, high-res variants (1024/2048) | Bundled in ReActor | Useful for severely degraded high-res faces; opt-in only |
 
-**Recommended default:** **GFPGAN → RestoreFormer++** as the Simple Mode default face path
-(both Apache-2.0, both ComfyUI-precedented), with CodeFormer/GPEN/OSDFace available as
-opt-in "try alternate face model" choices in Studio Mode once their license/verification
-status is accepted. DiffBIR sits in the *general* regression category functionally, despite
-the README grouping it with faces — reclassify it there in the plugin registry.
+**Recommended default:** **GFPGAN → RestoreFormer** as the Simple Mode default face path
+(both Apache-2.0), with CodeFormer/GPEN/OSDFace available as opt-in "try alternate face model"
+choices in Studio Mode once their license/verification status is accepted. DiffBIR sits in the
+*general* regression category functionally, despite the README grouping it with faces —
+reclassify it there in the plugin registry.
+
+**Implementation note — RestoreFormer v1 vs. ++ (found during Phase 1, 2026-07-10).**
+This document originally named RestoreFormer**++** the default quality face node. That was
+wrong in practice, not in principle: `spandrel`'s `RestoreFormer` architecture — the whole
+reason these models are cheap to integrate — cannot load the ++ checkpoint. Its `load()`
+hardcodes `head_size=8` and `attn_resolutions=(16,)`, while `RestoreFormer++.ckpt` carries
+extra decoder attention blocks (`decoder.up.4.attn.*`) and fails `load_state_dict`. Both
+checkpoints are Apache-2.0 and both are published on the repo's
+[v1.0.0 release](https://github.com/wzhouxiff/RestoreFormerPlusPlus/releases/tag/v1.0.0)
+(the README's Google Drive link is stale). Phase 1 therefore ships **RestoreFormer v1** as the
+`restoreformer` node — same family, same licence, same speed class. Shipping ++ means
+vendoring its architecture rather than leaning on spandrel; that is Phase 4 work, tracked as a
+stretch item, not a Phase 1 line item. Note also that neither checkpoint is stored the way
+spandrel's architecture detector expects: the weights live under a `vqvae.` prefix inside a
+Lightning checkpoint, alongside a `quantize.utility_counter` buffer that is not part of the
+module. The node strips both.
 
 ---
 
@@ -120,6 +136,24 @@ stretch goals within Phase 4, not launch blockers.
 All three are permissively licensed with real, maintained ComfyUI precedent — this is the
 easiest category to ship early and completely.
 
+**Implementation note — LaMa weight distribution (found during Phase 1, 2026-07-10).**
+LaMa's code and weights are Apache-2.0, but neither of its two commonly-cited weight
+distributions can be loaded safely:
+
+- Upstream's `big-lama.zip` (mirrored at [`smartywu/big-lama`](https://huggingface.co/smartywu/big-lama),
+  Apache-2.0) holds a PyTorch Lightning checkpoint that embeds pickled trainer objects. It is
+  rejected by `torch.load(weights_only=True)` — correctly, since unpickling it would execute
+  code from a downloaded file.
+- The widely-mirrored `big-lama.pt` ([Sanster/models](https://github.com/Sanster/models/releases))
+  is a **TorchScript archive**, not a state dict. `spandrel` cannot load it at all, and
+  TorchScript is code rather than data.
+
+Phase 1 therefore loads a `safetensors` export of the same generator weights — a container
+format that cannot carry executable content — with its digest pinned in the node's weight
+manifest. The licence is upstream's; only the container changed. If an Apache-2.0-labelled
+`safetensors` export appears under an official account, switch the manifest's `hf_repo_id` to
+it; the digest pin makes that a one-line, verifiable change.
+
 ---
 
 ## Workflow Orchestration
@@ -147,7 +181,7 @@ if RAR/RL-Restore/Restore-R1 code ever ships and becomes worth adopting instead.
 | Phase | Ships |
 |---|---|
 | Phase 1 (core engine) | RealESRGAN, FBCNN, LaMa — all permissive, all lightweight, all ComfyUI-precedented |
-| Phase 2 (Simple Mode) | + GFPGAN, RestoreFormer++, BiRefNet — enough for a real default auto-pipeline across the common degradation types (low-res, JPEG, faces, background matting) |
+| Phase 2 (Simple Mode) | + GFPGAN, RestoreFormer (v1, see note), BiRefNet — enough for a real default auto-pipeline across the common degradation types (low-res, JPEG, faces, background matting) |
 | Phase 4 (full stack) | + HAT, PowerPaint, DiffBIR, CodeFormer/GPEN/OSDFace/SUPIR/FLUX (all opt-in behind license acknowledgement) |
 | Phase 4 stretch | MambaIRv2, DarkIR, InstantIR, DreamClear, UniRestore, RealRestorer — each needs custom node engineering with no existing reference implementation to build from |
 | Watch, don't build | BioIR (no code yet), Restore-R1 (no code yet) |

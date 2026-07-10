@@ -113,8 +113,10 @@ Tasks:
   histogram) → `DegradationProfile` → rule-table lookup → default node chain. Ship it as a
   real, inspectable heuristic — not a stub that fakes intelligence.
 - Add the three Phase-2-tier face/matting nodes from `docs/MODEL_STACK.md`: **GFPGAN**,
-  **RestoreFormer++**, **BiRefNet** — enough category coverage (upscale, JPEG, face, matting)
-  for a genuinely useful default auto-pipeline.
+  **RestoreFormer** (v1 — see the implementation note in `docs/MODEL_STACK.md` for why not
+  ++), **BiRefNet** — enough category coverage (upscale, JPEG, face, matting) for a genuinely
+  useful default auto-pipeline. GFPGAN and RestoreFormer landed early, in Phase 1, because the
+  rule table's face stages need them to route anywhere; only **BiRefNet** remains.
 - Scaffold the frontend (Vite + React + TypeScript), wire the design tokens from
   `docs/UI_DESIGN.md` §9 into the build's theme layer — component code should reference
   tokens, never hardcoded hex values.
