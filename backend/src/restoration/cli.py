@@ -328,6 +328,14 @@ def cmd_serve(args: argparse.Namespace) -> int:
 
     services = _build_services(args)
     app = create_app(services)
+    if app.state.frontend_mounted:
+        _eprint(f"serving app + API at http://{args.host}:{args.port}")
+    else:
+        _eprint(
+            f"serving API only at http://{args.host}:{args.port} "
+            f"(no frontend build found; run 'npm run build' in frontend/, "
+            f"or point RESTORE_FRONTEND_DIST at one)"
+        )
     # Port 0 lets the OS pick a free one; bound to loopback only, never 0.0.0.0
     # (ARCHITECTURE.md section 1).
     uvicorn.run(app, host=args.host, port=args.port, log_level=args.log_level)

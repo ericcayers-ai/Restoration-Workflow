@@ -1,0 +1,168 @@
+.mat {
+  background: var(--surface-900);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-hairline);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.viewModeRow {
+  display: flex;
+  justify-content: center;
+}
+
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.segment {
+  padding: var(--space-2) var(--space-3);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  border-right: 1px solid var(--border-hairline);
+}
+
+.segment:last-child {
+  border-right: none;
+}
+
+.segment:hover {
+  background: var(--surface-800);
+}
+
+.segmentActive {
+  background: var(--surface-800);
+  color: var(--accent-amber);
+}
+
+.frame {
+  position: relative;
+  width: 100%;
+  max-height: 65vh;
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--surface-950);
+}
+
+.compareArea {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.layerBase {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  user-select: none;
+  pointer-events: none;
+}
+
+.beforeClip {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.dividerLine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--accent-amber);
+  transform: translateX(-1px);
+  pointer-events: none;
+}
+
+.rangeInput {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  appearance: none;
+  background: transparent;
+  cursor: ew-resize;
+}
+
+.rangeInput::-webkit-slider-runnable-track {
+  background: transparent;
+}
+
+.rangeInput::-webkit-slider-thumb {
+  appearance: none;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: var(--accent-amber);
+  border: 2px solid var(--surface-950);
+  cursor: ew-resize;
+}
+
+.rangeInput::-moz-range-track {
+  background: transparent;
+  border: none;
+}
+
+.rangeInput::-moz-range-thumb {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: var(--accent-amber);
+  border: 2px solid var(--surface-950);
+  cursor: ew-resize;
+}
+
+.sideBySide {
+  display: flex;
+  gap: var(--space-3);
+  height: 100%;
+}
+
+.sideBySide figure {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.sideBySide img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: var(--surface-950);
+  border-radius: var(--radius-sm);
+}
+
+.caption {
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.diffCanvas {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
+}
+
+.diffStatus {
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  padding: var(--space-6);
+}

@@ -1,0 +1,147 @@
+/*
+ * Design tokens — "Safelight" identity (docs/UI_DESIGN.md section 9).
+ * Component code must reference these custom properties, never a hardcoded
+ * hex value (ROADMAP.md Phase 2) — that's what keeps three themes (including
+ * high-contrast) a CSS-variable swap instead of a per-component rewrite.
+ */
+
+@font-face {
+  font-family: "Public Sans";
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url("/fonts/PublicSans-Variable.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/IBMPlexMono-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/IBMPlexMono-Medium.woff2") format("woff2");
+}
+
+:root {
+  --font-ui: "Public Sans", "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", "JetBrains Mono", ui-monospace, monospace;
+
+  --motion-fast: 180ms ease-out;
+  --motion-base: 260ms ease-out;
+
+  /* In-app UI scale (UI_DESIGN.md section 6) — a multiplier on the base type
+     scale, independent of OS/browser zoom, adjustable via the scale control. */
+  --ui-scale: 1;
+
+  --radius-sm: 3px;
+  --radius-md: 5px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  /* Model Stack category colors (UI_DESIGN.md section 2) — distinct from the
+     two accents, always paired with an icon shape so color is never the only
+     signal (section 6). */
+  --category-generative: #8B6BAE;
+  --category-face: #4FA79A;
+  --category-regression: #5B8DC4;
+  --category-masking: #C1953F;
+  --category-orchestration: #8A8577;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-950: #14120F;
+  --surface-900: #1B1815;
+  --surface-800: #242019;
+  --surface-700: #322C22;
+  --border-hairline: #3A3327;
+  --text-primary: #F2EDE4;
+  --text-secondary: #B8AF9E;
+  --accent-amber: #E8873A;
+  --accent-amber-ink: #14120F;
+  --accent-teal: #4FA79A;
+  --accent-brick: #C1523F;
+  --focus-ring: var(--accent-amber);
+  --grain-opacity: 0.025;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --surface-950: #F7F3EA;
+  --surface-900: #EFE9DB;
+  --surface-800: #E5DDC9;
+  --surface-700: #DACCAE;
+  --border-hairline: #D8CDB4;
+  --text-primary: #2B2620;
+  --text-secondary: #665D4E;
+  --accent-amber: #B85F19;
+  --accent-amber-ink: #F7F3EA;
+  --accent-teal: #2E7A6E;
+  --accent-brick: #9E3A28;
+  --focus-ring: var(--accent-amber);
+  --grain-opacity: 0.035;
+}
+
+/* A third theme variant, not a toggle buried in an OS setting (section 2) —
+   pure black/white text, thicker hairlines, no texture, no reliance on the
+   amber/teal pair carrying meaning by hue alone. */
+:root[data-theme="high-contrast"] {
+  color-scheme: dark;
+  --surface-950: #000000;
+  --surface-900: #0A0A0A;
+  --surface-800: #161616;
+  --surface-700: #262626;
+  --border-hairline: #FFFFFF;
+  --text-primary: #FFFFFF;
+  --text-secondary: #E8E8E8;
+  --accent-amber: #FFB454;
+  --accent-amber-ink: #000000;
+  --accent-teal: #6FE0D0;
+  --accent-brick: #FF7A66;
+  --focus-ring: #FFFFFF;
+  --grain-opacity: 0;
+
+  --category-generative: #C9A6F0;
+  --category-face: #6FE0D0;
+  --category-regression: #9AC2F0;
+  --category-masking: #F0C96F;
+  --category-orchestration: #D8D4C8;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 0ms;
+    --motion-base: 0ms;
+  }
+}
+
+/* Sparing noise texture for large empty surfaces only — never on text or
+   controls (docs/UI_DESIGN.md section 1). Applied as a class, not global. */
+.grain-surface {
+  position: relative;
+  isolation: isolate;
+}
+
+.grain-surface::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: var(--grain-opacity);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  background-repeat: repeat;
+  mix-blend-mode: overlay;
+}

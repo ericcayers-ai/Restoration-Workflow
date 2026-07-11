@@ -1,0 +1,72 @@
+.screen {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.working {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  padding: var(--space-6);
+  text-align: center;
+}
+
+.previewImg {
+  max-height: 38vh;
+  max-width: 60vw;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-hairline);
+  opacity: 0.92;
+}
+
+.downloads {
+  width: min(420px, 80vw);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.resultScreen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  overflow: auto;
+}
+
+.reasons {
+  align-self: center;
+  width: min(560px, 90vw);
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+}
+
+.reasons summary {
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.reasonList {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-4);
+}
+
+.errorBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.fallback {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}

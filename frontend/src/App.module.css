@@ -1,0 +1,60 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--border-hairline);
+  flex-shrink: 0;
+}
+
+.title {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.modeSwitch {
+  display: inline-flex;
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.modeTab,
+.modeActive {
+  padding: var(--space-1) var(--space-4);
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.modeTab:hover {
+  background: var(--surface-800);
+}
+
+.modeActive {
+  background: var(--surface-800);
+  color: var(--accent-amber);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.main {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.modePane {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+}

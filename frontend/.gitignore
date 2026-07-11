@@ -1,0 +1,10 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.env.local
+
+# tsc emits these next to vite.config.ts because tsconfig.node.json is a
+# composite project (composite:true implies emit). They are build artifacts,
+# not source — vite reads vite.config.ts directly via esbuild.
+vite.config.js
+vite.config.d.ts

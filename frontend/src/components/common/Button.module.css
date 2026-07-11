@@ -1,0 +1,69 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  transition:
+    background-color var(--motion-fast),
+    border-color var(--motion-fast),
+    color var(--motion-fast);
+  white-space: nowrap;
+}
+
+.button:disabled {
+  opacity: 0.45;
+}
+
+/* Primary: the one filled control per view, never a gradient (section 1). */
+.primary {
+  background: var(--accent-amber);
+  color: var(--accent-amber-ink);
+}
+
+.primary:not(:disabled):hover {
+  background: var(--accent-amber);
+  filter: brightness(1.08);
+}
+
+/* Secondary: hairline border, no fill — the default plain-text-button look
+   the Simple Mode action bar uses (section 7). */
+.secondary {
+  background: transparent;
+  color: var(--text-primary);
+  border-color: var(--border-hairline);
+}
+
+.secondary:not(:disabled):hover {
+  background: var(--surface-800);
+}
+
+/* Ghost: no border at rest, for toolbars where a full button chrome would
+   be visual noise (canvas toolbar, contact-sheet actions). */
+.ghost {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.ghost:not(:disabled):hover {
+  background: var(--surface-800);
+  color: var(--text-primary);
+}
+
+.danger {
+  background: transparent;
+  color: var(--accent-brick);
+  border-color: var(--border-hairline);
+}
+
+.danger:not(:disabled):hover {
+  background: var(--surface-800);
+}
+
+.small {
+  padding: var(--space-1) var(--space-3);
+  font-size: 0.75rem;
+}

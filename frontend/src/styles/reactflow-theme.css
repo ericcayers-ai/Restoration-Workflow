@@ -1,0 +1,99 @@
+/*
+ * Retheme of @xyflow/react's structural base.css (not its full style.css,
+ * which ships an opinionated default look) — "no library default styling
+ * should be visible in the shipped UI" (ROADMAP.md Phase 3). Every color
+ * here is one of ours, set through the library's own `--xy-*` override
+ * points, never a hardcoded hex re-declaration of a react-flow class.
+ *
+ * The `.react-flow__attribution` badge is left visible and only restyled:
+ * ARCHITECTURE.md section 1 notes the paid xyflow tier is what removes it —
+ * on the free tier we use, it stays.
+ */
+
+.react-flow {
+  --xy-background-color: var(--surface-950);
+  --xy-edge-stroke: var(--border-hairline);
+  --xy-edge-stroke-width: 1.5;
+  --xy-edge-stroke-selected: var(--accent-amber);
+  --xy-connectionline-stroke: var(--accent-amber);
+  --xy-connectionline-stroke-width: 1.5;
+  --xy-handle-background-color: var(--surface-700);
+  --xy-node-border: 1px solid var(--border-hairline);
+  --xy-node-border-selected: 1px solid var(--accent-amber);
+  --xy-node-boxshadow-hover: none;
+  --xy-node-boxshadow-selected: none;
+  --xy-minimap-background-color: var(--surface-900);
+  --xy-minimap-node-background-color: var(--surface-700);
+  --xy-minimap-mask-background-color: rgba(20, 18, 15, 0.6);
+}
+
+.react-flow__handle {
+  width: 10px;
+  height: 10px;
+  border: 1px solid var(--surface-950);
+  border-radius: 2px;
+}
+
+.react-flow__handle.connectingfrom,
+.react-flow__handle.connectingto {
+  background: var(--accent-amber);
+}
+
+/* Connections "develop" in with an opacity ramp, not a snap
+   (UI_DESIGN.md section 5). */
+.react-flow__edge-path {
+  animation: edge-develop var(--motion-base);
+}
+
+@keyframes edge-develop {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .react-flow__edge-path {
+    animation: none;
+  }
+}
+
+.react-flow__controls {
+  box-shadow: none;
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.react-flow__controls-button {
+  background: var(--surface-900);
+  border-bottom: 1px solid var(--border-hairline);
+  color: var(--text-primary);
+}
+
+.react-flow__controls-button:hover {
+  background: var(--surface-800);
+}
+
+.react-flow__controls-button svg {
+  fill: currentColor;
+}
+
+.react-flow__attribution {
+  background: transparent;
+}
+
+.react-flow__attribution a {
+  color: var(--text-secondary);
+  font-size: 0.625rem;
+}
+
+.react-flow__node {
+  font-family: var(--font-ui);
+}
+
+.react-flow__node.selected {
+  z-index: 10;
+}

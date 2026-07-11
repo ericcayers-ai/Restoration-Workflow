@@ -1,0 +1,124 @@
+.rail {
+  width: 240px;
+  flex-shrink: 0;
+  background: var(--surface-900);
+  border-right: 1px solid var(--border-hairline);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.searchRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border-hairline);
+  color: var(--text-secondary);
+}
+
+.searchInput {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+}
+
+.searchInput::placeholder {
+  color: var(--text-secondary);
+}
+
+.groups {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-2);
+}
+
+.categoryTitle {
+  margin: var(--space-3) 0 var(--space-1);
+  padding-left: var(--space-2);
+  border-left: 2px solid;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-secondary);
+}
+
+.itemList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  cursor: grab;
+}
+
+.item:hover:not(:disabled) {
+  background: var(--surface-800);
+}
+
+.item:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.itemName {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badges {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.licenseBadge {
+  font-family: var(--font-mono);
+  font-size: 0.5625rem;
+  color: var(--accent-brick);
+  border: 1px solid var(--accent-brick);
+  border-radius: 2px;
+  padding: 0 3px;
+}
+
+.vramBadge {
+  font-family: var(--font-mono);
+  font-size: 0.5625rem;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-hairline);
+  border-radius: 2px;
+  padding: 0 3px;
+}
+
+.vramBadge[data-state="available_tiled"],
+.vramBadge[data-state="available_quantized"] {
+  color: var(--accent-amber);
+  border-color: var(--accent-amber);
+}
+
+.empty {
+  padding: var(--space-4);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  text-align: center;
+}

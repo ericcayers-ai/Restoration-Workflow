@@ -44,6 +44,7 @@ from ..core.executor import parse_pipeline
 from ..core.images import load_image_bytes
 from ..presets import Preset, PresetStore
 from ..service import AppServices
+from .frontend import mount_frontend
 from .jobs import JobManager
 from .weights import DownloadManager
 
@@ -311,5 +312,9 @@ def create_app(services: AppServices | None = None) -> FastAPI:
         name: str, store: PresetStore = Depends(preset_store)
     ) -> dict[str, Any]:
         return {"deleted": store.delete(name)}
+
+    # Registered last: a mount is a fallback, and every /api/... route above
+    # must keep matching first (ARCHITECTURE.md sections 1, 7).
+    app.state.frontend_mounted = mount_frontend(app)
 
     return app
