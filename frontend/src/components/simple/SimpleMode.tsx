@@ -11,20 +11,30 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ApiError,
   analyzeImage,
+  autoOrderPipeline,
   cancelJob,
   getJob,
   jobResultUrl,
+  listNodes,
   submitJob,
 } from "../../lib/api";
 import { useRegisterCommands } from "../../lib/commands";
 import { useT } from "../../lib/i18n";
+import {
+  createStage,
+  pipelineToStages,
+  stagesToPipeline,
+  type Stage,
+} from "../../lib/pipelineStages";
 import { completedCount, overallFraction, stageFor, stageMessageKey } from "../../lib/stages";
-import type { AutoPipeline, Job, PipelineJson } from "../../lib/types";
+import type { AutoPipeline, DescribedNode, Job, PipelineJson } from "../../lib/types";
 import { useJobEvents } from "../../lib/useJobEvents";
 import { useWeightDownloads } from "../../lib/useWeightDownloads";
 import { Button } from "../common/Button";
 import { DownloadRow } from "../common/DownloadRow";
 import { StatusLine } from "../common/StatusLine";
+import { ModelStackRail } from "../studio/ModelStackRail";
+import { StageList } from "../studio/StageList";
 import { ActionBar } from "./ActionBar";
 import { DropZone } from "./DropZone";
 import { LightTable } from "./LightTable";
@@ -33,11 +43,27 @@ import styles from "./SimpleMode.module.css";
 type Status =
   | "idle"
   | "analyzing"
+  | "review"
   | "downloading"
   | "submitting"
   | "processing"
   | "done"
   | "error";
+
+function missingWeightsFor(
+  pipeline: PipelineJson,
+  describedByType: Record<string, DescribedNode>,
+): string[] {
+  const seen = new Set<string>();
+  const missing: string[] = [];
+  for (const n of pipeline.nodes) {
+    if (seen.has(n.type)) continue;
+    seen.add(n.type);
+    const described = describedByType[n.type];
+    if (described && !described.weights.installed) missing.push(n.type);
+  }
+  return missing;
+}
 
 type ViewMode = "slider" | "side-by-side" | "difference";
 
@@ -55,9 +81,31 @@ export function SimpleMode({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [fallback, setFallback] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("slider");
+  const [describedNodes, setDescribedNodes] = useState<DescribedNode[]>([]);
+  const [reviewStages, setReviewStages] = useState<Stage[]>([]);
+  const [reviewError, setReviewError] = useState<string | null>(null);
 
   const downloads = useWeightDownloads();
   const jobEvents = useJobEvents(job?.id ?? null);
+
+  const describedByType = useMemo(
+    () => Object.fromEntries(describedNodes.map((n) => [n.id, n])),
+    [describedNodes],
+  );
+  // Simple Mode's default guarantee is that it never runs a non-permissive
+  // model without the explicit license-acknowledgement UI Studio Mode has;
+  // customizing the auto-picked chain here must not quietly break that, so
+  // the add-a-model list only offers permissive nodes.
+  const addableNodes = useMemo(
+    () => describedNodes.filter((n) => !n.license.requires_acknowledgement),
+    [describedNodes],
+  );
+
+  useEffect(() => {
+    listNodes()
+      .then(setDescribedNodes)
+      .catch(() => setDescribedNodes([]));
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -95,10 +143,10 @@ export function SimpleMode({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobEvents.terminal]);
 
-  async function submitPipeline(selected: File, autoResult: AutoPipeline) {
+  async function submitPipeline(selected: File, pipeline: PipelineJson) {
     setStatus("submitting");
     try {
-      const submitted = await submitJob(selected, { pipeline: autoResult.pipeline });
+      const submitted = await submitJob(selected, { pipeline });
       setJob(submitted);
       setStatus("processing");
     } catch (err) {
@@ -115,6 +163,8 @@ export function SimpleMode({
     setErrorMessage(null);
     setFallback(null);
     setAuto(null);
+    setReviewStages([]);
+    setReviewError(null);
     setViewMode("slider");
     downloads.reset();
     setStatus("analyzing");
@@ -122,9 +172,31 @@ export function SimpleMode({
     try {
       const result = await analyzeImage(selected);
       setAuto(result);
-      if (result.missing_weights.length > 0) {
+      setReviewStages(pipelineToStages(result.pipeline, describedByType));
+      setStatus("review");
+    } catch (err) {
+      setStatus("error");
+      setErrorMessage(err instanceof ApiError ? err.message : String(err));
+    }
+  }
+
+  async function proceedFromReview() {
+    if (!file) return;
+    const { pipeline, error } = stagesToPipeline(reviewStages);
+    if (error) {
+      setReviewError(error);
+      return;
+    }
+    if (pipeline.nodes.length === 0) {
+      setReviewError(t("pipeline.stages.empty"));
+      return;
+    }
+    setReviewError(null);
+    try {
+      const missing = missingWeightsFor(pipeline, describedByType);
+      if (missing.length > 0) {
         setStatus("downloading");
-        const ok = await downloads.downloadAll(result.missing_weights);
+        const ok = await downloads.downloadAll(missing);
         if (!ok) {
           setStatus("error");
           setErrorMessage(
@@ -134,12 +206,49 @@ export function SimpleMode({
           return;
         }
       }
-      await submitPipeline(selected, result);
+      await submitPipeline(file, pipeline);
     } catch (err) {
       setStatus("error");
       setErrorMessage(err instanceof ApiError ? err.message : String(err));
     }
   }
+
+  const onAddReviewStage = (nodeTypeId: string) => {
+    const described = describedByType[nodeTypeId];
+    if (!described) return;
+    setReviewStages((prev) => [...prev, createStage(described)]);
+    setReviewError(null);
+  };
+
+  const onRemoveReviewStage = (stageId: string) => {
+    setReviewStages((prev) => prev.filter((s) => s.id !== stageId));
+  };
+
+  const onMoveReviewStage = (stageId: string, direction: -1 | 1) => {
+    setReviewStages((prev) => {
+      const index = prev.findIndex((s) => s.id === stageId);
+      const target = index + direction;
+      if (index < 0 || target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[target]] = [next[target]!, next[index]!];
+      return next;
+    });
+  };
+
+  const onAutoOrderReview = () => {
+    if (reviewStages.length < 2) return;
+    const params: Record<string, Record<string, unknown>> = {};
+    for (const s of reviewStages) params[s.nodeType] = s.params;
+    autoOrderPipeline(
+      reviewStages.map((s) => s.nodeType),
+      params,
+    )
+      .then((pipeline) => {
+        setReviewStages(pipelineToStages(pipeline, describedByType));
+        setReviewError(null);
+      })
+      .catch((err) => setReviewError(err instanceof ApiError ? err.message : String(err)));
+  };
 
   function reset() {
     setStatus("idle");
@@ -149,6 +258,8 @@ export function SimpleMode({
     setJob(null);
     setErrorMessage(null);
     setFallback(null);
+    setReviewStages([]);
+    setReviewError(null);
   }
 
   function download(filename: string) {
@@ -207,9 +318,29 @@ export function SimpleMode({
             },
           ]
         : []),
+      ...(status === "review"
+        ? [
+            {
+              id: "simple.review.run",
+              label: t("simple.review.run"),
+              category: "Simple Mode",
+              icon: "play" as const,
+              run: (): void => {
+                void proceedFromReview();
+              },
+            },
+            {
+              id: "simple.review.auto-order",
+              label: t("pipeline.stages.autoOrder"),
+              category: "Simple Mode",
+              icon: "sort" as const,
+              run: onAutoOrderReview,
+            },
+          ]
+        : []),
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [status, job, file],
+    [status, job, file, reviewStages],
   );
   useRegisterCommands("simple-mode", commands);
 
@@ -217,6 +348,55 @@ export function SimpleMode({
     return (
       <div className={styles.screen}>
         <DropZone onFile={handleFile} />
+      </div>
+    );
+  }
+
+  if (status === "review") {
+    return (
+      <div className={styles.reviewScreen}>
+        <header className={styles.reviewHeader}>
+          <h2>{t("simple.review.title")}</h2>
+          <p>{t("simple.review.subtitle")}</p>
+        </header>
+        {auto && auto.routing.reasons.length > 0 && (
+          <details className={styles.reasons}>
+            <summary>{t("simple.reasonsTitle")}</summary>
+            <ul className={styles.reasonList}>
+              {auto.routing.reasons.map((r, i) => (
+                <li key={i}>
+                  <span className="mono">{r.node}</span>: {r.reason}
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+        <div className={styles.reviewBody}>
+          {beforeUrl && <img className={styles.reviewThumb} src={beforeUrl} alt="" />}
+          <ModelStackRail nodes={addableNodes} onAddNode={onAddReviewStage} />
+          <StageList
+            stages={reviewStages}
+            selectedId={null}
+            onSelect={() => {}}
+            onMove={onMoveReviewStage}
+            onRemove={onRemoveReviewStage}
+            onAutoOrder={onAutoOrderReview}
+            error={reviewError}
+          />
+        </div>
+        <div className={styles.reviewActions}>
+          <Button variant="ghost" onClick={reset}>
+            {t("simple.review.back")}
+          </Button>
+          <Button
+            variant="primary"
+            icon="play"
+            onClick={() => void proceedFromReview()}
+            disabled={reviewStages.length === 0}
+          >
+            {t("simple.review.run")}
+          </Button>
+        </div>
       </div>
     );
   }

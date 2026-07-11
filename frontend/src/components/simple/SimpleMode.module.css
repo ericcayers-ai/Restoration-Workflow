@@ -70,3 +70,46 @@
   font-size: 0.8125rem;
   color: var(--text-secondary);
 }
+
+.reviewScreen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 0;
+  padding: var(--space-4) var(--space-5) var(--space-5);
+}
+
+.reviewHeader h2 {
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.reviewHeader p {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  margin-top: 2px;
+}
+
+.reviewBody {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: var(--space-3);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.reviewThumb {
+  width: 160px;
+  flex-shrink: 0;
+  object-fit: cover;
+  background: var(--surface-950);
+}
+
+.reviewActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}

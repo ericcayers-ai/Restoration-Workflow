@@ -1,0 +1,123 @@
+.row {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-2);
+  background: var(--surface-800);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--category-color, var(--text-secondary));
+  overflow: hidden;
+}
+
+.row[data-status="running"] {
+  box-shadow: 0 0 0 1px var(--accent-amber) inset;
+}
+
+.row[data-status="done"] {
+  box-shadow: 0 0 0 1px var(--accent-teal) inset;
+}
+
+.row[data-status="error"] {
+  box-shadow: 0 0 0 1px var(--accent-brick) inset;
+}
+
+.rowSelected {
+  box-shadow: 0 0 0 1px var(--accent-amber) inset;
+}
+
+.step {
+  flex-shrink: 0;
+  width: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2);
+  text-align: left;
+  position: relative;
+}
+
+.thumb {
+  width: 40px;
+  height: 30px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  background: var(--surface-950);
+}
+
+.textCol {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.name {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.summary {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badge {
+  color: var(--accent-teal);
+}
+
+.progressTrack {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: 100%;
+  background: var(--surface-700);
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--accent-amber);
+  transition: width var(--motion-fast);
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--space-1);
+  gap: 2px;
+  border-left: 1px solid var(--border-hairline);
+}
+
+.iconButton {
+  color: var(--text-secondary);
+  padding: 2px;
+}
+
+.iconButton:hover:not(:disabled) {
+  color: var(--text-primary);
+}
+
+.iconButton:disabled {
+  opacity: 0.3;
+}

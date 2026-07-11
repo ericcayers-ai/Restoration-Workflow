@@ -11,6 +11,7 @@ import type {
   Download,
   HardwareInfo,
   Job,
+  PipelineJson,
   Preset,
   WeightsOverview,
   WeightsStatus,
@@ -185,4 +186,25 @@ export function savePreset(
 
 export function deletePreset(name: string): Promise<{ deleted: boolean }> {
   return deleteJson(`/api/presets/${encodeURIComponent(name)}`);
+}
+
+// -- pipeline building: auto-order + .txt workflows -----------------------------
+
+export function autoOrderPipeline(
+  nodeTypes: string[],
+  params: Record<string, Record<string, unknown>> = {},
+): Promise<PipelineJson> {
+  return postJson("/api/pipelines/auto-order", { node_types: nodeTypes, params });
+}
+
+export function exportWorkflowText(
+  pipeline: PipelineJson,
+  name = "",
+  description = "",
+): Promise<{ text: string }> {
+  return postJson("/api/workflows/export", { pipeline, name, description });
+}
+
+export function importWorkflowText(text: string): Promise<PipelineJson> {
+  return postJson("/api/workflows/import", { text });
 }

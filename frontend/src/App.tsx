@@ -12,6 +12,8 @@ import { SimpleMode } from "./components/simple/SimpleMode";
 import { StudioMode, type StudioHandoff } from "./components/studio/StudioMode";
 import { CommandPalette } from "./components/common/CommandPalette";
 import { ScaleControl, ThemeToggle } from "./components/common/PreferencesBar";
+import { SettingsPanel } from "./components/common/SettingsPanel";
+import { Icon } from "./components/common/Icon";
 import { useRegisterCommands } from "./lib/commands";
 import { useT } from "./lib/i18n";
 import type { PipelineJson } from "./lib/types";
@@ -23,6 +25,7 @@ export function App() {
   const t = useT();
   const [mode, setMode] = useState<Mode>("simple");
   const [handoff, setHandoff] = useState<StudioHandoff | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const handoffCounter = useRef(0);
 
   function openInStudio(pipeline: PipelineJson, file: File) {
@@ -46,6 +49,13 @@ export function App() {
         category: "General",
         icon: "flow" as const,
         run: () => setMode("studio"),
+      },
+      {
+        id: "app.open-settings",
+        label: t("settings.open"),
+        category: "General",
+        icon: "settings" as const,
+        run: () => setSettingsOpen(true),
       },
     ],
     [t],
@@ -79,6 +89,15 @@ export function App() {
         <div className={styles.spacer} />
         <ThemeToggle />
         <ScaleControl />
+        <button
+          type="button"
+          className={styles.settingsButton}
+          onClick={() => setSettingsOpen(true)}
+          aria-label={t("settings.open")}
+          title={t("settings.open")}
+        >
+          <Icon name="settings" size={16} />
+        </button>
       </header>
 
       <main className={styles.main}>
@@ -96,6 +115,7 @@ export function App() {
       </main>
 
       <CommandPalette />
+      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   );
 }

@@ -29,6 +29,10 @@
   border: 1px solid var(--border-hairline);
 }
 
+.spacer {
+  flex: 1;
+}
+
 .body {
   flex: 1;
   display: flex;

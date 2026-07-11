@@ -11,7 +11,7 @@ import { formatBytes, licenseAbbrev } from "../../lib/format";
 import { useT } from "../../lib/i18n";
 import type { DescribedNode, JsonSchemaProperty } from "../../lib/types";
 import type { useWeightDownloads } from "../../lib/useWeightDownloads";
-import type { RFNode } from "../../lib/canvasPipeline";
+import type { Stage } from "../../lib/pipelineStages";
 import { Button } from "../common/Button";
 import { DownloadRow } from "../common/DownloadRow";
 import { Icon } from "../common/Icon";
@@ -122,7 +122,7 @@ function ParamField({
 }
 
 export function Inspector({
-  selectedNode,
+  selectedStage,
   described,
   onParamsChange,
   onPinnedChange,
@@ -130,17 +130,17 @@ export function Inspector({
   onAcknowledge,
   onWeightsChanged,
 }: {
-  selectedNode: RFNode | null;
+  selectedStage: Stage | null;
   described: DescribedNode | null;
-  onParamsChange: (nodeId: string, params: Record<string, unknown>) => void;
-  onPinnedChange: (nodeId: string, pinned: boolean) => void;
+  onParamsChange: (stageId: string, params: Record<string, unknown>) => void;
+  onPinnedChange: (stageId: string, pinned: boolean) => void;
   downloads: ReturnType<typeof useWeightDownloads>;
   onAcknowledge: (nodeId: string) => void;
   onWeightsChanged: () => void;
 }) {
   const t = useT();
 
-  if (!selectedNode || !described) {
+  if (!selectedStage || !described) {
     return (
       <aside className={styles.inspector} aria-label={t("studio.inspector.title")}>
         <p className={styles.empty}>{t("studio.inspector.empty")}</p>
@@ -216,9 +216,9 @@ export function Inspector({
             key={name}
             name={name}
             spec={spec}
-            value={selectedNode.data.params[name] ?? spec.default}
+            value={selectedStage.params[name] ?? spec.default}
             onChange={(value) =>
-              onParamsChange(selectedNode.id, { ...selectedNode.data.params, [name]: value })
+              onParamsChange(selectedStage.id, { ...selectedStage.params, [name]: value })
             }
           />
         ))}
@@ -227,8 +227,8 @@ export function Inspector({
           <label className={styles.pinnedRow}>
             <input
               type="checkbox"
-              checked={selectedNode.data.pinned}
-              onChange={(e) => onPinnedChange(selectedNode.id, e.target.checked)}
+              checked={selectedStage.pinned}
+              onChange={(e) => onPinnedChange(selectedStage.id, e.target.checked)}
             />
             <span>{t("studio.inspector.keepLoaded")}</span>
           </label>

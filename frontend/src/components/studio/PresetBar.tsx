@@ -93,7 +93,7 @@ export function PresetBar({
       <input
         ref={importRef}
         type="file"
-        accept=".json"
+        accept=".txt"
         className="visually-hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];

@@ -357,7 +357,9 @@ def test_workflow_export_then_import_round_trips(client):
     # else, which fills in the normalized defaults (params, pinned) the
     # original hand-written pipeline omitted.
     imported = client.post("/api/workflows/import", json={"text": text}).json()
-    assert imported["nodes"] == [{"id": "a", "type": "recording", "params": {}, "pinned": False}]
+    assert imported["nodes"] == [
+        {"id": "a", "type": "recording", "params": {}, "pinned": False}
+    ]
     assert imported["edges"] == []
 
 

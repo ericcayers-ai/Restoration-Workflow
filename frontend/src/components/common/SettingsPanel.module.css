@@ -1,0 +1,147 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.panel {
+  width: min(640px, 92vw);
+  max-height: 80vh;
+  background: var(--surface-900);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-hairline);
+}
+
+.header h2 {
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+
+.closeButton {
+  color: var(--text-secondary);
+}
+
+.closeButton:hover {
+  color: var(--text-primary);
+}
+
+.tabs {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4) 0;
+  border-bottom: 1px solid var(--border-hairline);
+}
+
+.tabActive {
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  padding: var(--space-2) 0 var(--space-2);
+  border-bottom: 2px solid var(--accent-amber);
+}
+
+.body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+}
+
+.cacheDir {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+  word-break: break-all;
+}
+
+.banner {
+  font-size: 0.8125rem;
+  color: var(--accent-teal);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.row {
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.rowHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.name {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 0.8125rem;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+}
+
+.licenseBadge {
+  border: 1px solid var(--accent-brick);
+  color: var(--accent-brick);
+  border-radius: var(--radius-sm);
+  padding: 0 4px;
+  font-family: var(--font-mono);
+}
+
+.gate {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.installedRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.installedLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.75rem;
+  color: var(--accent-teal);
+}

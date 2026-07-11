@@ -4,9 +4,9 @@
  * badge... so a node the user's hardware can't run is visibly greyed rather
  * than silently failing later." (UI_DESIGN.md section 8)
  *
- * Adding a node works two ways: drag onto the canvas (mouse), or click /
- * press Enter on a rail entry (keyboard) — dragging alone would make this
- * feature mouse-only, which UI_DESIGN.md section 6 rules out.
+ * Every entry in the full stack is here, whether its weights are on disk yet
+ * or not — this rail is also the "browse everything" list the Advanced
+ * pipeline builder is built around: click (or press Enter) to append a stage.
  */
 
 import { useMemo, useState } from "react";
@@ -14,7 +14,6 @@ import { useT } from "../../lib/i18n";
 import { licenseAbbrev } from "../../lib/format";
 import type { DescribedNode, NodeCategory } from "../../lib/types";
 import { Icon } from "../common/Icon";
-import { RAIL_DRAG_MIME } from "./Canvas";
 import styles from "./ModelStackRail.module.css";
 
 const CATEGORY_ORDER: NodeCategory[] = [
@@ -77,8 +76,6 @@ export function ModelStackRail({
                   <button
                     type="button"
                     className={styles.item}
-                    draggable
-                    onDragStart={(e) => e.dataTransfer.setData(RAIL_DRAG_MIME, node.id)}
                     onClick={() => onAddNode(node.id)}
                     disabled={node.availability.state === "unavailable"}
                     title={
