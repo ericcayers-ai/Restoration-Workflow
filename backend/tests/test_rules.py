@@ -62,40 +62,61 @@ def test_clean_large_image_falls_back_to_the_default_chain(table):
     assert "no specific degradation" in decision.reasons[0]["reason"]
 
 
-def test_low_resolution_routes_to_4x_upscale(table):
+def test_small_image_routes_to_the_quality_upscaler(table):
+    """Below 800px the default reaches for SwinIR's transformer 4x SR, the
+    highest-quality upscale in the permissive stack."""
     decision = table.route(profile(width=800, height=600))
+    assert decision.chain == ["swinir"]
+    assert decision.params["swinir"] == {"scale": 4}
+
+
+def test_moderate_resolution_routes_to_the_fast_upscaler(table):
+    """Between 800 and 1600px the default uses the faster general 4x upscaler,
+    and the two upscale bands never both fire (no double upscale)."""
+    decision = table.route(profile(width=1200, height=1000))
     assert decision.chain == ["realesrgan"]
     assert decision.params["realesrgan"] == {"scale": 4}
 
 
-def test_noisy_full_resolution_image_routes_to_2x(table):
+def test_noise_routes_to_the_blind_denoiser(table):
+    """Visible noise adds SCUNet's blind real-world denoise stage; on an already
+    large image that is the whole chain (nothing to upscale)."""
     decision = table.route(profile(noise_score=0.02))
-    assert decision.chain == ["realesrgan"]
-    assert decision.params["realesrgan"] == {"scale": 2}
+    assert decision.chain == ["scunet"]
+    assert decision.params["scunet"] == {"variant": "gan"}
 
 
 def test_jpeg_artifacts_run_before_the_upscaler(table):
     """Order matters: cleaning blocks first stops the upscaler amplifying them."""
     decision = table.route(profile(width=800, height=600, jpeg_blockiness=0.3))
-    assert decision.chain == ["fbcnn", "realesrgan"]
+    assert decision.chain == ["fbcnn", "swinir"]
 
 
 def test_faces_append_the_face_nodes_after_the_upscaler(table):
     decision = table.route(profile(width=800, height=600, face_count=2))
-    assert decision.chain == ["realesrgan", "gfpgan"]
+    assert decision.chain == ["swinir", "gfpgan"]
 
 
 def test_soft_faces_add_the_quality_face_node(table):
     decision = table.route(profile(width=800, height=600, face_count=1, blur_score=40.0))
-    assert decision.chain == ["realesrgan", "gfpgan", "restoreformer"]
+    assert decision.chain == ["swinir", "gfpgan", "restoreformer"]
 
 
 def test_compound_degradation_chains_every_stage(table):
+    """The SOTA default at full stretch: deblock -> denoise -> quality upscale ->
+    fast face -> quality face, five permissive models in one adaptive chain."""
     decision = table.route(
-        profile(width=600, height=400, jpeg_blockiness=0.4, face_count=1, blur_score=20.0)
+        profile(
+            width=600,
+            height=400,
+            jpeg_blockiness=0.4,
+            noise_score=0.02,
+            face_count=1,
+            blur_score=20.0,
+        )
     )
-    assert decision.chain == ["fbcnn", "realesrgan", "gfpgan", "restoreformer"]
-    assert len(decision.reasons) == 4
+    assert decision.chain == ["fbcnn", "scunet", "swinir", "gfpgan", "restoreformer"]
+    assert len(decision.reasons) == 5
 
 
 def test_absent_face_detector_never_routes_to_a_face_node(table):

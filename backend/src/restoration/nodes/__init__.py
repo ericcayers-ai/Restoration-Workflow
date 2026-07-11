@@ -19,10 +19,16 @@ from .fbcnn import FbcnnNode
 from .lama import LamaNode
 from .masks import BlendNode, MaskFromImageNode
 from .realesrgan import RealEsrganNode
+from .scunet import ScunetNode
+from .swinir import SwinIrDenoiseNode, SwinIrJpegNode, SwinIrSrNode
 
 BUILTIN_NODES: list[type[BaseRestorationNode]] = [
     RealEsrganNode,
+    SwinIrSrNode,
     FbcnnNode,
+    SwinIrJpegNode,
+    ScunetNode,
+    SwinIrDenoiseNode,
     GfpganNode,
     RestoreFormerNode,
     LamaNode,
@@ -39,4 +45,8 @@ __all__ = [
     "MaskFromImageNode",
     "RealEsrganNode",
     "RestoreFormerNode",
+    "ScunetNode",
+    "SwinIrDenoiseNode",
+    "SwinIrJpegNode",
+    "SwinIrSrNode",
 ]

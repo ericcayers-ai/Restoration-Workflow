@@ -42,6 +42,8 @@ from ..core.errors import (
 )
 from ..core.executor import parse_pipeline
 from ..core.images import load_image_bytes
+from ..core.ordering import auto_order_pipeline
+from ..core.workflow_text import parse_workflow, serialize_workflow
 from ..presets import Preset, PresetStore
 from ..service import AppServices
 from .frontend import mount_frontend
@@ -77,6 +79,21 @@ class PresetBody(BaseModel):
 
 class AcknowledgeBody(BaseModel):
     accepted: bool = Field(..., description="Must be true; the user's explicit attestation.")
+
+
+class AutoOrderBody(BaseModel):
+    node_types: list[str] = Field(..., description="Node type ids to arrange into a pipeline.")
+    params: dict[str, dict[str, Any]] = Field(default_factory=dict)
+
+
+class WorkflowExportBody(BaseModel):
+    pipeline: dict[str, Any]
+    name: str = ""
+    description: str = ""
+
+
+class WorkflowImportBody(BaseModel):
+    text: str
 
 
 def create_app(services: AppServices | None = None) -> FastAPI:
@@ -312,6 +329,27 @@ def create_app(services: AppServices | None = None) -> FastAPI:
         name: str, store: PresetStore = Depends(preset_store)
     ) -> dict[str, Any]:
         return {"deleted": store.delete(name)}
+
+    # -- pipeline building (Advanced mode: auto-order + .txt workflows) ------
+
+    @app.post("/api/pipelines/auto-order")
+    async def auto_order(body: AutoOrderBody) -> dict[str, Any]:
+        """Arrange a bag of chosen model types into a runnable pipeline in the
+        canonical restoration order (core/ordering.py) — the Advanced pipeline
+        builder's "Auto-order" action."""
+        spec = auto_order_pipeline(body.node_types, services.registry, body.params)
+        return spec.to_dict()
+
+    @app.post("/api/workflows/export")
+    async def export_workflow(body: WorkflowExportBody) -> dict[str, Any]:
+        spec = parse_pipeline(body.pipeline, services.registry)
+        text = serialize_workflow(spec, name=body.name, description=body.description)
+        return {"text": text}
+
+    @app.post("/api/workflows/import")
+    async def import_workflow(body: WorkflowImportBody) -> dict[str, Any]:
+        spec = parse_workflow(body.text, services.registry)
+        return spec.to_dict()
 
     # Registered last: a mount is a fallback, and every /api/... route above
     # must keep matching first (ARCHITECTURE.md sections 1, 7).

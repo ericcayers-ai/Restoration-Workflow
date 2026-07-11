@@ -271,3 +271,83 @@ def test_face_nodes_support_only_colour_images():
     node = GfpganNode()
     assert node.supports(ImageMeta(width=64, height=64, channels=3)) is True
     assert node.supports(ImageMeta(width=64, height=64, channels=1)) is False
+
+
+# ---------------------------------------------------------------------------
+# the generic spandrel wrapper (nodes/wrappers.py) — the "easy path" for a new
+# paper/model wrapping any spandrel-supported architecture in a single call
+# ---------------------------------------------------------------------------
+
+def test_wrapper_factory_produces_a_registrable_node_class():
+    from restoration.core.ordering import STAGE_UPSCALE
+    from restoration.core.types import LicenseInfo, LicenseKind, VramTier, WeightFile
+    from restoration.nodes.wrappers import spandrel_image_node
+
+    NewModelNode = spandrel_image_node(
+        id="new_model",
+        display_name="New Model",
+        description="A hypothetical future model.",
+        category=NodeCategory.REGRESSION,
+        stage=STAGE_UPSCALE,
+        vram_tier=VramTier.MID,
+        license=LicenseInfo("Apache-2.0", LicenseKind.PERMISSIVE, "https://example.com"),
+        weights=[
+            WeightFile(
+                filename="w.pth", size_bytes=16, sha256="0" * 64,
+                url="https://example.invalid/w.pth",
+            )
+        ],
+    )
+
+    registry = NodeRegistry()
+    registry.register(NewModelNode)  # the same path a plugin manifest uses
+    node = registry.create("new_model")
+
+    described = node.describe()
+    json.dumps(described)  # must be wire-serializable, same as every built-in
+    assert described["id"] == "new_model"
+    assert described["pipeline_stage"] == STAGE_UPSCALE
+    assert described["license"]["kind"] == "permissive"
+    # Tiling knobs are added automatically; the caller only named model params.
+    assert "tile" in described["param_schema"]["properties"]
+    assert "tile_pad" in described["param_schema"]["properties"]
+
+
+def test_wrapper_factory_adds_model_specific_params_alongside_tiling():
+    from restoration.core.types import LicenseInfo, LicenseKind, VramTier, WeightFile
+    from restoration.nodes.wrappers import spandrel_image_node
+
+    NoiseModelNode = spandrel_image_node(
+        id="noise_model",
+        display_name="Noise Model",
+        description="Takes a noise-level knob.",
+        category=NodeCategory.REGRESSION,
+        vram_tier=VramTier.LOW,
+        license=LicenseInfo("MIT", LicenseKind.PERMISSIVE, "https://example.com"),
+        weights=[WeightFile(filename="w.pth", size_bytes=16, sha256="0" * 64,
+                             url="https://example.invalid/w.pth")],
+        params={"noise_level": {"type": "integer", "default": 25, "title": "Noise level"}},
+    )
+    node = NoiseModelNode()
+    assert set(node.param_schema["properties"]) == {"noise_level", "tile", "tile_pad"}
+    assert node.default_params()["noise_level"] == 25
+
+
+def test_wrapper_factory_can_disable_tiling():
+    from restoration.core.types import LicenseInfo, LicenseKind, VramTier, WeightFile
+    from restoration.nodes.wrappers import spandrel_image_node
+
+    FaceLikeNode = spandrel_image_node(
+        id="face_like",
+        display_name="Face Like",
+        description="A fixed-crop model with nothing to tile.",
+        category=NodeCategory.FACE,
+        vram_tier=VramTier.LOW,
+        license=LicenseInfo("MIT", LicenseKind.PERMISSIVE, "https://example.com"),
+        weights=[WeightFile(filename="w.pth", size_bytes=16, sha256="0" * 64,
+                             url="https://example.invalid/w.pth")],
+        supports_tiling=False,
+    )
+    node = FaceLikeNode()
+    assert node.supports_tiling is False
+    assert node.param_schema["properties"] == {}

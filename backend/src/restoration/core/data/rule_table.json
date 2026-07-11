@@ -1,25 +1,31 @@
 {
   "version": 1,
-  "comment": "Hand-authored degradation-profile -> node-chain routing for Simple Mode. Stages are evaluated in order; each stage whose conditions all match appends its node to the chain. Metrics come from DegradationProfile.metrics(). Every node here must be permissively licensed (enforced by RuleTable.validate). Thresholds: blur_score is Laplacian variance on a 0-255 scale (< ~100 = soft, < ~40 = clearly blurry); noise_score is a robust sigma on 0-1 luma (> ~0.008 = visibly noisy); jpeg_blockiness is boundary/interior gradient excess (> ~0.12 = visible 8x8 blocking).",
+  "comment": "Hand-authored degradation-profile -> node-chain routing for Simple Mode's default auto-pipeline. Stages are evaluated in order; each stage whose conditions all match appends its node to the chain, so the stage ORDER here is the pipeline order: deblock -> denoise -> quality upscale -> face restore. That ordering is deliberate — compression artifacts and noise are removed at native resolution first, so the upscale and face stages don't amplify them, and faces are restored on the cleaned, upscaled image where detection is most reliable. Every node here must be permissively licensed (enforced by RuleTable.validate); the whole chain runs out of the box with no license acknowledgement. The two upscale stages (swinir, realesrgan) are mutually exclusive by min_dimension so the chain never upscales twice. Thresholds: blur_score is Laplacian variance on a 0-255 scale (< ~100 = soft, < ~40 = clearly blurry); noise_score is a robust sigma on 0-1 luma (> ~0.008 = visibly noisy); jpeg_blockiness is boundary/interior gradient excess (> ~0.12 = visible 8x8 blocking). Note: the analyzer also flags low_light/blown_highlights, but no permissive exposure-correction model ships yet, so those are surfaced to the user without being routed (a RetinexFormer node is the tracked follow-up).",
   "fallback_chain": ["realesrgan"],
   "stages": [
     {
       "node": "fbcnn",
       "when": { "jpeg_blockiness": { "gte": 0.12 } },
       "params": {},
-      "reason": "visible JPEG block artifacts — remove compression artifacts first so later models don't amplify them"
+      "reason": "visible JPEG block artifacts — remove compression artifacts first so later stages don't amplify them"
     },
     {
-      "node": "realesrgan",
-      "when": { "min_dimension": { "lt": 1600 } },
+      "node": "scunet",
+      "when": { "noise_score": { "gte": 0.008 } },
+      "params": { "variant": "gan" },
+      "reason": "visible noise — blind real-world denoising at native resolution before any upscale"
+    },
+    {
+      "node": "swinir",
+      "when": { "min_dimension": { "lt": 800 } },
       "params": { "scale": 4 },
-      "reason": "low resolution — general blind super-resolution"
+      "reason": "small image — SwinIR transformer super-resolution for the highest-quality 4x upscale"
     },
     {
       "node": "realesrgan",
-      "when": { "noise_score": { "gte": 0.008 }, "min_dimension": { "gte": 1600 } },
-      "params": { "scale": 2 },
-      "reason": "visible noise at native resolution — RealESRGAN's degradation model doubles as a denoiser"
+      "when": { "min_dimension": { "gte": 800, "lt": 1600 } },
+      "params": { "scale": 4 },
+      "reason": "moderate resolution — fast general-purpose 4x super-resolution"
     },
     {
       "node": "gfpgan",

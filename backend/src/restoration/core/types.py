@@ -271,6 +271,13 @@ class BaseRestorationNode:
     supports_tiling: bool = False
     # False for pure-CPU orchestration nodes: they skip the GPU semaphore.
     uses_gpu: bool = True
+    # Where this node sits in the canonical restoration order (lower runs
+    # earlier: exposure -> artifact -> denoise -> upscale -> face -> mask ->
+    # inpaint -> compose). None means "derive from category". This is what lets
+    # the pipeline builder auto-order a bag of chosen models into a sane chain,
+    # and it is the one line a new wrapper sets to slot itself in correctly.
+    # See core/ordering.py.
+    pipeline_stage: int | None = None
 
     def supports(self, image: ImageMeta) -> bool:  # noqa: ARG002
         return True
@@ -296,6 +303,8 @@ class BaseRestorationNode:
 
     def describe(self) -> dict[str, Any]:
         """Serializable description for GET /api/nodes and `restore nodes`."""
+        from .ordering import stage_rank  # noqa: PLC0415 (avoid import cycle)
+
         return {
             "id": self.id,
             "category": self.category.value,
@@ -307,6 +316,7 @@ class BaseRestorationNode:
             "weight_manifest": [w.to_dict() for w in self.weight_manifest],
             "supports_tiling": self.supports_tiling,
             "uses_gpu": self.uses_gpu,
+            "pipeline_stage": stage_rank(self),
         }
 
 

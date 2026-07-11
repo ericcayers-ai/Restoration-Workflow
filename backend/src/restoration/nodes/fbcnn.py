@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from ..core.ordering import STAGE_ARTIFACT
 from ..core.types import (
     ImageArray,
     LicenseInfo,
@@ -40,6 +41,7 @@ from ._torch import (
 class FbcnnNode(SpandrelNode):
     id = "fbcnn"
     category = NodeCategory.REGRESSION
+    pipeline_stage = STAGE_ARTIFACT
     display_name = "FBCNN"
     description = "Adjustable-strength JPEG compression artifact removal."
     license = LicenseInfo(

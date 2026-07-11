@@ -22,6 +22,7 @@ from typing import Any
 import numpy as np
 
 from ..core.errors import NodeExecutionError
+from ..core.ordering import STAGE_INPAINT
 from ..core.types import (
     ImageArray,
     LicenseInfo,
@@ -54,6 +55,7 @@ def _generator_only(state_dict: dict) -> dict:
 class LamaNode(SpandrelNode):
     id = "lama"
     category = NodeCategory.MASKING
+    pipeline_stage = STAGE_INPAINT
     display_name = "LaMa"
     description = "Fast large-mask inpainting and object removal."
     license = LicenseInfo(

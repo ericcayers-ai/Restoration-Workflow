@@ -109,8 +109,10 @@ def test_analyze_returns_profile_routing_and_pipeline(client):
     assert body["routing"]["chain"]
     assert body["pipeline"]["nodes"]
     # The real models aren't downloaded in tests, so the auto-pipeline reports
-    # exactly what a first-run user would see.
-    assert "realesrgan" in body["missing_weights"]
+    # exactly what a first-run user would see. A 32px upload is well under the
+    # 800px band, so the default routes to SwinIR's quality upscaler.
+    assert "swinir" in body["routing"]["chain"]
+    assert "swinir" in body["missing_weights"]
 
 
 def test_analyze_rejects_an_empty_upload(client):
@@ -322,3 +324,48 @@ def test_running_a_saved_preset(client):
 
 def test_unknown_preset_is_a_400(client):
     assert client.get("/api/presets/ghost").status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# pipeline building: auto-order + .txt workflows (Advanced pipeline builder)
+# ---------------------------------------------------------------------------
+
+def test_auto_order_arranges_a_scrambled_selection(client):
+    body = client.post(
+        "/api/pipelines/auto-order",
+        json={"node_types": ["restoreformer", "fbcnn", "gfpgan"]},
+    ).json()
+    assert [n["type"] for n in body["nodes"]] == ["fbcnn", "restoreformer", "gfpgan"]
+
+
+def test_auto_order_rejects_an_unknown_node_type(client):
+    resp = client.post("/api/pipelines/auto-order", json={"node_types": ["ghost"]})
+    assert resp.status_code == 400
+
+
+def test_workflow_export_then_import_round_trips(client):
+    pipeline = {"version": 1, "nodes": [{"id": "a", "type": "recording"}], "edges": []}
+    exported = client.post(
+        "/api/workflows/export",
+        json={"pipeline": pipeline, "name": "my workflow", "description": "test"},
+    ).json()
+    text = exported["text"]
+    assert text.startswith("# Restoration Workflow")
+    assert "my workflow" in text
+
+    # Round-trips through the same parse_pipeline() validator as everything
+    # else, which fills in the normalized defaults (params, pinned) the
+    # original hand-written pipeline omitted.
+    imported = client.post("/api/workflows/import", json={"text": text}).json()
+    assert imported["nodes"] == [{"id": "a", "type": "recording", "params": {}, "pinned": False}]
+    assert imported["edges"] == []
+
+
+def test_workflow_import_rejects_a_body_with_no_json(client):
+    resp = client.post("/api/workflows/import", json={"text": "# just a header\n"})
+    assert resp.status_code == 400
+
+
+def test_workflow_import_rejects_malformed_json(client):
+    resp = client.post("/api/workflows/import", json={"text": "# header\n{not json"})
+    assert resp.status_code == 400
