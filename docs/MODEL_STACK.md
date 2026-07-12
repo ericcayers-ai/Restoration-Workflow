@@ -110,18 +110,24 @@ module. The node strips both.
 
 | Model | Repo | License | VRAM | ComfyUI node | Role |
 |---|---|---|---|---|---|
-| [RealESRGAN](https://github.com/xinntao/Real-ESRGAN) | 36.1k★ | BSD-3-Clause | ~2-4GB, tiled | **Native** (Spandrel) | De-facto standard blind SR — **the default general upscaler** |
-| [HAT](https://github.com/XPixelGroup/HAT) | 1.6k★ | Apache-2.0 | ~6-8GB+ | Native via Spandrel | SOTA SR quality, slower than RealESRGAN — the "quality" alternative |
+| [RealESRGAN](https://github.com/xinntao/Real-ESRGAN) | 36.1k★ | BSD-3-Clause | ~2-4GB, tiled | **Native** (Spandrel) | De-facto standard blind SR — fast general upscaler |
+| [SwinIR](https://github.com/JingyunLiang/SwinIR) | 4.6k★ | Apache-2.0 | ~4-8GB (MID tier), tiled | Native via Spandrel | Transformer restoration family shipped as **three** nodes from one architecture: `swinir` (real-SR x2/x4, the quality alternative to RealESRGAN), `swinir_denoise` (fixed-level colour denoise), `swinir_jpeg` (JPEG artifact removal, the transformer counterpart to FBCNN). Author's own GitHub release, no Google-Drive-only weights |
+| [SCUNet](https://github.com/cszn/SCUNet) | 500★ | Apache-2.0 | ~2-4GB (LOW tier) | Native via Spandrel | Blind real-world denoising (gan/psnr variants) — no noise-level knob needed, which is why it's the rule table's default denoise stage ahead of any upscaler |
+| [HAT](https://github.com/XPixelGroup/HAT) | 1.6k★ | Apache-2.0 | ~6-8GB+ | Native via Spandrel | SOTA SR quality; **not shipped** — the only trustworthy weight source found was Google Drive/Baidu (no author GitHub release, no clean redistribution basis for a default/Studio node); revisit if an official direct-download mirror appears |
 | [MambaIRv2](https://github.com/csguoh/MambaIR) | 1.1k★ | Apache-2.0 | ~4-6GB | None — not in Spandrel, needs custom node work | Efficient SOTA SR; real engineering cost to integrate, defer past initial launch |
 | BioIR | No public code (NeurIPS'25 poster only) | Unknown | Unknown | None | Real, distinct project — **do not plan around a repo that doesn't exist yet**; revisit later |
 | [FBCNN](https://github.com/jiaxi-jiang/FBCNN) | 522★ | Apache-2.0 | <2GB, fast | [ComfyUI-FBCNN](https://www.runcomfy.com/comfyui-nodes/ComfyUI-FBCNN) | Reference model for adjustable-strength JPEG artifact removal — ship as default |
 | [DarkIR](https://github.com/cidautai/DarkIR) | — | Unconfirmed — verify LICENSE directly | ~2-4GB (m/l variants) | None found | All-in-one low-light/noise/blur; needs a custom node and a license check. **"DarkIRv2" does not exist** — this is v1 only |
 
-**Recommended default:** RealESRGAN (general upscale) + FBCNN (JPEG) ship in Phase 1 as the
-first two working nodes — both permissive, both lightweight, both already proven in ComfyUI.
-HAT is the natural Phase 4 "quality" upscale option. MambaIRv2, BioIR, and DarkIR all require
-real integration engineering (no existing ComfyUI node to reference) — schedule them as
-stretch goals within Phase 4, not launch blockers.
+**Recommended default:** the shipped rule table chains FBCNN (deblock) → SCUNet (blind
+denoise) → SwinIR or RealESRGAN (quality-vs-speed upscale band) → GFPGAN → RestoreFormer
+(face), all permissive, all weights sourced from the original author's own hosting with a
+verified sha256. HAT was researched and its architecture confirmed to load through spandrel,
+but every weight source found for it is Google Drive/Baidu-only — not something to hardlink a
+default pipeline's automatic download to — so it's deliberately not shipped; SwinIR fills the
+same "transformer quality upscale" role from a source that is. MambaIRv2, BioIR, and DarkIR
+all require real integration engineering (no existing ComfyUI node to reference) — schedule
+them as stretch goals within Phase 4, not launch blockers.
 
 ---
 

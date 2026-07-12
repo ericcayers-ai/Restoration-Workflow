@@ -37,6 +37,7 @@ dev = [
 
 [project.scripts]
 restore = "restoration.cli:main"
+restoration-workflow = "restoration.launcher:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

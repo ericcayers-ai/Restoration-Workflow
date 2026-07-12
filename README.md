@@ -86,29 +86,39 @@ Input â†’ Restore-R1 â†’ Output
 
 ## Setup
 
-### Requirements
-- NVIDIA GPU (CUDA 12.1+)
-- Python 3.10+
+### Windows: prebuilt app
 
-### Install
+Download `RestorationWorkflow-windows.zip` from the
+[Releases](../../releases) page, extract it, and run
+`RestorationWorkflow.exe`. It starts the local server and opens the app in
+your browser. No Python install required. A GPU is optional — the app runs
+on CPU, just slower; nothing is downloaded until you ask for a model.
 
-```bash
-git clone https://github.com/username/repo-name.git
-cd repo-name
-pip install -r requirements.txt
-```
+### From source
 
-### Weights
-
-```bash
-python scripts/download_weights.py --all
-```
-
-### Run
+Requirements: Python 3.10+. A CUDA GPU speeds up inference but is optional —
+every node in the box also runs on CPU.
 
 ```bash
-python app.py
+git clone https://github.com/ericcayers-ai/Restoration-Workflow.git
+cd Restoration-Workflow/backend
+pip install -e ".[inference]"
+
+cd ../frontend
+npm install && npm run build
+
+cd ../backend
+restore serve
 ```
+
+`restore serve` prints the URL it's listening on (`http://127.0.0.1:8765` by
+default) and serves the built frontend from that same address — open it in a
+browser. Model weights are fetched on demand from Settings > Manage
+Downloads, or automatically the first time Simple Mode needs one; nothing
+downloads at install time.
+
+Prefer a terminal? The same engine is a CLI: `restore run -i photo.jpg -o out/`,
+`restore nodes`, `restore weights list` — run `restore --help` for the rest.
 
 ---
 

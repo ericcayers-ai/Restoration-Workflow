@@ -4,17 +4,19 @@ frontend build also works headless." One codebase, two deployment shapes —
 this module is what makes `restore serve` a complete app by itself, not just
 an API a separately-run dev server has to sit in front of.
 
-Locating the build is dev-convenience only, not the packaged-app answer:
-finding a sibling `frontend/dist` by walking up from this file is exactly
-right for this repo's own layout (a `pip install -e` checkout next to
-`frontend/`), and `RESTORE_FRONTEND_DIST` covers anything else. Bundling the
-frontend as installable package data for a real distributed wheel is Phase 8
-(packaging) work — deliberately not solved here.
+Locating the build checks three places, in order: an explicit
+`RESTORE_FRONTEND_DIST` override; a PyInstaller-frozen bundle's extraction
+directory (the packaged desktop build — packaging/build_exe.py stages
+`frontend/dist` there under `frontend_dist`); and finally a sibling
+`frontend/dist` found by walking up from this file, which is exactly right
+for this repo's own dev layout (a `pip install -e` checkout next to
+`frontend/`).
 """
 
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -26,6 +28,12 @@ def find_frontend_dist() -> Path | None:
     if override:
         path = Path(override)
         return path if (path / "index.html").exists() else None
+
+    frozen_base = getattr(sys, "_MEIPASS", None)
+    if frozen_base:
+        candidate = Path(frozen_base) / "frontend_dist"
+        if (candidate / "index.html").exists():
+            return candidate
 
     # backend/src/restoration/api/frontend.py -> repo root is four levels up.
     repo_root = Path(__file__).resolve().parents[4]

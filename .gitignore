@@ -11,6 +11,10 @@ dist/
 .venv/
 venv/
 
+# PyInstaller generates this from backend/packaging/build_exe.py, which is the
+# real source of the desktop build — the .spec is a regenerated artifact.
+*.spec
+
 # Test & tooling caches
 .pytest_cache/
 .ruff_cache/
