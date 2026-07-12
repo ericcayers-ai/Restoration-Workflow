@@ -43,6 +43,7 @@ from ..core.errors import (
 from ..core.executor import parse_pipeline
 from ..core.images import load_image_bytes
 from ..core.ordering import auto_order_pipeline
+from ..core.quality import QualityTier
 from ..core.workflow_text import parse_workflow, serialize_workflow
 from ..presets import Preset, PresetStore
 from ..service import AppServices
@@ -165,10 +166,21 @@ def create_app(services: AppServices | None = None) -> FastAPI:
         except Exception as exc:
             raise HTTPException(status_code=400, detail=f"unreadable image: {exc}") from exc
 
+    def _parse_quality_tier(raw: str) -> QualityTier:
+        try:
+            return QualityTier(raw)
+        except ValueError:
+            raise HTTPException(
+                400, f"unknown quality_tier {raw!r}; expected draft, balanced, or high"
+            ) from None
+
     @app.post("/api/analyze")
-    async def analyze(image: UploadFile = File(...)) -> dict[str, Any]:
+    async def analyze(
+        image: UploadFile = File(...), quality_tier: str = Form("balanced")
+    ) -> dict[str, Any]:
         array = await _read_image(image)
-        auto = await asyncio.to_thread(services.analyze, array)
+        tier = _parse_quality_tier(quality_tier)
+        auto = await asyncio.to_thread(services.analyze, array, tier)
         payload = auto.to_dict()
         payload["missing_weights"] = services.missing_weights(auto.spec)
         return payload
@@ -180,9 +192,12 @@ def create_app(services: AppServices | None = None) -> FastAPI:
         image: UploadFile = File(...),
         pipeline: str | None = Form(None),
         preset: str | None = Form(None),
+        quality_tier: str = Form("balanced"),
     ) -> dict[str, Any]:
         """Submit a pipeline. With neither ``pipeline`` nor ``preset``, the
-        degradation analyzer picks one — that is Simple Mode's entire request."""
+        degradation analyzer picks one — that is Simple Mode's entire request.
+        ``quality_tier`` only affects that automatic pick; an explicit pipeline
+        or preset already says exactly what to run."""
         array = await _read_image(image)
 
         analysis: dict[str, Any] | None = None
@@ -198,7 +213,8 @@ def create_app(services: AppServices | None = None) -> FastAPI:
         elif preset:
             spec = parse_pipeline(services.presets.get(preset).pipeline, services.registry)
         else:
-            auto = await asyncio.to_thread(services.analyze, array)
+            tier = _parse_quality_tier(quality_tier)
+            auto = await asyncio.to_thread(services.analyze, array, tier)
             spec = auto.spec
             analysis = auto.to_dict()
 

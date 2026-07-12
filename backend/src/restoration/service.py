@@ -14,6 +14,7 @@ from typing import Any
 from .core.analyzer import DegradationAnalyzer, DegradationProfile
 from .core.executor import PipelineExecutor, PipelineSpec, chain_pipeline
 from .core.hardware import HardwareDetector, HardwareInfo
+from .core.quality import QualityTier, apply_quality_tier
 from .core.registry import NodeRegistry
 from .core.rules import RoutingDecision, RuleTable
 from .core.types import ImageArray
@@ -109,10 +110,24 @@ class AppServices:
 
     # -- Simple Mode ----------------------------------------------------------
 
-    def analyze(self, image: ImageArray) -> AutoPipeline:
+    def analyze(
+        self, image: ImageArray, quality_tier: QualityTier = QualityTier.BALANCED
+    ) -> AutoPipeline:
         profile = self.analyzer.analyze(image)
         decision = self.rule_table.route(profile)
-        spec = chain_pipeline(decision.chain, decision.params)
+        chain, params = apply_quality_tier(
+            decision.chain,
+            decision.params,
+            quality_tier,
+            self.hardware.detect(),
+            self.registry,
+            quality_upscale_ready=self.weights.is_installed(self.registry.create("swinir")),
+            quality_face_ready=self.weights.is_installed(
+                self.registry.create("restoreformer")
+            ),
+        )
+        decision = RoutingDecision(chain=chain, params=params, reasons=decision.reasons)
+        spec = chain_pipeline(chain, params)
         return AutoPipeline(profile=profile, decision=decision, spec=spec)
 
     def missing_weights(self, spec: PipelineSpec) -> list[str]:

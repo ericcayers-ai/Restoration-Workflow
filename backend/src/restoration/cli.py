@@ -65,7 +65,10 @@ def _resolve_pipeline(
         )
         return parse_pipeline(preset.pipeline, services.registry), None
 
-    auto = services.analyze(image)
+    from .core.quality import QualityTier  # noqa: PLC0415
+
+    tier = QualityTier(getattr(args, "quality", None) or "balanced")
+    auto = services.analyze(image, tier)
     return auto.spec, auto.to_dict()
 
 
@@ -168,8 +171,11 @@ def cmd_run(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 def cmd_analyze(args: argparse.Namespace) -> int:
+    from .core.quality import QualityTier  # noqa: PLC0415
+
     services = _build_services(args)
-    auto = services.analyze(load_image(Path(args.input)))
+    tier = QualityTier(getattr(args, "quality", None) or "balanced")
+    auto = services.analyze(load_image(Path(args.input)), tier)
     payload = auto.to_dict()
     payload["missing_weights"] = services.missing_weights(auto.spec)
     if args.json:
@@ -362,6 +368,11 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--accept-license", action="store_true",
                      help="record acknowledgement for non-permissive licences")
     run.add_argument("--cpu", action="store_true", help="force CPU even if a GPU is present")
+    run.add_argument(
+        "--quality", choices=["draft", "balanced", "high"], default="balanced",
+        help="speed/quality tradeoff for the automatic pipeline (ignored with "
+             "--pipeline/--preset, which already say exactly what to run)",
+    )
     run.add_argument("--quiet", "-q", action="store_true")
     run.set_defaults(func=cmd_run)
 
@@ -369,6 +380,7 @@ def build_parser() -> argparse.ArgumentParser:
     analyze.add_argument("--input", "-i", required=True)
     analyze.add_argument("--json", action="store_true")
     analyze.add_argument("--cpu", action="store_true")
+    analyze.add_argument("--quality", choices=["draft", "balanced", "high"], default="balanced")
     analyze.set_defaults(func=cmd_analyze)
 
     nodes = sub.add_parser("nodes", help="list registered nodes and their availability")

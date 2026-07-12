@@ -20,6 +20,7 @@ import hashlib
 import json
 import os
 import shutil
+import sys
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -43,10 +44,21 @@ _CHUNK = 1024 * 1024
 
 
 def default_data_dir() -> Path:
-    """Per-OS app-data location, overridable via RESTORE_HOME."""
+    """Where weights, presets and the download cache live, overridable via RESTORE_HOME.
+
+    The packaged desktop build (PyInstaller, ``sys.frozen``) defaults to a folder next
+    to the executable rather than the OS's per-user app-data location — "the app is the
+    folder you extracted" is the portable-app convention this class of tool already uses
+    (ComfyUI's and Automatic1111's own portable Windows builds do the same), and it's what
+    makes "back up/move the whole app" actually mean what it sounds like
+    (ROADMAP.md Phase 4.5.6). A `pip install`-from-source run is not frozen and keeps the
+    OS-conventional location below.
+    """
     override = os.environ.get("RESTORE_HOME")
     if override:
         return Path(override)
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent / "data"
     if os.name == "nt":
         base = os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData" / "Local"))
         return Path(base) / "RestorationWorkflow"

@@ -276,3 +276,39 @@ def test_remove_reclaims_disk_and_reports_it(tmp_path: Path):
     assert manager.remove(node.id) is True
     assert manager.remove(node.id) is False
     assert manager.is_installed(node) is False
+
+
+# ---------------------------------------------------------------------------
+# default_data_dir() — RESTORE_HOME override, portable-frozen-exe, OS default
+# ---------------------------------------------------------------------------
+
+def test_restore_home_override_always_wins(monkeypatch, tmp_path: Path):
+    from restoration.core.weights import default_data_dir
+
+    monkeypatch.setenv("RESTORE_HOME", str(tmp_path / "custom"))
+    monkeypatch.setattr("sys.frozen", True, raising=False)
+    assert default_data_dir() == tmp_path / "custom"
+
+
+def test_frozen_exe_defaults_next_to_the_executable(monkeypatch, tmp_path: Path):
+    """The packaged desktop build keeps its data in the folder the user
+    extracted, not scattered into the OS's per-user app-data location."""
+    from restoration.core.weights import default_data_dir
+
+    monkeypatch.delenv("RESTORE_HOME", raising=False)
+    monkeypatch.setattr("sys.frozen", True, raising=False)
+    exe_path = tmp_path / "RestorationWorkflow" / "RestorationWorkflow.exe"
+    monkeypatch.setattr("sys.executable", str(exe_path))
+    assert default_data_dir() == tmp_path / "RestorationWorkflow" / "data"
+
+
+def test_non_frozen_ignores_the_executable_path(monkeypatch, tmp_path: Path):
+    """A `pip install`-from-source run must not take the portable-exe branch
+    even though sys.executable still points at *some* real interpreter."""
+    from restoration.core.weights import default_data_dir
+
+    monkeypatch.delenv("RESTORE_HOME", raising=False)
+    monkeypatch.setattr("sys.frozen", False, raising=False)
+    fake_exe_dir = tmp_path / "would-be-wrong"
+    monkeypatch.setattr("sys.executable", str(fake_exe_dir / "python.exe"))
+    assert default_data_dir() != fake_exe_dir / "data"
