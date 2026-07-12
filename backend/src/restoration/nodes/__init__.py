@@ -14,6 +14,7 @@ itself unrunnable when someone actually tries to run it.
 from __future__ import annotations
 
 from ..core.types import BaseRestorationNode
+from .codeformer import CodeFormerNode
 from .face_nodes import GfpganNode, RestoreFormerNode
 from .fbcnn import FbcnnNode
 from .lama import LamaNode
@@ -31,6 +32,7 @@ BUILTIN_NODES: list[type[BaseRestorationNode]] = [
     SwinIrDenoiseNode,
     GfpganNode,
     RestoreFormerNode,
+    CodeFormerNode,
     LamaNode,
     MaskFromImageNode,
     BlendNode,
@@ -39,6 +41,7 @@ BUILTIN_NODES: list[type[BaseRestorationNode]] = [
 __all__ = [
     "BUILTIN_NODES",
     "BlendNode",
+    "CodeFormerNode",
     "FbcnnNode",
     "GfpganNode",
     "LamaNode",

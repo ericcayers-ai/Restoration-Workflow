@@ -97,12 +97,30 @@ def test_describe_is_json_serializable(cls):
     json.dumps(cls().describe())
 
 
-def test_every_builtin_node_is_permissively_licensed():
-    """Phase 1 and 2 ship no gated models; the acknowledgement gate exists for
-    Phase 4's additions (MODEL_STACK.md licensing tiers)."""
+_GATED_BUILTIN_IDS = {"codeformer"}  # Phase 4's first non-commercial addition
+
+
+def test_permissively_licensed_nodes_need_no_acknowledgement():
+    """Every builtin not on the explicit gated list must be permissive and
+    unacknowledged-by-default; the acknowledgement gate is opt-in, not a default
+    a permissive node should ever need. Default-pipeline safety (the rule table
+    never routing to a gated node) is enforced separately by
+    RuleTable.validate() against the real registry, tested in test_rules.py."""
     for cls in BUILTIN_NODES:
+        if cls.id in _GATED_BUILTIN_IDS:
+            continue
         assert cls.license.kind is LicenseKind.PERMISSIVE, cls.id
         assert cls.license.requires_acknowledgement is False
+
+
+def test_gated_builtin_nodes_are_actually_gated():
+    """A node on the gated list had better actually require acknowledgement —
+    otherwise its non-permissive weights would download with no gate at all."""
+    by_id = {cls.id: cls for cls in BUILTIN_NODES}
+    for node_id in _GATED_BUILTIN_IDS:
+        cls = by_id[node_id]
+        assert cls.license.kind is not LicenseKind.PERMISSIVE, node_id
+        assert cls.license.requires_acknowledgement is True, node_id
 
 
 def test_weightless_nodes_declare_no_weights():
@@ -133,10 +151,10 @@ def test_realesrgan_selects_its_checkpoint_by_scale():
 
 
 def test_face_nodes_ship_the_shared_detector():
-    from restoration.nodes import GfpganNode, RestoreFormerNode
+    from restoration.nodes import CodeFormerNode, GfpganNode, RestoreFormerNode
     from restoration.nodes._faces import YUNET_FILENAME
 
-    for cls in (GfpganNode, RestoreFormerNode):
+    for cls in (GfpganNode, RestoreFormerNode, CodeFormerNode):
         names = {w.filename for w in cls.weight_manifest}
         assert YUNET_FILENAME in names
         assert cls.model_filename in names

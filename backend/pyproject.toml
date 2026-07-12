@@ -26,6 +26,9 @@ dependencies = [
 inference = [
     "torch>=2.1",
     "spandrel>=0.4",
+    # MIT-licensed loader code for extra architectures (CodeFormer, ...); a model's own
+    # weight license is still checked and gated per-node, same as MAIN_REGISTRY models.
+    "spandrel_extra_arches>=0.2",
     # Capped below 5: opencv-python(-headless) 5.0.0 removed cv2.CascadeClassifier
     # from the top-level namespace (confirmed 2026-07-12, not a relocation — it's
     # gone from the public API entirely in that build), which is what

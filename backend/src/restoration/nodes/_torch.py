@@ -45,6 +45,30 @@ _MIN_TILE = 64
 _DEFAULT_TILE_PAD = 32
 
 
+_extra_arches_installed = False
+
+
+def _install_extra_arches() -> None:
+    """Register spandrel_extra_arches' architectures (CodeFormer, DDColor, ...) into
+    spandrel's main registry, once. The extra-arches *package* is MIT-licensed loader
+    code, distinct from any individual model's own weight license (checked per-node,
+    same as every other license gate in this app) — installing it costs nothing and
+    unlocks nothing on its own; a node still needs its weights downloaded and, if
+    non-permissive, acknowledged. Best-effort: a plugin or minimal install without the
+    package simply can't load an extra-arch checkpoint, which surfaces as this node's
+    own "not a checkpoint this node can load" error, not a startup failure."""
+    global _extra_arches_installed
+    if _extra_arches_installed:
+        return
+    try:
+        import spandrel_extra_arches  # noqa: PLC0415
+
+        spandrel_extra_arches.install(ignore_duplicates=True)
+    except ImportError:
+        pass
+    _extra_arches_installed = True
+
+
 def require_torch(node_id: str) -> tuple[Any, Any]:
     """Import torch + spandrel, or raise the engine's typed 'no inference' error."""
     try:
@@ -52,6 +76,7 @@ def require_torch(node_id: str) -> tuple[Any, Any]:
         import torch  # noqa: PLC0415
     except ImportError as exc:  # pragma: no cover - depends on install extras
         raise InferenceUnavailableError(node_id) from exc
+    _install_extra_arches()
     return torch, spandrel
 
 

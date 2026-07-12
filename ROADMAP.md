@@ -177,14 +177,27 @@ parts of the graph, which would suggest coupling that wasn't intended.
 
 **Goal:** ship the rest of `docs/MODEL_STACK.md`'s launch tiering.
 
+**Status as of 2026-07-12: in progress, not complete.** Shipped so far: SCUNet, SwinIR
+(added ahead of this phase as part of the default-pipeline SOTA work — see the 0.2.0
+changelog entry) and **CodeFormer** (this pass — the first license-gated node, verified
+against `docs/ARCHITECTURE.md` §6's acknowledgement flow). **Not shipped, and each is real
+remaining work, not a rounding error:** HAT (blocked — every weight source found is
+Google-Drive/Baidu-only, no author GitHub release to pin a checksum against; same reason
+RetinexFormer was investigated and rejected for Phase 4.5's exposure work), PowerPaint,
+DiffBIR, GPEN, OSDFace, SUPIR, FLUX Fill/tile, MambaIRv2, DarkIR, InstantIR, DreamClear,
+UniRestore, RealRestorer. Do not mark this phase "done" until those are shipped or
+explicitly re-scoped with a reason, the same bar every other phase in this document is
+held to.
+
 Tasks, in the order `docs/MODEL_STACK.md`'s tiering recommends:
-1. Remaining permissive-tier models: **HAT**, **PowerPaint**, **DiffBIR** (classified as a
+1. Remaining permissive-tier models: **HAT** (blocked on weight sourcing — see above),
+   **PowerPaint**, **DiffBIR** (classified as a
    general/background node here, not a face node — see `docs/MODEL_STACK.md`'s Face
    Restoration Stack section for why).
 2. License-gated opt-in models, each behind the acknowledgement flow from
-   `docs/ARCHITECTURE.md` §6: **CodeFormer**, **GPEN**, **OSDFace** (resolve its license
-   question directly with the upstream author before shipping it, per `docs/MODEL_STACK.md`),
-   **SUPIR**, **FLUX Fill / tile**.
+   `docs/ARCHITECTURE.md` §6: ~~**CodeFormer**~~ (shipped), **GPEN**, **OSDFace** (resolve
+   its license question directly with the upstream author before shipping it, per
+   `docs/MODEL_STACK.md`), **SUPIR**, **FLUX Fill / tile**.
 3. Stretch-tier models with no existing ComfyUI/reference node to build from — real
    engineering cost each, schedule independently rather than as one block: **MambaIRv2**,
    **DarkIR** (v1 only — "DarkIRv2" does not exist, see `docs/MODEL_STACK.md`), **InstantIR**,
@@ -207,6 +220,131 @@ will and won't run — no silent OOM crashes on a model the UI presented as avai
 **Graphify checkpoint:** mandatory, not optional — this phase is the largest single code
 addition in the whole roadmap. Run `/graphify . --update` and actually read the report, not
 just regenerate it.
+
+---
+
+## Phase 4.5 — Restoration Completeness, Presets, Adaptive Performance & Batch
+
+**Goal:** close the gap between "a good model stack" and "a tool that reliably gets *this
+photo, right now* to its best possible restored version with no manual pipeline-building,"
+across the specific degradation families real old photos and video captures actually arrive
+in — plus the performance and workflow scaffolding (hardware-adaptive quality, batch,
+portable data) that makes the tool usable at real scale rather than one photo at a time.
+
+This phase was scoped in response to a real usage gap, not spec-written from nothing:
+Simple Mode's rule table already routes competently on *measured* degradation (blur, noise,
+JPEG blocking, faces) but has no concept of *source-format* degradation — a photo scanned
+from a scratched film negative, a frame grabbed from a VHS capture, or a flat digitally-shot
+photo all want materially different chains, and asking a first-time user to hand-build one
+in Advanced Mode defeats Simple Mode's entire premise.
+
+### 4.5.1 — Exposure recovery
+
+**Research finding (2026-07-12):** no learned exposure-correction model clears this repo's
+bar for a *default/auto-download* node. Every serious candidate is either non-commercial
+research code (`mahmoudnafifi/Exposure_Correction`, CVPR'21 — explicitly research-only) or,
+like RetinexFormer (MIT-licensed, spandrel-native architecture — genuinely close), has no
+GitHub-release weight source, only Google Drive/Baidu — the exact disqualifying pattern
+already established for HAT in `docs/MODEL_STACK.md`. Applying that same bar here rather
+than relaxing it for convenience is the point of having the bar.
+
+**Decision:** ship a classical (non-learned) exposure-recovery node — adaptive local tone
+mapping (CLAHE on a perceptual lightness channel, plus a highlight-compression and
+shadow-lift pass) via `opencv-python-headless`, which the `[inference]` extra already
+depends on. This is real, well-established computational photography (the same family of
+technique real photo-editing tools use for shadow/highlight recovery), it needs no weight
+download, and — importantly — it should be *described honestly* in its UI copy as
+recovering compressed dynamic range, not as AI-generated detail hallucination, which is a
+different (and not yet available) claim. Revisit RetinexFormer if an official direct-download
+mirror of its weights appears.
+
+**Task:** analyzer already computes `low_light` / `blown_highlights` (Phase 2) but nothing
+routes on them — wire an `exposure_correct` node into the rule table gated on those flags,
+ordered before denoise/upscale (correcting exposure first avoids amplifying compressed
+noise in the process).
+
+### 4.5.2 — Scratch and dust detection
+
+**Research finding (2026-07-12):** the strongest learned candidate is Microsoft's
+`Bringing-Old-Photos-Back-to-Life` (CVPR'20, MIT, real GitHub-release weights
+— `global_checkpoints.zip` / `face_checkpoints.zip`, still meets every sourcing bar this
+project holds). It is **not** shipped in this pass: it's a bespoke triplet-domain-translation
+architecture with no spandrel support, meaning integration means vendoring its actual
+`nn.Module` definitions (not just a weight manifest) and independently auditing checkpoint
+safety without spandrel's architecture-detection layer doing that work — real, multi-day
+engineering, not a config change. **This is the single highest-value tracked follow-up in
+this document; do it properly rather than rushing it into this pass.**
+
+**Shipped instead:** classical defect detection — morphological top-hat/black-hat filtering
+for thin line-like scratches, isolated high-contrast speckle detection for dust — added as
+analyzer metrics, with a `defect_mask` node (no weights, same family as `mask_from_image`)
+that auto-routes into LaMa when defects are detected, with no manual mask-drawing required.
+Genuinely useful and honestly scoped as "classical CV," not oversold as the Microsoft model's
+learned quality bar.
+
+### 4.5.3 — Workflow presets (16, out of the box)
+
+Eight presets built from the *base* permissive stack (no extra downloads beyond what Simple
+Mode already fetches), covering the degradation *families* the rule table's per-image
+heuristics don't fully capture on their own (a VHS capture and a scanned film negative can
+have similar blur/noise numbers and still want different chains):
+
+Animation/Cartoon · VHS Capture · 35mm Film Scan · Digital Photo · Old Film (pre-video-era
+motion picture) · B&W Film · Damaged Print (scratches/dust-heavy) · Robust All-in-One.
+
+Eight more presets reuse the same categories at maximum quality once the relevant extra
+models are installed (CodeFormer instead of GFPGAN/RestoreFormer for faces, SwinIR-L over
+RealESRGAN for upscale, defect removal always on) — "full-stack" is a quality tier of the
+same eight categories, not eight unrelated new categories.
+
+Each preset is a real, validated `PipelineJson` (the exact shape `PresetStore` already
+persists) with its own independent node ordering and params — not the same chain with a
+different name.
+
+### 4.5.4 — Hardware-adaptive quality tiers
+
+A draft → balanced → high-quality axis, mapped to tile size (smaller tiles / more OOM
+headroom in draft, larger contiguous inference in high) and model choice within a category
+(RealESRGAN in draft/balanced, SwinIR in high, for example) — computed from
+`HardwareDetector`'s existing VRAM read, not a fixed table blind to the machine it's running
+on. Every tier must complete without OOM on the smallest VRAM class this repo already tests
+against (`docs/ARCHITECTURE.md` §5's tiers) — an OOM on a tier the UI presented as safe is a
+correctness bug, not a performance nitpick.
+
+### 4.5.5 — Batch processing
+
+Simple Mode: drop a folder, each image gets its own independent auto-analysis and pipeline —
+this is not one pipeline "reused," it's Simple Mode's existing per-image logic run N times.
+Advanced Mode: one authored (or preset) pipeline applied identically across every image in a
+folder — the point being reproducibility across a batch, not per-image adaptation.
+
+### 4.5.6 — Portable data directory
+
+When running as the packaged desktop build (`sys.frozen`), default the data directory
+(weights, presets, downloads cache) to a folder next to the executable rather than
+`%LOCALAPPDATA%` — "the app is the folder you extracted" is the portable-app convention
+users of this class of tool (ComfyUI portable, etc.) already expect, and it's what makes
+"back up/move the whole app" actually mean what it sounds like. `RESTORE_HOME` continues to
+override for anyone who wants the old behavior.
+
+### 4.5.7 — Result presentation
+
+The result view: fade from the "before" image to the restored result once the job
+completes — matching the darkroom metaphor already established (`stageMessageKey`'s
+Developing → Fixing → Washing → Done sequence, `docs/UI_DESIGN.md`), a photo "developing"
+into its final state rather than a hard cut. An expandable/retractable log panel below the
+preview surfaces per-stage timing and metrics live as a job runs (not only after). Cancel
+must be immediately responsive — a queued cancel that appears to hang undermines trust in
+every future cancel click — and a cancelled run can be resumed/restarted, not just discarded.
+"Try again" (back to the reviewable pipeline, same photo) and "New photo" (full reset) are
+two distinct actions, not one overloaded button. The before/after view supports zoom and pan
+in addition to the existing slider/side-by-side/difference modes.
+
+**Acceptance criteria:** all 16 presets are real, independently-authored, validated
+pipelines a user can pick and run with no further configuration; a folder of 10 mixed-format
+images processes correctly in both Simple (per-image) and Advanced (identical-pipeline)
+batch modes; the smallest tested VRAM class never OOMs at any quality tier; cancel-to-stopped
+latency is sub-second in manual testing.
 
 ---
 

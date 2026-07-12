@@ -162,6 +162,35 @@ it; the digest pin makes that a one-line, verifiable change.
 
 ---
 
+## Exposure Recovery & Defect Detection (researched 2026-07-12, Phase 4.5)
+
+**Exposure recovery (over/under-exposed detail loss).** No learned model clears the bar for
+a default/auto-download node:
+
+| Model | Repo | License | Weight source | Verdict |
+|---|---|---|---|---|
+| [Learning Multi-Scale Photo Exposure Correction](https://github.com/mahmoudnafifi/Exposure_Correction) | CVPR'21 | Research-only, explicitly non-commercial | GitHub release | Excluded — license |
+| [Retinexformer](https://github.com/caiyuanhao1998/Retinexformer) | ICCV'23 | **MIT** | **Google Drive / Baidu only, no GitHub release** | Excluded — same disqualifying pattern as HAT; spandrel-native (`RetinexFormer` is in `MAIN_REGISTRY`), so revisit immediately if an official direct-download mirror appears |
+
+**Decision:** ship a classical (non-learned) `exposure_correct` node — CLAHE-based local
+tone mapping plus highlight-compression/shadow-lift, via `opencv-python-headless` (already an
+`[inference]` dependency, no new download). This recovers *compressed dynamic range*; it does
+not hallucinate detail that isn't there, and should never be described in UI copy as if it
+does — that's a different, unavailable capability.
+
+**Scratch/dust detection and removal.**
+
+| Model | Repo | License | Weight source | Verdict |
+|---|---|---|---|---|
+| [Bringing-Old-Photos-Back-to-Life](https://github.com/microsoft/Bringing-Old-Photos-Back-to-Life) | Microsoft, CVPR'20 | **MIT** | **GitHub release** (`global_checkpoints.zip`, `face_checkpoints.zip`) | **Real candidate — not yet integrated.** Bespoke triplet-domain-translation architecture, no spandrel support: shipping it means vendoring its `nn.Module` definitions and auditing checkpoint safety without spandrel's detection layer doing that work. Tracked as the highest-value follow-up in this document, not attempted in the pass that added this research (2026-07-12) — do it as its own scoped effort. |
+
+**Shipped instead (2026-07-12):** classical defect detection in the analyzer (morphological
+top-hat/black-hat filtering for thin scratches, isolated-speckle detection for dust) feeding
+a `defect_mask` node (no weights) that auto-routes into LaMa. Real and useful; not the
+learned model's quality ceiling — upgrade path is the Microsoft model above, done properly.
+
+---
+
 ## Workflow Orchestration
 
 The README's own "Restore-R1: auto-agent that chains restoration models" is, per the research
