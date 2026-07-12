@@ -1,7 +1,8 @@
 # Roadmap
 
-This is the build plan for turning `README.md`'s planning notes into a real, shipped
-application. It's written for an AI coding agent to execute phase by phase — each phase has
+This is the build plan for turning [`docs/ORIGINAL_IDEA.md`](docs/ORIGINAL_IDEA.md)'s
+planning notes into a real, shipped application (now `README.md` describes the shipped
+app itself, not the plan). It's written for an AI coding agent to execute phase by phase — each phase has
 a goal, concrete tasks, an acceptance criterion you can actually check against (not "looks
 done"), and a graphify checkpoint. Supporting detail lives in four sibling documents; this
 file is the spine that ties them together and sequences the work:

@@ -1,0 +1,62 @@
+name: Bug report
+description: Something in the engine, API, CLI, or UI isn't working as expected.
+labels: [bug]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what actually happened?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: how-run
+    attributes:
+      label: How are you running it?
+      options:
+        - Prebuilt Windows exe (RestorationWorkflow.exe)
+        - From source (pip install -e + npm run build)
+        - CLI (restore run / analyze / ...)
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: From the exe's startup line, `restore --version`, or `GET /api/health`.
+      placeholder: "0.2.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: pipeline
+    attributes:
+      label: Pipeline (if relevant)
+      description: >
+        The pipeline JSON, degradation reasons ("Why this pipeline" in Simple Mode), or
+        model chain involved. Paste it verbatim rather than paraphrasing — the exact
+        node types and params matter here.
+      render: json
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or error output
+      description: >
+        Console output from `restore serve` / the exe's terminal window, and/or your
+        browser's DevTools console if this is a UI issue.
+      render: shell
+
+  - type: dropdown
+    id: hardware
+    attributes:
+      label: Hardware
+      options:
+        - CPU only
+        - NVIDIA GPU (CUDA)
+        - Apple Silicon (MPS)
+        - Not sure
+    validations:
+      required: true

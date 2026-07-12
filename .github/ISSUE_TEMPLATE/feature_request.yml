@@ -1,0 +1,30 @@
+name: Feature request
+description: A new model, a UI improvement, or a capability the engine doesn't have yet.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What's the problem this solves?
+      description: What are you trying to do that the app doesn't support today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: >
+        If this is a new model: does spandrel's MAIN_REGISTRY already support its
+        architecture? Where are the official weights hosted, and under what license?
+        (See CONTRIBUTING.md's "Adding a new restoration model" — a permissive,
+        author-hosted weight source with a real sha256 is required for anything shipped
+        as a default; non-commercial models are still welcome as opt-in Studio nodes.)
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Anything you've already tried, or workarounds you're using today.
