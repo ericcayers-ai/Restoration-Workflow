@@ -85,3 +85,6 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Accessibility (axe-core)
+        run: npm run a11y

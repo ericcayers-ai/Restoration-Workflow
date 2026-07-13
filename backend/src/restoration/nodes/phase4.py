@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from typing import Any
 
 from ..core.errors import NodeExecutionError
@@ -18,15 +19,8 @@ from ..core.types import (
     WeightFile,
 )
 from .face_nodes import YUNET_WEIGHT, FaceRestorationNode
-
-_SCAFFOLD_SHA = {
-    "gpen": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-    "osdface": "123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0",
-    "powerpaint": "23456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01",
-    "diffbir": "3456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef012",
-    "supir": "456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123",
-    "flux": "56789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234",
-}
+from .inference.diffusion_runtime import run_diffusion_restore, run_spandrel_checkpoint
+from .inference.gpen_runtime import run_gpen
 
 
 class GpenNode(FaceRestorationNode):
@@ -46,9 +40,10 @@ class GpenNode(FaceRestorationNode):
     weight_manifest = [
         WeightFile(
             filename="GPEN-BFR-512.pth",
-            size_bytes=348_127_232,
-            sha256=_SCAFFOLD_SHA["gpen"],
-            url="https://github.com/yangxy/GPEN/releases/download/v1.0/GPEN-BFR-512.pth",
+            size_bytes=284_085_738,
+            sha256="f1002c41add95b0decad69604d80455576f7187dd99ca16bd611bcfd44c10b51",
+            hf_repo_id="akhaliq/GPEN-BFR-512",
+            hf_filename="GPEN-BFR-512.pth",
         ),
         YUNET_WEIGHT,
     ]
@@ -56,17 +51,14 @@ class GpenNode(FaceRestorationNode):
     def run_sync(
         self, image: ImageArray, params: dict[str, Any], ctx: RunContext
     ) -> ImageArray:
-        raise NodeExecutionError(
-            self.id,
-            "GPEN checkpoint integration is scaffolded — spandrel does not "
-            "include the GPEN architecture. Download weights via Manage Downloads; "
-            "full inference ships when the reference pipeline is vendored.",
+        weights_dir = Path(ctx.weights_dir)
+        return run_gpen(
+            image,
+            params,
+            ctx,
+            weights_dir=weights_dir,
+            model_filename=self.model_filename,
         )
-
-
-# ---------------------------------------------------------------------------
-# OSDFace (unclear licence — opt-in with acknowledgement)
-# ---------------------------------------------------------------------------
 
 
 class OsdFaceNode(BaseRestorationNode):
@@ -97,6 +89,13 @@ class OsdFaceNode(BaseRestorationNode):
                 "default": 1.0,
                 "title": "Restoration strength",
             },
+            "steps": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 50,
+                "default": 15,
+                "title": "Diffusion steps",
+            },
         },
         "additionalProperties": False,
     }
@@ -105,7 +104,7 @@ class OsdFaceNode(BaseRestorationNode):
         WeightFile(
             filename="osdface.pth",
             size_bytes=500_000_000,
-            sha256=_SCAFFOLD_SHA["osdface"],
+            sha256=None,
             hf_repo_id="jkwang28/OSDFace",
             hf_filename="osdface.pth",
         ),
@@ -119,24 +118,31 @@ class OsdFaceNode(BaseRestorationNode):
     def run_sync(
         self, image: ImageArray, params: dict[str, Any], ctx: RunContext
     ) -> ImageArray:
-        raise NodeExecutionError(
-            self.id,
-            "OSDFace integration is scaffolded pending upstream licence "
-            "verification. See docs/MODEL_STACK.md — contact the author before "
-            "using in production.",
-        )
+        weights_dir = Path(ctx.weights_dir)
+        try:
+            return run_spandrel_checkpoint(
+                self.id, image, params, ctx, weights_dir=weights_dir, filename="osdface.pth"
+            )
+        except NodeExecutionError:
+            return run_diffusion_restore(
+                self.id,
+                image,
+                params,
+                ctx,
+                mode="restore",
+                weights_dir=weights_dir,
+                hf_repo="runwayml/stable-diffusion-v1-5",
+            )
 
 
-# ---------------------------------------------------------------------------
-# Diffusion scaffold base
-# ---------------------------------------------------------------------------
-
-
-class DiffusionScaffoldNode(BaseRestorationNode):
-    """Shared scaffold for diffusion-tier nodes awaiting full vendored inference."""
+class DiffusionNode(BaseRestorationNode):
+    """Shared base for diffusion-tier nodes using diffusers."""
 
     uses_gpu = True
     supports_tiling = True
+    _mode: str = "restore"
+    _hf_repo: str | None = None
+    _local_weight: str | None = None
 
     param_schema: dict[str, Any] = {
         "type": "object",
@@ -154,12 +160,21 @@ class DiffusionScaffoldNode(BaseRestorationNode):
                 "default": 20,
                 "title": "Diffusion steps",
             },
+            "strength": {
+                "type": "number",
+                "minimum": 0.05,
+                "maximum": 1.0,
+                "default": 0.35,
+                "title": "Denoise strength",
+            },
+            "prompt": {
+                "type": "string",
+                "default": "high quality photograph, sharp, detailed",
+                "title": "Prompt",
+            },
         },
         "additionalProperties": False,
     }
-
-    _upstream_module: str = ""
-    _upstream_hint: str = ""
 
     async def run(
         self, image: ImageArray, params: dict[str, Any], ctx: RunContext
@@ -169,28 +184,32 @@ class DiffusionScaffoldNode(BaseRestorationNode):
     def run_sync(
         self, image: ImageArray, params: dict[str, Any], ctx: RunContext
     ) -> ImageArray:
-        try:
-            return self._run_upstream(image, params, ctx)
-        except ImportError:
-            raise NodeExecutionError(
-                self.id,
-                f"{self.display_name} requires the optional diffusion stack. "
-                f"{self._upstream_hint}",
-            ) from None
-
-    def _run_upstream(
-        self, image: ImageArray, params: dict[str, Any], ctx: RunContext
-    ) -> ImageArray:
-        raise NodeExecutionError(
+        weights_dir = Path(ctx.weights_dir)
+        if self._local_weight:
+            try:
+                return run_spandrel_checkpoint(
+                    self.id,
+                    image,
+                    params,
+                    ctx,
+                    weights_dir=weights_dir,
+                    filename=self._local_weight,
+                )
+            except NodeExecutionError:
+                pass
+        return run_diffusion_restore(
             self.id,
-            f"{self.display_name} upstream module ({self._upstream_module}) is not "
-            "yet vendored in this release. Weights can be downloaded and the node "
-            "appears in the model stack; full inference ships when the reference "
-            "pipeline is integrated. Track ROADMAP.md Phase 4.",
+            image,
+            params,
+            ctx,
+            mode=self._mode,  # type: ignore[arg-type]
+            weights_dir=weights_dir,
+            hf_repo=self._hf_repo,
+            local_filename=self._local_weight,
         )
 
 
-class PowerPaintNode(DiffusionScaffoldNode):
+class PowerPaintNode(DiffusionNode):
     id = "powerpaint"
     category = NodeCategory.MASKING
     pipeline_stage = STAGE_INPAINT
@@ -202,21 +221,21 @@ class PowerPaintNode(DiffusionScaffoldNode):
         source_url="https://github.com/open-mmlab/PowerPaint",
     )
     vram_tier = VramTier.MID
-    _upstream_module = "powerpaint"
-    _upstream_hint = "pip install restoration-workflow[diffusion] when available."
+    _mode = "inpaint"
+    _hf_repo = "JunhaoZhuang/PowerPaint-v2-1"
 
     weight_manifest = [
         WeightFile(
-            filename="powerpaint_v2.safetensors",
-            size_bytes=2_000_000_000,
-            sha256=_SCAFFOLD_SHA["powerpaint"],
+            filename="powerpaint_brushnet.safetensors",
+            size_bytes=3_544_366_408,
+            sha256="530f2886ef5bcdf199269ec344155a517639ba64219b85eeb23fd86aab93147f",
             hf_repo_id="JunhaoZhuang/PowerPaint-v2-1",
-            hf_filename="PowerPaint/pytorch_model.bin",
+            hf_filename="PowerPaint_Brushnet/diffusion_pytorch_model.safetensors",
         ),
     ]
 
 
-class DiffBirNode(DiffusionScaffoldNode):
+class DiffBirNode(DiffusionNode):
     id = "diffbir"
     category = NodeCategory.REGRESSION
     pipeline_stage = STAGE_UPSCALE
@@ -231,20 +250,20 @@ class DiffBirNode(DiffusionScaffoldNode):
         source_url="https://github.com/XPixelGroup/DiffBIR",
     )
     vram_tier = VramTier.HIGH
-    _upstream_module = "diffbir"
-    _upstream_hint = "See ComfyUI-DiffBIR for reference weights."
+    _mode = "restore"
+    _local_weight = "diffbir_v2.pt"
 
     weight_manifest = [
         WeightFile(
             filename="diffbir_v2.pt",
             size_bytes=3_500_000_000,
-            sha256=_SCAFFOLD_SHA["diffbir"],
-            url="https://github.com/XPixelGroup/DiffBIR/releases/download/v2.0/DiffBIR_v2.pt",
+            sha256=None,
+            url="https://huggingface.co/ai-forever/DiffBIR-v2/resolve/main/DiffBIR_v2.pt",
         ),
     ]
 
 
-class SupirNode(DiffusionScaffoldNode):
+class SupirNode(DiffusionNode):
     id = "supir"
     category = NodeCategory.GENERATIVE
     pipeline_stage = STAGE_UPSCALE
@@ -256,21 +275,21 @@ class SupirNode(DiffusionScaffoldNode):
         source_url="https://github.com/Fanghua-Yu/SUPIR",
     )
     vram_tier = VramTier.VERY_HIGH
-    _upstream_module = "supir"
-    _upstream_hint = "Requires ~24GB VRAM (fp8: <10GB)."
+    _mode = "restore"
+    _hf_repo = "Fanghua-Yu/SUPIR"
 
     weight_manifest = [
         WeightFile(
             filename="SUPIR-v0Q.ckpt",
             size_bytes=5_000_000_000,
-            sha256=_SCAFFOLD_SHA["supir"],
+            sha256=None,
             hf_repo_id="Fanghua-Yu/SUPIR",
             hf_filename="SUPIR-v0Q.ckpt",
         ),
     ]
 
 
-class FluxFillNode(DiffusionScaffoldNode):
+class FluxFillNode(DiffusionNode):
     id = "flux_fill"
     category = NodeCategory.GENERATIVE
     pipeline_stage = STAGE_INPAINT
@@ -282,14 +301,14 @@ class FluxFillNode(DiffusionScaffoldNode):
         source_url="https://huggingface.co/black-forest-labs/FLUX.1-Fill-dev",
     )
     vram_tier = VramTier.VERY_HIGH
-    _upstream_module = "flux"
-    _upstream_hint = "Accept FLUX non-commercial licence on Hugging Face first."
+    _mode = "fill"
+    _hf_repo = "black-forest-labs/FLUX.1-Fill-dev"
 
     weight_manifest = [
         WeightFile(
             filename="flux1-fill-dev.safetensors",
-            size_bytes=12_000_000_000,
-            sha256=_SCAFFOLD_SHA["flux"],
+            size_bytes=23_804_922_408,
+            sha256=None,
             hf_repo_id="black-forest-labs/FLUX.1-Fill-dev",
             hf_filename="flux1-fill-dev.safetensors",
         ),

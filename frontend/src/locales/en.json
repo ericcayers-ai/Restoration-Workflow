@@ -91,6 +91,13 @@
 
   "studio.attachPhoto": "Attach photo",
   "studio.changePhoto": "Change",
+  "studio.batch.folder": "Batch folder",
+  "studio.batch.progress": "Batch {{current}} of {{total}}…",
+  "studio.batch.done": "Finished {{count}} images",
+  "studio.undo": "Undo",
+  "studio.redo": "Redo",
+
+  "theme.custom": "Custom theme file",
 
   "studio.contactSheet.title": "Contact Sheet",
   "studio.contactSheet.empty": "Runs on this photo will appear here",

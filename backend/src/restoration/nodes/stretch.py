@@ -1,17 +1,11 @@
-"""Phase 4 stretch-tier restoration nodes (MODEL_STACK.md).
-
-Each model needs custom node engineering with no existing ComfyUI reference in
-spandrel. They ship with weight manifests and licence metadata; inference is
-implemented where a spandrel architecture exists, otherwise a scaffold with a
-clear integration path.
-"""
+"""Phase 4 stretch-tier restoration nodes (MODEL_STACK.md)."""
 
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from typing import Any
 
-from ..core.errors import NodeExecutionError
 from ..core.ordering import STAGE_DENOISE, STAGE_UPSCALE
 from ..core.types import (
     BaseRestorationNode,
@@ -23,18 +17,7 @@ from ..core.types import (
     VramTier,
     WeightFile,
 )
-from .wrappers import (
-    spandrel_image_node,  # noqa: F401 — reserved for future spandrel stretch nodes
-)
-
-_STRETCH_SHA = {
-    "mambair": "6789abcdef0123456789abcdef0123456789abcdef0123456789abcdef012345",
-    "darkir": "789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456",
-    "instantir": "89abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234567",
-    "dreamclear": "9abcdef0123456789abcdef0123456789abcdef0123456789abcdef012345678",
-    "unirestore": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
-    "realrestorer": "bcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789a",
-}
+from .inference.diffusion_runtime import run_diffusion_restore, run_spandrel_checkpoint
 
 _APACHE = LicenseInfo(
     spdx_id="Apache-2.0",
@@ -49,13 +32,25 @@ _MIT = LicenseInfo(
 )
 
 
-class StretchScaffoldNode(BaseRestorationNode):
+class StretchNode(BaseRestorationNode):
     uses_gpu = True
     supports_tiling = True
+    _hf_repo: str | None = None
+    _weight_name: str = ""
+    _use_mambair = False
+    _use_diffusion = False
+
     param_schema: dict[str, Any] = {
         "type": "object",
         "properties": {
             "tile": {"type": "integer", "minimum": 0, "default": 512, "title": "Tile size"},
+            "steps": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 50,
+                "default": 20,
+                "title": "Diffusion steps",
+            },
         },
         "additionalProperties": False,
     }
@@ -68,16 +63,39 @@ class StretchScaffoldNode(BaseRestorationNode):
     def run_sync(
         self, image: ImageArray, params: dict[str, Any], ctx: RunContext
     ) -> ImageArray:
-        raise NodeExecutionError(
+        weights_dir = Path(ctx.weights_dir)
+        if self._use_mambair:
+            from .inference.mambair_runtime import run_mambair  # noqa: PLC0415
+
+            return run_mambair(
+                image,
+                params,
+                ctx,
+                weights_dir=weights_dir,
+                model_filename=self._weight_name,
+            )
+        if self._use_diffusion:
+            return run_diffusion_restore(
+                self.id,
+                image,
+                params,
+                ctx,
+                mode="restore",
+                weights_dir=weights_dir,
+                hf_repo=self._hf_repo,
+                local_filename=self._weight_name,
+            )
+        return run_spandrel_checkpoint(
             self.id,
-            f"{self.display_name} is an experimental stretch-tier node. Custom "
-            "architecture integration is tracked in ROADMAP.md Phase 4 stretch — "
-            "weights can be downloaded; inference ships in a follow-up once the "
-            "reference pipeline is vendored.",
+            image,
+            params,
+            ctx,
+            weights_dir=weights_dir,
+            filename=self._weight_name,
         )
 
 
-class MambaIrNode(StretchScaffoldNode):
+class MambaIrNode(StretchNode):
     id = "mambair"
     category = NodeCategory.REGRESSION
     pipeline_stage = STAGE_UPSCALE
@@ -85,24 +103,26 @@ class MambaIrNode(StretchScaffoldNode):
     description = "Efficient SOTA super-resolution (Mamba architecture, Apache-2.0)."
     license = _APACHE
     vram_tier = VramTier.MID
+    _use_mambair = True
+    _weight_name = "mambairv2_classicSR_Small_x4.pth"
+
     weight_manifest = [
         WeightFile(
-            filename="mambairv2_x4.pth",
-            size_bytes=120_000_000,
-            sha256=_STRETCH_SHA["mambair"],
-            url="https://github.com/csguoh/MambaIR/releases/download/v1.0/mambairv2_x4.pth",
+            filename="mambairv2_classicSR_Small_x4.pth",
+            size_bytes=40_073_223,
+            sha256="374d91798ffd901b76504068b5bcb47ea58cba9b8f889ac627428c3c34f3545d",
+            url="https://github.com/csguoh/MambaIR/releases/download/v1.0/mambairv2_classicSR_Small_x4.pth",
         ),
     ]
 
 
-class DarkIrNode(StretchScaffoldNode):
+class DarkIrNode(StretchNode):
     id = "darkir"
     category = NodeCategory.REGRESSION
     pipeline_stage = STAGE_DENOISE
     display_name = "DarkIR"
     description = (
-        "All-in-one low-light/noise/blur restoration (v1 only — DarkIRv2 does "
-        "not exist). Licence unverified — opt-in."
+        "All-in-one low-light/noise/blur restoration (v1 only). Licence unverified — opt-in."
     )
     license = LicenseInfo(
         spdx_id="Unverified",
@@ -110,41 +130,45 @@ class DarkIrNode(StretchScaffoldNode):
         source_url="https://github.com/cidautai/DarkIR",
     )
     vram_tier = VramTier.LOW
+    _weight_name = "darkir_l.pth"
+
     weight_manifest = [
         WeightFile(
             filename="darkir_l.pth",
             size_bytes=50_000_000,
-            sha256=_STRETCH_SHA["darkir"],
+            sha256=None,
             url="https://github.com/cidautai/DarkIR/releases/download/v1.0/darkir_l.pth",
         ),
     ]
 
 
-class InstantIrNode(StretchScaffoldNode):
+class InstantIrNode(StretchNode):
     id = "instantir"
     category = NodeCategory.GENERATIVE
     display_name = "InstantIR"
-    description = (
-        "Blind restoration + creative mode (SDXL RAIL++-M base restrictions apply)."
-    )
+    description = "Blind restoration + creative mode (SDXL RAIL++-M base restrictions apply)."
     license = LicenseInfo(
         spdx_id="Apache-2.0",
         kind=LicenseKind.PERMISSIVE,
         source_url="https://github.com/instantX-research/InstantIR",
     )
     vram_tier = VramTier.HIGH
+    _use_diffusion = True
+    _hf_repo = "instantX-research/InstantIR"
+    _weight_name = "instantir.safetensors"
+
     weight_manifest = [
         WeightFile(
             filename="instantir.safetensors",
             size_bytes=6_000_000_000,
-            sha256=_STRETCH_SHA["instantir"],
+            sha256=None,
             hf_repo_id="instantX-research/InstantIR",
             hf_filename="instantir.safetensors",
         ),
     ]
 
 
-class DreamClearNode(StretchScaffoldNode):
+class DreamClearNode(StretchNode):
     id = "dreamclear"
     category = NodeCategory.GENERATIVE
     display_name = "DreamClear"
@@ -155,35 +179,41 @@ class DreamClearNode(StretchScaffoldNode):
         source_url="https://github.com/shallowdream204/DreamClear",
     )
     vram_tier = VramTier.VERY_HIGH
+    _use_diffusion = True
+    _hf_repo = "shallowdream204/DreamClear"
+    _weight_name = "dreamclear.pth"
+
     weight_manifest = [
         WeightFile(
             filename="dreamclear.pth",
             size_bytes=4_000_000_000,
-            sha256=_STRETCH_SHA["dreamclear"],
+            sha256=None,
             hf_repo_id="shallowdream204/DreamClear",
             hf_filename="dreamclear.pth",
         ),
     ]
 
 
-class UniRestoreNode(StretchScaffoldNode):
+class UniRestoreNode(StretchNode):
     id = "unirestore"
     category = NodeCategory.REGRESSION
     display_name = "UniRestore"
     description = "Unified perceptual + task-oriented restoration (MIT)."
     license = _MIT
     vram_tier = VramTier.MID
+    _weight_name = "unirestore.pth"
+
     weight_manifest = [
         WeightFile(
             filename="unirestore.pth",
             size_bytes=200_000_000,
-            sha256=_STRETCH_SHA["unirestore"],
+            sha256=None,
             url="https://github.com/unirestore/UniRestore/releases/download/v1.0/unirestore.pth",
         ),
     ]
 
 
-class RealRestorerNode(StretchScaffoldNode):
+class RealRestorerNode(StretchNode):
     id = "realrestorer"
     category = NodeCategory.GENERATIVE
     display_name = "RealRestorer"
@@ -196,11 +226,15 @@ class RealRestorerNode(StretchScaffoldNode):
         source_url="https://github.com/yfyang007/RealRestorer",
     )
     vram_tier = VramTier.VERY_HIGH
+    _use_diffusion = True
+    _hf_repo = "yfyang007/RealRestorer"
+    _weight_name = "realrestorer.pth"
+
     weight_manifest = [
         WeightFile(
             filename="realrestorer.pth",
             size_bytes=8_000_000_000,
-            sha256=_STRETCH_SHA["realrestorer"],
+            sha256=None,
             hf_repo_id="yfyang007/RealRestorer",
             hf_filename="realrestorer.pth",
         ),

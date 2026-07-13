@@ -1,0 +1,21 @@
+[
+  {
+    "id": "safelight-amber",
+    "label": "Safelight Amber (custom)",
+    "tokens": {
+      "surface-950": "#120E0A",
+      "surface-900": "#1A1410",
+      "surface-800": "#231C16",
+      "surface-700": "#302820",
+      "border-hairline": "#3D3228",
+      "text-primary": "#F5EDE3",
+      "text-secondary": "#C4B5A3",
+      "accent-amber": "#F09030",
+      "accent-amber-ink": "#120E0A",
+      "accent-teal": "#3D9A8C",
+      "accent-brick": "#C84838",
+      "focus-ring": "#F09030",
+      "grain-opacity": "0.02"
+    }
+  }
+]

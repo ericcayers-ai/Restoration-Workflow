@@ -17,7 +17,7 @@ import {
   type ReactNode,
 } from "react";
 
-export type Theme = "dark" | "light" | "high-contrast";
+export type Theme = "dark" | "light" | "high-contrast" | `custom:${string}`;
 
 const THEME_KEY = "restoration:theme";
 const SCALE_KEY = "restoration:ui-scale";
@@ -27,6 +27,7 @@ export const SCALE_STEP = 0.1;
 
 function readInitialTheme(): Theme {
   const applied = document.documentElement.dataset.theme;
+  if (applied?.startsWith("custom:")) return applied as Theme;
   return applied === "light" || applied === "high-contrast" ? applied : "dark";
 }
 

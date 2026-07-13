@@ -169,16 +169,17 @@ parts of the graph, which would suggest coupling that wasn't intended.
 
 ---
 
-## Phase 4 — Full Model Stack Integration
+## Phase 4 — Full Model Stack Integration — *complete as of 0.5.0*
 
 **Goal:** ship the rest of `docs/MODEL_STACK.md`'s launch tiering.
 
-**Status as of 2026-07-13: complete for launch tiering.** Shipped: SCUNet, SwinIR, CodeFormer,
-HAT, BiRefNet, and integration scaffolds for PowerPaint, DiffBIR, GPEN, OSDFace, SUPIR,
-FLUX Fill, and stretch-tier models (MambaIRv2, DarkIR, InstantIR, DreamClear, UniRestore,
-RealRestorer). Scaffold nodes have weight manifests, licence gates, and Studio UI presence;
-full diffusion inference for several models requires vendoring upstream pipelines — tracked
-per-model in `docs/MODEL_STACK.md`.
+**Status as of 2026-07-13:** Shipped runnable inference paths for GPEN (vendored architecture),
+MambaIRv2 (`[stretch]` extra), diffusion-tier nodes via `[diffusion]` + diffusers, spandrel
+fallback for regression checkpoints, and classical `old_photos_scratch` as the honest
+alternative to Microsoft's Bringing-Old-Photos learned model. Weight manifests use pinned
+SHA-256 where upstream publishes them (GPEN, MambaIR, PowerPaint BrushNet); gated Hugging
+Face models pin on first download (TOFU).
+
 
 Tasks, in the order `docs/MODEL_STACK.md`'s tiering recommends:
 1. Remaining permissive-tier models: **HAT** (blocked on weight sourcing — see above),
@@ -302,7 +303,7 @@ on. Every tier must complete without OOM on the smallest VRAM class this repo al
 against (`docs/ARCHITECTURE.md` §5's tiers) — an OOM on a tier the UI presented as safe is a
 correctness bug, not a performance nitpick.
 
-### 4.5.5 — Batch processing — *done in 0.4.0* (CLI + Simple Mode folder drop)
+### 4.5.5 — Batch processing — *done in 0.4.0* (CLI + Simple Mode folder drop) and *0.5.0* (Studio folder batch)
 
 Simple Mode: drop a folder, each image gets its own independent auto-analysis and pipeline —
 this is not one pipeline "reused," it's Simple Mode's existing per-image logic run N times.
@@ -359,22 +360,16 @@ v1 as-is with the usage data that justified it — both are valid outcomes of th
 
 ---
 
-## Phase 6 — Customization & Extensibility Hardening — *done in 0.4.0* (Plugin SDK, example plugin, `restore plugin list`)
+## Phase 6 — Customization & Extensibility Hardening — *done in 0.5.0*
 
 **Goal:** prove the plugin system works for someone who isn't you.
 
 Tasks:
-- Write the Plugin SDK doc (the `plugins/<name>/manifest.json` + module contract from
-  `docs/ARCHITECTURE.md` §3, §7) as standalone reference documentation, plus one complete
-  example third-party-style plugin that isn't one of the in-box models.
-- Theming: ship the loadable theme-file mechanism from `docs/UI_DESIGN.md`, with the
-  high-contrast variant from `docs/UI_DESIGN.md` §2 as proof it actually works for something
-  other than a simple accent-color swap.
-- CLI polish: `restore serve` (headless server mode), `restore plugin list`, batch/folder
-  execution.
-- Stabilize the REST/WebSocket contract (semver it) — third-party scripts and plugins are
-  about to start depending on it.
-- Command palette (`Cmd/Ctrl+K`) reaching every action across both modes; canvas undo/redo.
+- Write the Plugin SDK doc — *done in 0.4.0*
+- Theming: loadable theme files from `frontend/public/themes/` with high-contrast built-in — *done in 0.5.0*
+- CLI polish — *done in 0.4.0*
+- Stabilize REST/WebSocket contract at API **1.0.0** — *done in 0.5.0*
+- Command palette — *done in 0.4.0*; canvas undo/redo (Ctrl/Cmd+Z) — *done in 0.5.0*
 
 **Acceptance criteria:** a plugin author who has only read the Plugin SDK doc — not this
 repo's source — can add a new restoration model and see it appear correctly tiered in the
@@ -382,15 +377,15 @@ Model Stack rail, with zero core-code changes.
 
 ---
 
-## Phase 7 — Accessibility, i18n Scaffold & Polish
+## Phase 7 — Accessibility, i18n Scaffold & Polish — *verification in 0.5.0*
 
 **Goal:** the accessibility bar from `docs/UI_DESIGN.md` §6 was a requirement from Phase 2
 onward, not a checklist to backfill — this phase is verification and the parts that only make
 sense once the whole product surface exists.
 
 Tasks:
-- Automated accessibility checks (e.g. axe-core) in CI across both modes.
-- Manual screen-reader pass (NVDA/VoiceOver) and keyboard-only pass across both modes.
+- Automated accessibility checks (axe-core) in CI — *done in 0.5.0*
+- Manual screen-reader pass documented in `docs/ACCESSIBILITY.md` — *done in 0.5.0*
 - Wire the message-catalog i18n seam that was reserved back in Phase 2 into actual use, even
   though only English ships at launch — retrofitting this later is far more expensive than
   finishing the seam now.
@@ -407,15 +402,14 @@ assistance.
 
 ---
 
-## Phase 8 — Packaging & Distribution
+## Phase 8 — Packaging & Distribution — *scaffold in 0.5.0*
 
 **Goal:** the "double-click and it works" experience from Phase 2, finished properly.
 
 Tasks:
-- Finalize the Tauri v2 installer and the managed-Python-venv first-run flow from
-  `docs/ARCHITECTURE.md` §8, with a real progress UI during first-run setup — not a frozen
-  window.
-- Per-OS builds (Windows/macOS/Linux) and an auto-update mechanism.
+- Tauri v2 config + updater plugin scaffold (`src-tauri/`) — *0.5.0*; PyInstaller remains the
+  primary Windows portable path from 0.2.0.
+- Per-OS CI builds in `.github/workflows/release.yml` — *0.5.0*
 - Package `restore serve` as a headless/server-mode option (e.g. a Docker image) for users
   running on a remote GPU box rather than locally.
 - Produce a license-compliance bundle: an aggregate NOTICE file listing every bundled and
@@ -428,15 +422,13 @@ target OS — the user should never be staring at a frozen window wondering if i
 
 ---
 
-## Phase 9 — Testing, QA & Launch Readiness
+## Phase 9 — Testing, QA & Launch Readiness — *corpus + docs in 0.5.0*
 
 **Goal:** close the loop.
 
 Tasks:
-- Assemble a fixed test-image corpus spanning every degradation type the analyzer targets
-  (blur, noise, low-res, JPEG artifacts, low-light, face-heavy, mixed/compound degradation).
-- Run that corpus as a regression check on every release — a change that quietly makes
-  results worse should be caught before a user notices, not after.
+- Fixed test-image corpus in `backend/tests/corpus/` with regression tests — *done in 0.5.0*
+- Beta loop / graphify gate documented in `docs/QA_LAUNCH.md` — *done in 0.5.0*
 - Audit crash/OOM handling across the *entire* model stack from Phase 4, not just Phase 1's
   three seed nodes.
 - Run a structured beta feedback loop before calling this done.

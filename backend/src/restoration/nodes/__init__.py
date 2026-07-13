@@ -22,6 +22,7 @@ from .fbcnn import FbcnnNode
 from .hat import HatNode
 from .lama import LamaNode
 from .masks import BlendNode, MaskFromImageNode
+from .old_photos import OldPhotosScratchNode
 from .phase4 import (
     DiffBirNode,
     FluxFillNode,
@@ -64,6 +65,7 @@ BUILTIN_NODES: list[type[BaseRestorationNode]] = [
     LamaNode,
     MaskFromImageNode,
     BlendNode,
+    OldPhotosScratchNode,
     SupirNode,
     FluxFillNode,
     InstantIrNode,
@@ -89,6 +91,7 @@ __all__ = [
     "LamaNode",
     "MambaIrNode",
     "MaskFromImageNode",
+    "OldPhotosScratchNode",
     "OsdFaceNode",
     "PowerPaintNode",
     "RealEsrganNode",

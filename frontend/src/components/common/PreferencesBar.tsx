@@ -32,7 +32,15 @@ export function ThemeToggle() {
           aria-checked={theme === value}
           className={`${styles.segment} ${theme === value ? styles.segmentActive : ""}`}
           onClick={() => setTheme(value)}
-          title={t(`theme.${value === "high-contrast" ? "highContrast" : value}`)}
+          title={
+            value === "dark"
+              ? t("theme.dark")
+              : value === "light"
+                ? t("theme.light")
+                : value === "high-contrast"
+                  ? t("theme.highContrast")
+                  : t("theme.custom")
+          }
         >
           {value === "dark" ? "Dk" : value === "light" ? "Lt" : "HC"}
         </button>

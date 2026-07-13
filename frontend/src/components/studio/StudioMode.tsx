@@ -79,9 +79,56 @@ export function StudioMode({ handoff }: { handoff: StudioHandoff | null }) {
   const [dagNodes, setDagNodes] = useState<DagNode[]>([]);
   const [dagEdges, setDagEdges] = useState<DagEdge[]>([]);
 
+  const [batchIndex, setBatchIndex] = useState(0);
+  const [batchTotal, setBatchTotal] = useState(0);
+  const [batchFiles, setBatchFiles] = useState<File[]>([]);
+  const historyPast = useRef<{ stages: Stage[]; dagNodes: DagNode[]; dagEdges: DagEdge[] }[]>([]);
+  const historyFuture = useRef<{ stages: Stage[]; dagNodes: DagNode[]; dagEdges: DagEdge[] }[]>([]);
+
+  const snapshotEditor = useCallback(
+    () => ({ stages, dagNodes, dagEdges }),
+    [stages, dagNodes, dagEdges],
+  );
+
+  const pushHistory = useCallback(() => {
+    historyPast.current.push(snapshotEditor());
+    historyFuture.current = [];
+    if (historyPast.current.length > 48) historyPast.current.shift();
+  }, [snapshotEditor]);
+
+  const undoEditor = useCallback(() => {
+    const prev = historyPast.current.pop();
+    if (!prev) return;
+    historyFuture.current.push(snapshotEditor());
+    setStages(prev.stages);
+    setDagNodes(prev.dagNodes);
+    setDagEdges(prev.dagEdges);
+  }, [snapshotEditor]);
+
+  const redoEditor = useCallback(() => {
+    const next = historyFuture.current.pop();
+    if (!next) return;
+    historyPast.current.push(snapshotEditor());
+    setStages(next.stages);
+    setDagNodes(next.dagNodes);
+    setDagEdges(next.dagEdges);
+  }, [snapshotEditor]);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== "z") return;
+      e.preventDefault();
+      if (e.shiftKey) redoEditor();
+      else undoEditor();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [undoEditor, redoEditor]);
+
   const downloads = useWeightDownloads();
   const jobEvents = useJobEvents(job?.id ?? null);
   const filePickerRef = useRef<HTMLInputElement>(null);
+  const folderPickerRef = useRef<HTMLInputElement>(null);
   const lastHandoffToken = useRef<number | null>(null);
 
   const describedByType = useMemo(
@@ -178,6 +225,7 @@ export function StudioMode({ handoff }: { handoff: StudioHandoff | null }) {
 
   const onAddStage = useCallback(
     (nodeTypeId: string) => {
+      pushHistory();
       const described = describedByType[nodeTypeId];
       if (!described) return;
       if (editorMode === "dag") {
@@ -260,6 +308,10 @@ export function StudioMode({ handoff }: { handoff: StudioHandoff | null }) {
   }
 
   async function handleRun(): Promise<void> {
+    if (batchFiles.length > 0) {
+      await handleBatchRun();
+      return;
+    }
     if (!file) return;
     const { pipeline, error } =
       editorMode === "dag"
@@ -282,6 +334,36 @@ export function StudioMode({ handoff }: { handoff: StudioHandoff | null }) {
     } catch (err) {
       setRunning(false);
       setBanner({ tone: "error", message: err instanceof ApiError ? err.message : String(err) });
+    }
+  }
+
+  async function handleBatchRun(): Promise<void> {
+    const { pipeline, error } =
+      editorMode === "dag"
+        ? dagToPipeline(dagNodes, dagEdges)
+        : stagesToPipeline(stages);
+    if (error || pipeline.nodes.length === 0) {
+      setBanner({ tone: "error", message: error ?? t("pipeline.stages.empty") });
+      return;
+    }
+    setRunning(true);
+    setBatchTotal(batchFiles.length);
+    setBanner(null);
+    try {
+      for (let i = 0; i < batchFiles.length; i++) {
+        setBatchIndex(i + 1);
+        const batchFile = batchFiles[i]!;
+        const submitted = await submitJob(batchFile, { pipeline });
+        setJob(submitted);
+        setRuns((prev) => [{ job: submitted }, ...prev].slice(0, 24));
+      }
+      setBanner({ tone: "success", message: t("studio.batch.done", { count: batchFiles.length }) });
+    } catch (err) {
+      setBanner({ tone: "error", message: err instanceof ApiError ? err.message : String(err) });
+    } finally {
+      setRunning(false);
+      setBatchIndex(0);
+      setBatchTotal(0);
     }
   }
 
@@ -384,6 +466,20 @@ export function StudioMode({ handoff }: { handoff: StudioHandoff | null }) {
         icon: "sort" as const,
         run: onAutoOrder,
       },
+      {
+        id: "studio.undo",
+        label: t("studio.undo"),
+        category: "Studio Mode",
+        shortcut: "Ctrl+Z",
+        run: undoEditor,
+      },
+      {
+        id: "studio.redo",
+        label: t("studio.redo"),
+        category: "Studio Mode",
+        shortcut: "Ctrl+Shift+Z",
+        run: redoEditor,
+      },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [file, stages],
@@ -422,6 +518,28 @@ export function StudioMode({ handoff }: { handoff: StudioHandoff | null }) {
           onChange={(e) => {
             const selected = e.target.files?.[0];
             if (selected) pickPhoto(selected);
+            e.target.value = "";
+          }}
+        />
+        <Button variant="secondary" onClick={() => folderPickerRef.current?.click()}>
+          {t("studio.batch.folder")}
+        </Button>
+        <input
+          ref={folderPickerRef}
+          type="file"
+          accept=".jpg,.jpeg,.png,.webp,.bmp,.tif,.tiff"
+          className="visually-hidden"
+          multiple
+          // @ts-expect-error webkitdirectory is non-standard but widely supported
+          webkitdirectory=""
+          onChange={(e) => {
+            const files = Array.from(e.target.files ?? []).filter((f) =>
+              /\.(jpe?g|png|webp|bmp|tiff?)$/i.test(f.name),
+            );
+            if (files.length > 0) {
+              setBatchFiles(files);
+              pickPhoto(files[0]!);
+            }
             e.target.value = "";
           }}
         />
@@ -468,9 +586,17 @@ export function StudioMode({ handoff }: { handoff: StudioHandoff | null }) {
           {t("studio.editor.dualFace")}
         </Button>
         <div className={styles.spacer} />
-        <Button variant="primary" icon="play" onClick={() => void handleRun()} disabled={!file || running}>
+        <Button
+          variant="primary"
+          icon="play"
+          onClick={() => void handleRun()}
+          disabled={(!file && batchFiles.length === 0) || running}
+        >
           {running ? t("studio.canvas.running") : t("studio.canvas.run")}
         </Button>
+        {batchTotal > 0 && (
+          <StatusLine message={t("studio.batch.progress", { current: batchIndex, total: batchTotal })} />
+        )}
         {banner && (
           <StatusLine
             message={banner.message}

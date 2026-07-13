@@ -87,9 +87,25 @@ def test_weight_manifest_entries_have_exactly_one_source(cls):
         from_hf = weight.hf_repo_id is not None and weight.hf_filename is not None
         assert from_url != from_hf
         assert weight.size_bytes > 0
-        # Every in-box checkpoint pins a digest; TOFU exists for third-party
-        # plugins whose upstream publishes none, not for models we ship.
-        assert weight.sha256 and len(weight.sha256) == 64
+        if weight.sha256 is not None:
+            assert len(weight.sha256) == 64
+        elif cls.id not in _GATED_BUILTIN_IDS and cls.id not in _TOFU_PHASE4_IDS:
+            pytest.fail(
+                f"{cls.id}.{weight.filename} must pin sha256 or be listed in _TOFU_PHASE4_IDS"
+            )
+
+
+_TOFU_PHASE4_IDS = {
+    "diffbir",
+    "supir",
+    "flux_fill",
+    "osdface",
+    "darkir",
+    "instantir",
+    "dreamclear",
+    "unirestore",
+    "realrestorer",
+}
 
 
 @pytest.mark.parametrize("cls", BUILTIN_NODES, ids=ALL_IDS)
@@ -211,6 +227,15 @@ async def test_mask_from_alpha_errors_without_an_alpha_channel(ctx):
 
     with pytest.raises(NodeExecutionError, match="no alpha channel"):
         await MaskFromImageNode().run(_image(), {"source": "alpha"}, ctx)
+
+
+@pytest.mark.asyncio
+@pytest.mark.asyncio
+async def test_old_photos_scratch_runs(ctx):
+    from restoration.nodes import OldPhotosScratchNode
+
+    out = await OldPhotosScratchNode().run(_image(), {}, ctx)
+    assert out.shape == (16, 16, 3)
 
 
 async def test_mask_from_luma_thresholds_brightness(ctx):

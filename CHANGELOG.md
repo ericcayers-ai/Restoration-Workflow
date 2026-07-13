@@ -5,6 +5,27 @@ All notable changes to this project are documented here. Format follows
 [Semantic Versioning](https://semver.org/) once past 0.x (pre-1.0, minor bumps may
 include breaking changes to the JSON pipeline shape).
 
+## [0.5.0] — 2026-07-13
+
+### Added
+- **Phase 4 full inference** — GPEN (vendored architecture), MambaIRv2 (`[stretch]` extra),
+  diffusion-tier nodes via `[diffusion]` + diffusers, spandrel checkpoint fallback for
+  regression models, and `old_photos_scratch` classical scratch restoration.
+- **Real SHA-256 pins** for GPEN, MambaIR, and PowerPaint BrushNet weights; TOFU pinning for
+  gated Hugging Face models.
+- **Studio Mode folder batch** — apply one authored pipeline across every image in a folder.
+- **Loadable theme files** (`frontend/public/themes/`) plus built-in high-contrast theme.
+- **Canvas undo/redo** (Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z) in Studio Mode.
+- **API contract 1.0.0** — semver-stabilized REST/WebSocket surface.
+- **axe-core** in CI (`npm run a11y`); `docs/ACCESSIBILITY.md` manual pass checklist.
+- **Tauri v2 scaffold** (`src-tauri/`) with updater plugin config; release workflow for
+  Windows/macOS/Linux.
+- **Regression corpus** (`backend/tests/corpus/`) and `docs/QA_LAUNCH.md` beta/graphify gate.
+
+### Changed
+- Optional extras: `[diffusion]` (diffusers) and `[stretch]` (mamba-ssm, einops).
+- MambaIR weight file corrected to `mambairv2_classicSR_Small_x4.pth` (official release).
+
 ## [0.4.0] — 2026-07-13
 
 ### Added

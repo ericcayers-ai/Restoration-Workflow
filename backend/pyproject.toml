@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "restoration-workflow"
-version = "0.4.0"
+version = "0.5.0"
 description = "Local-first photo restoration engine: DAG pipeline executor, restoration node plugins, weight manager, and REST/WebSocket API."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -39,6 +39,16 @@ inference = [
     "opencv-python-headless>=4.9,<5",
     # LaMa's only checkpoint that torch.load(weights_only=True) will accept.
     "safetensors>=0.4",
+]
+# Diffusion-tier nodes (PowerPaint, DiffBIR, SUPIR, FLUX Fill, stretch generative).
+diffusion = [
+    "diffusers>=0.30",
+    "accelerate>=0.33",
+]
+# MambaIRv2 and other Mamba-based stretch nodes.
+stretch = [
+    "mamba-ssm>=2.0",
+    "einops>=0.7",
 ]
 dev = [
     "pytest>=8.0",
@@ -75,3 +85,5 @@ ignore = [
 # Tests import fixtures and node classes inside functions to keep the module
 # import graph free of torch.
 "tests/*" = ["PLC0415"]
+# Vendored upstream model architectures — linted as-is from upstream repos.
+"src/restoration/nodes/vendored/*" = ["E", "F", "W", "B", "I", "UP", "N"]
