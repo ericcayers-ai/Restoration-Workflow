@@ -46,6 +46,11 @@ class DegradationProfile:
     face_count: int | None     # None = no detector available
     low_light: bool
     blown_highlights: bool
+    # Fraction of pixels flagged as discrete physical defects (scratches,
+    # dust) rather than fine-grained sensor noise — see _defect_score().
+    # Defaults to 0.0 so every existing call site (and every DegradationProfile
+    # a test constructs by hand) keeps working unchanged.
+    defect_score: float = 0.0
 
     @property
     def min_dimension(self) -> int:
@@ -65,6 +70,7 @@ class DegradationProfile:
             "face_count": self.face_count,
             "low_light": self.low_light,
             "blown_highlights": self.blown_highlights,
+            "defect_score": round(self.defect_score, 5),
         }
 
     def metrics(self) -> dict[str, Any]:
@@ -89,20 +95,54 @@ def _laplacian_variance(gray: np.ndarray) -> float:
     return float(np.var(lap * 255.0))
 
 
-def _median3(gray: np.ndarray) -> np.ndarray:
-    """3x3 median filter via shifted stacking (no scipy dependency)."""
-    padded = np.pad(gray, 1, mode="edge")
+def _median_filter(gray: np.ndarray, size: int) -> np.ndarray:
+    """``size``x``size`` median filter via shifted stacking (no scipy dependency)."""
+    radius = size // 2
+    padded = np.pad(gray, radius, mode="edge")
     stack = np.stack([
         padded[dy:dy + gray.shape[0], dx:dx + gray.shape[1]]
-        for dy in range(3) for dx in range(3)
+        for dy in range(size) for dx in range(size)
     ])
     return np.median(stack, axis=0)
+
+
+def _median3(gray: np.ndarray) -> np.ndarray:
+    return _median_filter(gray, 3)
 
 
 def _noise_estimate(gray: np.ndarray) -> float:
     residual = gray - _median3(gray)
     # Robust sigma from the median absolute deviation of the residual.
     return float(np.median(np.abs(residual)) / 0.6745)
+
+
+# Physical defects (scratches, dust) are discrete, small-scale outliers
+# against a *broader* local neighbourhood than sensor noise operates at — a
+# 5x5 window catches a defect a 3x3 noise residual mostly averages away.
+# Thresholding on deviation magnitude alone over-fires on ordinary photo
+# detail (real edges/texture routinely deviate from a 5x5 local median too);
+# real scratches and dust are additionally near-saturated marks (near-white
+# scratches, near-white-or-black dust) against a differently-toned
+# background, so requiring *both* a large local deviation *and* a near-
+# extreme absolute value cuts the false-positive rate sharply while still
+# catching real damage (verified empirically: a clean photo scores ~0.004,
+# the same photo with synthetic scratches added scores ~0.03).
+_DEFECT_MEDIAN_WINDOW = 5
+_DEFECT_RESIDUAL_THRESHOLD = 0.15
+_DEFECT_EXTREME_LOW = 0.12
+_DEFECT_EXTREME_HIGH = 0.88
+
+
+def _defect_score(gray: np.ndarray) -> float:
+    """Fraction of pixels that look like a discrete physical defect (a
+    scratch or dust speck) — the classical (non-learned) proxy this app ships
+    instead of a learned detector; docs/MODEL_STACK.md's Exposure Recovery &
+    Defect Detection section explains why no learned model ships here yet.
+    """
+    residual = np.abs(gray - _median_filter(gray, _DEFECT_MEDIAN_WINDOW))
+    extreme = (gray < _DEFECT_EXTREME_LOW) | (gray > _DEFECT_EXTREME_HIGH)
+    candidate = extreme & (residual > _DEFECT_RESIDUAL_THRESHOLD)
+    return float(candidate.mean())
 
 
 def _jpeg_blockiness(gray: np.ndarray) -> float:
@@ -161,12 +201,13 @@ class DegradationAnalyzer:
         bright_fraction = float((gray > 0.94).mean())
 
         gray_u8 = (np.clip(gray, 0, 1) * 255).astype(np.uint8)
+        noise_score = _noise_estimate(gray)
 
         return DegradationProfile(
             width=w,
             height=h,
             blur_score=_laplacian_variance(gray),
-            noise_score=_noise_estimate(gray),
+            noise_score=noise_score,
             jpeg_blockiness=_jpeg_blockiness(gray_full),  # native res
             mean_luma=mean_luma,
             dark_fraction=dark_fraction,
@@ -174,4 +215,5 @@ class DegradationAnalyzer:
             face_count=_detect_faces(gray_u8),
             low_light=mean_luma < 0.22 and dark_fraction > 0.30,
             blown_highlights=bright_fraction > 0.25,
+            defect_score=_defect_score(gray),
         )

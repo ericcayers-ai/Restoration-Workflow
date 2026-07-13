@@ -33,7 +33,8 @@ SECOND_INPUT = "image_b"
 
 
 class MaskFromImageNode(BaseRestorationNode):
-    """Derive a mask from the image's alpha channel or its luminance.
+    """Derive a mask from the image's alpha channel, its luminance, or
+    automatically-detected physical defects.
 
     Emitted as a 3-channel greyscale image so that it can be previewed, saved and
     fed anywhere an image is accepted — the engine has exactly one in-memory
@@ -43,7 +44,10 @@ class MaskFromImageNode(BaseRestorationNode):
     id = "mask_from_image"
     category = NodeCategory.MASKING
     display_name = "Mask from image"
-    description = "Build an inpainting mask from an alpha channel or a luminance threshold."
+    description = (
+        "Build an inpainting mask from an alpha channel, a luminance threshold, "
+        "or auto-detected scratches/dust."
+    )
     license = _APACHE
     vram_tier = VramTier.LOW
     uses_gpu = False
@@ -54,12 +58,13 @@ class MaskFromImageNode(BaseRestorationNode):
         "properties": {
             "source": {
                 "type": "string",
-                "enum": ["alpha", "luma"],
+                "enum": ["alpha", "luma", "defect"],
                 "default": "alpha",
                 "title": "Mask source",
                 "description": (
-                    "'alpha' marks transparent pixels as holes to fill. "
-                    "'luma' thresholds brightness."
+                    "'alpha' marks transparent pixels as holes to fill. 'luma' "
+                    "thresholds brightness. 'defect' auto-detects scratches/dust — "
+                    "classical detection, not learned (docs/MODEL_STACK.md)."
                 ),
             },
             "threshold": {
@@ -68,6 +73,7 @@ class MaskFromImageNode(BaseRestorationNode):
                 "maximum": 1.0,
                 "default": 0.5,
                 "title": "Threshold",
+                "description": "Used by 'luma' only.",
             },
             "invert": {"type": "boolean", "default": False, "title": "Invert"},
             "dilate": {
@@ -75,7 +81,8 @@ class MaskFromImageNode(BaseRestorationNode):
                 "minimum": 0,
                 "default": 0,
                 "title": "Dilate (px)",
-                "description": "Grow the mask; helps LaMa cover a subject's fringe.",
+                "description": "Grow the mask; helps LaMa cover a subject's fringe "
+                               "(or a scratch's soft edge).",
             },
         },
         "additionalProperties": False,
@@ -96,6 +103,8 @@ class MaskFromImageNode(BaseRestorationNode):
                 )
             # Transparent (alpha below threshold) is the region to fill.
             mask = (image[..., 3] < threshold).astype(np.float32)
+        elif source == "defect":
+            mask = _defect_mask(image[..., :3])
         else:
             rgb = image[..., :3]
             luma = rgb @ np.asarray([0.299, 0.587, 0.114], dtype=np.float32)
@@ -110,6 +119,35 @@ class MaskFromImageNode(BaseRestorationNode):
 
         ctx.report_progress(1.0)
         return np.repeat(mask[..., None], 3, axis=2).astype(np.float32)
+
+
+# Same technique and constants as core/analyzer.py's _defect_score() (kept as a
+# separate, self-contained copy rather than importing core.analyzer here — nodes
+# only depend on core.types/core.errors, not on the analyzer module) — a
+# discrete physical defect (scratch, dust) is a pixel that both deviates
+# strongly from a broad local median *and* sits at a near-saturated absolute
+# value, which is what separates it from ordinary photo edges/texture.
+_DEFECT_MEDIAN_WINDOW = 5
+_DEFECT_RESIDUAL_THRESHOLD = 0.15
+_DEFECT_EXTREME_LOW = 0.12
+_DEFECT_EXTREME_HIGH = 0.88
+
+
+def _median_filter(gray: ImageArray, size: int) -> ImageArray:
+    radius = size // 2
+    padded = np.pad(gray, radius, mode="edge")
+    stack = np.stack([
+        padded[dy:dy + gray.shape[0], dx:dx + gray.shape[1]]
+        for dy in range(size) for dx in range(size)
+    ])
+    return np.median(stack, axis=0)
+
+
+def _defect_mask(rgb: ImageArray) -> ImageArray:
+    luma = rgb @ np.asarray([0.299, 0.587, 0.114], dtype=np.float32)
+    residual = np.abs(luma - _median_filter(luma, _DEFECT_MEDIAN_WINDOW))
+    extreme = (luma < _DEFECT_EXTREME_LOW) | (luma > _DEFECT_EXTREME_HIGH)
+    return (extreme & (residual > _DEFECT_RESIDUAL_THRESHOLD)).astype(np.float32)
 
 
 def _dilate(mask: ImageArray, radius: int) -> ImageArray:

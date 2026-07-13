@@ -102,6 +102,12 @@ def test_soft_faces_add_the_quality_face_node(table):
     assert decision.chain == ["swinir", "gfpgan", "restoreformer"]
 
 
+def test_defects_route_to_mask_and_inpaint_stages(table):
+    decision = table.route(profile(defect_score=0.03))
+    assert decision.chain == ["mask_from_image", "lama"]
+    assert decision.params["mask_from_image"] == {"source": "defect", "dilate": 2}
+
+
 def test_compound_degradation_chains_every_stage(table):
     """The SOTA default at full stretch: deblock -> denoise -> quality upscale ->
     fast face -> quality face, five permissive models in one adaptive chain."""

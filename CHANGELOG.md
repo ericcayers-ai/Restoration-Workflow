@@ -5,6 +5,30 @@ All notable changes to this project are documented here. Format follows
 [Semantic Versioning](https://semver.org/) once past 0.x (pre-1.0, minor bumps may
 include breaking changes to the JSON pipeline shape).
 
+## [0.3.0] — 2026-07-13
+
+### Added
+- **CodeFormer** — the first license-gated node, behind the acknowledgement flow from
+  `docs/ARCHITECTURE.md` §6.
+- **Exposure recovery** (`exposure_correct`) — classical auto-gamma + CLAHE, no weights;
+  the rule table routes on `low_light` / `blown_highlights` before denoise/upscale.
+- **Scratch/dust detection** — classical defect scoring in the degradation analyzer, a
+  `defect` mask source on `mask_from_image`, and automatic mask→LaMa routing when defects
+  are detected.
+- **Hardware-adaptive quality tiers** (draft / balanced / high) — tile size and model
+  choice within a category adapt to detected VRAM.
+- **Portable data directory** — packaged builds default weights/presets next to the exe;
+  `RESTORE_HOME` still overrides.
+- Repo health: Apache-2.0 `LICENSE`, GitHub Actions CI, community files, and a real
+  `README.md`.
+
+### Changed
+- Simple Mode's auto-pipeline spec now uses `auto_order_pipeline()` so mask→LaMa edges
+  wire correctly when the rule table appends both nodes.
+
+### Fixed
+- CI: missing `ruff` dev dependency and OpenCV 5.x API breakage in exposure recovery.
+
 ## [0.2.0] — 2026-07-12
 
 ### Added

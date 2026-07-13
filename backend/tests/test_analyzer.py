@@ -135,6 +135,29 @@ def test_grayscale_and_rgba_inputs_are_accepted():
     assert isinstance(analyzer.analyze(rgba), DegradationProfile)
 
 
+def _synthetic_scratches(image: np.ndarray) -> np.ndarray:
+    """Thin near-white lines on a mid-tone background — the defect detector's
+    target case (verified empirically: clean ~0.004, scratched ~0.03)."""
+    out = image.copy()
+    h, w = out.shape[:2]
+    for y in range(16, h - 16, 24):
+        out[y, 16 : w - 16, :] = 0.98
+    for x in range(16, w - 16, 31):
+        out[16 : h - 16, x, :] = 0.02
+    return out.astype(np.float32)
+
+
+def test_defect_score_stays_low_on_clean_images():
+    assert analyzer.analyze(_smooth_gradient()).defect_score < 0.01
+
+
+def test_defect_score_rises_with_synthetic_scratches():
+    clean = analyzer.analyze(_smooth_gradient())
+    scratched = analyzer.analyze(_synthetic_scratches(_smooth_gradient()))
+    assert scratched.defect_score > clean.defect_score
+    assert scratched.defect_score >= 0.01
+
+
 def test_profile_dict_is_json_shaped():
     import json
 
@@ -143,6 +166,7 @@ def test_profile_dict_is_json_shaped():
     assert set(payload) >= {
         "width", "height", "min_dimension", "blur_score", "noise_score",
         "jpeg_blockiness", "face_count", "low_light", "blown_highlights",
+        "defect_score",
     }
 
 

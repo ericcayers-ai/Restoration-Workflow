@@ -50,6 +50,18 @@
       "when": { "face_count": { "gte": 1 }, "blur_score": { "lt": 100 } },
       "params": {},
       "reason": "soft/blurred faces — follow up with the default quality face node"
+    },
+    {
+      "node": "mask_from_image",
+      "when": { "defect_score": { "gte": 0.01 } },
+      "params": { "source": "defect", "dilate": 2 },
+      "reason": "physical defects detected — build an inpainting mask for scratches/dust"
+    },
+    {
+      "node": "lama",
+      "when": { "defect_score": { "gte": 0.01 } },
+      "params": {},
+      "reason": "scratches/dust — inpaint over detected defects"
     }
   ]
 }

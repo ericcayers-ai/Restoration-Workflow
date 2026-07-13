@@ -12,7 +12,8 @@ from pathlib import Path
 from typing import Any
 
 from .core.analyzer import DegradationAnalyzer, DegradationProfile
-from .core.executor import PipelineExecutor, PipelineSpec, chain_pipeline
+from .core.executor import PipelineExecutor, PipelineSpec
+from .core.ordering import auto_order_pipeline
 from .core.hardware import HardwareDetector, HardwareInfo
 from .core.quality import QualityTier, apply_quality_tier
 from .core.registry import NodeRegistry
@@ -127,7 +128,7 @@ class AppServices:
             ),
         )
         decision = RoutingDecision(chain=chain, params=params, reasons=decision.reasons)
-        spec = chain_pipeline(chain, params)
+        spec = auto_order_pipeline(chain, self.registry, params)
         return AutoPipeline(profile=profile, decision=decision, spec=spec)
 
     def missing_weights(self, spec: PipelineSpec) -> list[str]:
