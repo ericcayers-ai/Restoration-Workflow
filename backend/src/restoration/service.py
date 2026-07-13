@@ -13,8 +13,8 @@ from typing import Any
 
 from .core.analyzer import DegradationAnalyzer, DegradationProfile
 from .core.executor import PipelineExecutor, PipelineSpec
-from .core.ordering import auto_order_pipeline
 from .core.hardware import HardwareDetector, HardwareInfo
+from .core.ordering import auto_order_pipeline
 from .core.quality import QualityTier, apply_quality_tier
 from .core.registry import NodeRegistry
 from .core.rules import RoutingDecision, RuleTable
