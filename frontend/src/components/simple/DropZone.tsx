@@ -1,7 +1,7 @@
 /*
  * "A single full-bleed drop target, centered, minimal chrome"
- * (UI_DESIGN.md section 7). Keyboard-operable per section 6: focusable,
- * Enter/Space opens the file picker, exactly like a click would.
+ * (UI_DESIGN.md section 7). Keyboard-operable per section 6: focusable
+ * label opens the file picker on Enter/Space, exactly like a click would.
  */
 
 import { useCallback, useRef, useState } from "react";
@@ -23,8 +23,6 @@ export function DropZone({
   const [active, setActive] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const openPicker = useCallback(() => inputRef.current?.click(), []);
-
   const handleFiles = useCallback(
     (files: FileList | null) => {
       if (!files?.length) return;
@@ -42,19 +40,10 @@ export function DropZone({
   );
 
   return (
-    <div
+    <label
       className={styles.zone}
       data-active={active}
-      role="button"
-      tabIndex={0}
       aria-label={t("simple.dropzone.ariaLabel")}
-      onClick={openPicker}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          openPicker();
-        }
-      }}
       onDragOver={(e) => {
         e.preventDefault();
         setActive(true);
@@ -79,12 +68,11 @@ export function DropZone({
         accept={ACCEPTED}
         {...(onFiles ? { webkitdirectory: "", multiple: true } : {})}
         tabIndex={-1}
-        aria-hidden="true"
         onChange={(e) => {
           handleFiles(e.target.files);
           e.target.value = "";
         }}
       />
-    </div>
+    </label>
   );
 }

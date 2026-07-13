@@ -25,3 +25,6 @@ htmlcov/
 # Model weights are never committed: multi-gigabyte, checksum-pinned in each
 # node's weight manifest, and fetched on first use.
 weights/
+
+# Tauri updater signing key (private); pubkey is committed in updater.key.pub
+src-tauri/updater.key

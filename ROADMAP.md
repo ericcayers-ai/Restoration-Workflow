@@ -169,16 +169,27 @@ parts of the graph, which would suggest coupling that wasn't intended.
 
 ---
 
-## Phase 4 — Full Model Stack Integration — *complete as of 0.5.0*
+## Phase 4 — Full Model Stack Integration — *complete as of 0.5.1*
 
 **Goal:** ship the rest of `docs/MODEL_STACK.md`'s launch tiering.
 
-**Status as of 2026-07-13:** Shipped runnable inference paths for GPEN (vendored architecture),
-MambaIRv2 (`[stretch]` extra), diffusion-tier nodes via `[diffusion]` + diffusers, spandrel
-fallback for regression checkpoints, and classical `old_photos_scratch` as the honest
-alternative to Microsoft's Bringing-Old-Photos learned model. Weight manifests use pinned
-SHA-256 where upstream publishes them (GPEN, MambaIR, PowerPaint BrushNet); gated Hugging
-Face models pin on first download (TOFU).
+**Status as of 2026-07-14:** Runnable inference paths for GPEN (vendored), MambaIRv2
+(`[stretch]`), diffusion-tier nodes via `[diffusion]` + diffusers (tiled img2img,
+PowerPaint BrushNet when weights are local), spandrel fallback for regression checkpoints,
+and classical `old_photos_scratch`. Weight manifests pin real SHA-256 where upstream
+publishes them without gating (GPEN, MambaIR, PowerPaint BrushNet). Gated Hugging Face
+models use trust-on-first-use (TOFU) pinning after download with a valid `HF_TOKEN`:
+
+| Node | SHA pin | Notes |
+|------|---------|-------|
+| GPEN, MambaIR, PowerPaint BrushNet | Pinned | Public mirrors |
+| DiffBIR (`ai-forever/DiffBIR-v2`) | TOFU | Gated HF repo |
+| SUPIR, FLUX Fill, InstantIR, RealRestorer | TOFU | Gated HF repos |
+| OSDFace | TOFU | No single weight file on upstream HF card |
+| DarkIR, UniRestore, DreamClear | TOFU | HF-hosted; filenames corrected in 0.5.1 |
+
+Full upstream DiffBIR/SUPIR/FLUX quality still requires vendored architectures beyond
+the diffusers fallback — tracked as stretch engineering, not launch blockers.
 
 
 Tasks, in the order `docs/MODEL_STACK.md`'s tiering recommends:
@@ -377,15 +388,15 @@ Model Stack rail, with zero core-code changes.
 
 ---
 
-## Phase 7 — Accessibility, i18n Scaffold & Polish — *verification in 0.5.0*
+## Phase 7 — Accessibility, i18n Scaffold & Polish — *verification in 0.5.1*
 
 **Goal:** the accessibility bar from `docs/UI_DESIGN.md` §6 was a requirement from Phase 2
 onward, not a checklist to backfill — this phase is verification and the parts that only make
 sense once the whole product surface exists.
 
 Tasks:
-- Automated accessibility checks (axe-core) in CI — *done in 0.5.0*
-- Manual screen-reader pass documented in `docs/ACCESSIBILITY.md` — *done in 0.5.0*
+- Automated accessibility checks (axe-core via `@axe-core/puppeteer`) in CI — *done in 0.5.1*
+- Manual screen-reader pass documented in `docs/ACCESSIBILITY.md` — *checklist in 0.5.0; NVDA/VoiceOver pass deferred to release QA*
 - Wire the message-catalog i18n seam that was reserved back in Phase 2 into actual use, even
   though only English ships at launch — retrofitting this later is far more expensive than
   finishing the seam now.
@@ -402,12 +413,12 @@ assistance.
 
 ---
 
-## Phase 8 — Packaging & Distribution — *scaffold in 0.5.0*
+## Phase 8 — Packaging & Distribution — *updater key in 0.5.1*
 
 **Goal:** the "double-click and it works" experience from Phase 2, finished properly.
 
 Tasks:
-- Tauri v2 config + updater plugin scaffold (`src-tauri/`) — *0.5.0*; PyInstaller remains the
+- Tauri v2 config + updater plugin with real minisign pubkey (`src-tauri/updater.key.pub`) — *0.5.1*; private key via `TAURI_SIGNING_PRIVATE_KEY` in release CI. PyInstaller remains the
   primary Windows portable path from 0.2.0.
 - Per-OS CI builds in `.github/workflows/release.yml` — *0.5.0*
 - Package `restore serve` as a headless/server-mode option (e.g. a Docker image) for users

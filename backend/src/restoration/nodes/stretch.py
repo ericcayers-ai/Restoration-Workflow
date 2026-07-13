@@ -122,7 +122,8 @@ class DarkIrNode(StretchNode):
     pipeline_stage = STAGE_DENOISE
     display_name = "DarkIR"
     description = (
-        "All-in-one low-light/noise/blur restoration (v1 only). Licence unverified — opt-in."
+        "All-in-one low-light/noise/blur restoration (v1 only). Licence unverified — "
+        "opt-in. Weights via Hugging Face (set HF_TOKEN if gated)."
     )
     license = LicenseInfo(
         spdx_id="Unverified",
@@ -137,7 +138,8 @@ class DarkIrNode(StretchNode):
             filename="darkir_l.pth",
             size_bytes=50_000_000,
             sha256=None,
-            url="https://github.com/cidautai/DarkIR/releases/download/v1.0/darkir_l.pth",
+            hf_repo_id="cidautai/DarkIR",
+            hf_filename="darkir_l.pth",
         ),
     ]
 
@@ -172,7 +174,10 @@ class DreamClearNode(StretchNode):
     id = "dreamclear"
     category = NodeCategory.GENERATIVE
     display_name = "DreamClear"
-    description = "Degradation-routed DiT restoration (PixArt-α base — verify licence)."
+    description = (
+        "Degradation-routed DiT restoration (PixArt-α base — verify licence). "
+        "Requires Hugging Face access to shallowdream204/DreamClear."
+    )
     license = LicenseInfo(
         spdx_id="Apache-2.0",
         kind=LicenseKind.PERMISSIVE,
@@ -181,15 +186,15 @@ class DreamClearNode(StretchNode):
     vram_tier = VramTier.VERY_HIGH
     _use_diffusion = True
     _hf_repo = "shallowdream204/DreamClear"
-    _weight_name = "dreamclear.pth"
+    _weight_name = "DreamClear-1024.pth"
 
     weight_manifest = [
         WeightFile(
-            filename="dreamclear.pth",
+            filename="DreamClear-1024.pth",
             size_bytes=4_000_000_000,
             sha256=None,
             hf_repo_id="shallowdream204/DreamClear",
-            hf_filename="dreamclear.pth",
+            hf_filename="DreamClear-1024.pth",
         ),
     ]
 
@@ -198,17 +203,22 @@ class UniRestoreNode(StretchNode):
     id = "unirestore"
     category = NodeCategory.REGRESSION
     display_name = "UniRestore"
-    description = "Unified perceptual + task-oriented restoration (MIT)."
+    description = (
+        "Unified perceptual + task-oriented restoration (MIT). "
+        "Weights via Hugging Face unirestore/UniRestore."
+    )
     license = _MIT
     vram_tier = VramTier.MID
     _weight_name = "unirestore.pth"
+    _hf_repo = "unirestore/UniRestore"
 
     weight_manifest = [
         WeightFile(
             filename="unirestore.pth",
             size_bytes=200_000_000,
             sha256=None,
-            url="https://github.com/unirestore/UniRestore/releases/download/v1.0/unirestore.pth",
+            hf_repo_id="unirestore/UniRestore",
+            hf_filename="unirestore.pth",
         ),
     ]
 

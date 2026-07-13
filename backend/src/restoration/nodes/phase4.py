@@ -242,7 +242,7 @@ class DiffBirNode(DiffusionNode):
     display_name = "DiffBIR"
     description = (
         "Blind image restoration via diffusion; general/background pre-stage "
-        "(Apache-2.0)."
+        "(Apache-2.0). Requires Hugging Face access to ai-forever/DiffBIR-v2."
     )
     license = LicenseInfo(
         spdx_id="Apache-2.0",
@@ -251,14 +251,16 @@ class DiffBirNode(DiffusionNode):
     )
     vram_tier = VramTier.HIGH
     _mode = "restore"
-    _local_weight = "diffbir_v2.pt"
+    _local_weight = "DiffBIR_v2.pt"
+    _hf_repo = "ai-forever/DiffBIR-v2"
 
     weight_manifest = [
         WeightFile(
-            filename="diffbir_v2.pt",
+            filename="DiffBIR_v2.pt",
             size_bytes=3_500_000_000,
             sha256=None,
-            url="https://huggingface.co/ai-forever/DiffBIR-v2/resolve/main/DiffBIR_v2.pt",
+            hf_repo_id="ai-forever/DiffBIR-v2",
+            hf_filename="DiffBIR_v2.pt",
         ),
     ]
 

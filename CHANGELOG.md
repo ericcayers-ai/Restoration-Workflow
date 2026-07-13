@@ -5,6 +5,24 @@ All notable changes to this project are documented here. Format follows
 [Semantic Versioning](https://semver.org/) once past 0.x (pre-1.0, minor bumps may
 include breaking changes to the JSON pipeline shape).
 
+## [0.5.1] — 2026-07-14
+
+### Added
+- **Tauri updater signing key** — real minisign pubkey in `src-tauri/tauri.conf.json`; private key
+  gitignored (`src-tauri/updater.key`, set `TAURI_SIGNING_PRIVATE_KEY` in release CI).
+- **Puppeteer-based axe-core** (`@axe-core/puppeteer`) replacing flaky selenium CLI on Windows.
+
+### Changed
+- **Diffusion runtime** — tiled img2img for large restores, PowerPaint BrushNet path when weights
+  are present, clearer gated-model errors referencing `HF_TOKEN`.
+- **Weight manifests** — DiffBIR/DreamClear/DarkIR/UniRestore corrected to real Hugging Face
+  filenames; TOFU SHA pinning retained where upstream is gated (see ROADMAP.md).
+- **Drop zone a11y** — `<label>` pattern fixes `nested-interactive` axe violation.
+
+### Notes
+- Microsoft **Bringing-Old-Photos** remains deferred (vendored triplet architecture); classical
+  `old_photos_scratch` ships instead.
+
 ## [0.5.0] — 2026-07-13
 
 ### Added

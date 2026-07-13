@@ -20,6 +20,9 @@ from .._torch import (
     to_tensor,
 )
 
+_TILE_THRESHOLD = 768
+_TILE_OVERLAP = 64
+
 
 def _require_diffusers(node_id: str) -> Any:
     try:
@@ -45,6 +48,116 @@ def _array_from_pil(img) -> ImageArray:
     return arr[:, :, :3]
 
 
+def _local_weight_path(weights_dir: Path, filename: str | None) -> Path | None:
+    if not filename:
+        return None
+    path = weights_dir / filename
+    return path if path.is_file() else None
+
+
+def _run_tiled_pil(
+    pil,
+    runner,
+    *,
+    tile: int,
+    overlap: int = _TILE_OVERLAP,
+):
+    """Run a PIL→PIL callable over overlapping tiles for large images."""
+    w, h = pil.size
+    if max(w, h) <= tile:
+        return runner(pil)
+
+    from PIL import Image  # noqa: PLC0415
+
+    counts = np.zeros((h, w), dtype=np.float32)
+    accum = np.zeros((h, w, 3), dtype=np.float32)
+    step = max(tile - overlap, tile // 2)
+
+    for y in range(0, h, step):
+        for x in range(0, w, step):
+            x1, y1 = min(x + tile, w), min(y + tile, h)
+            x0, y0 = max(0, x1 - tile), max(0, y1 - tile)
+            crop = pil.crop((x0, y0, x1, y1))
+            restored = runner(crop)
+            arr = np.asarray(restored, dtype=np.float32)
+            accum[y0:y1, x0:x1] += arr
+            counts[y0:y1, x0:x1] += 1.0
+
+    blended = (accum / np.maximum(counts[..., None], 1.0)).clip(0, 255).astype(np.uint8)
+    return Image.fromarray(blended)
+
+
+def _load_img2img_pipe(node_id: str, model_id: str, device: str, dtype: Any):
+    from diffusers import StableDiffusionImg2ImgPipeline  # noqa: PLC0415
+
+    pipe = StableDiffusionImg2ImgPipeline.from_pretrained(
+        model_id,
+        torch_dtype=dtype,
+        safety_checker=None,
+    )
+    return pipe.to(device)
+
+
+def _run_powerpaint_inpaint(
+    node_id: str,
+    pil,
+    params: dict[str, Any],
+    *,
+    device: str,
+    dtype: Any,
+    weights_dir: Path,
+    hf_repo: str | None,
+    steps: int,
+    strength: float,
+):
+    """Inpaint via PowerPaint BrushNet when weights are present, else SD inpainting."""
+    brushnet = _local_weight_path(weights_dir, "powerpaint_brushnet.safetensors")
+    if brushnet is not None and hf_repo:
+        try:
+            from diffusers import (  # noqa: PLC0415
+                BrushNetModel,
+                StableDiffusionBrushNetPipeline,
+            )
+
+            brush = BrushNetModel.from_pretrained(
+                hf_repo,
+                subfolder="PowerPaint_Brushnet",
+                torch_dtype=dtype,
+                local_files_only=False,
+            )
+            pipe = StableDiffusionBrushNetPipeline.from_pretrained(
+                "runwayml/stable-diffusion-v1-5",
+                brushnet=brush,
+                torch_dtype=dtype,
+                safety_checker=None,
+            )
+            pipe = pipe.to(device)
+        except Exception:
+            brushnet = None
+
+    if brushnet is None:
+        from diffusers import AutoPipelineForInpainting  # noqa: PLC0415
+
+        model_id = hf_repo or "runwayml/stable-diffusion-inpainting"
+        pipe = AutoPipelineForInpainting.from_pretrained(
+            model_id,
+            torch_dtype=dtype,
+            safety_checker=None,
+        )
+        pipe = pipe.to(device)
+
+    w, h = pil.size
+    mask = np.zeros((h, w), dtype=np.uint8)
+    mask_pil = _pil_from_array(np.stack([mask] * 3, axis=-1))
+    return pipe(
+        prompt=params.get("prompt", "clean photograph"),
+        image=pil,
+        mask_image=mask_pil,
+        num_inference_steps=steps,
+        strength=strength,
+    ).images[0]
+
+
 def run_diffusion_restore(
     node_id: str,
     image: ImageArray,
@@ -63,63 +176,94 @@ def run_diffusion_restore(
     steps = int(params.get("steps", 20))
     strength = float(params.get("strength", 0.35))
     dtype = torch.float16 if "cuda" in device else torch.float32
+    tile = int(params.get("tile") or 0) or _TILE_THRESHOLD
 
     pil = _pil_from_array(image)
 
     if mode == "fill" and hf_repo:
         from diffusers import FluxFillPipeline  # noqa: PLC0415
 
-        pipe = FluxFillPipeline.from_pretrained(hf_repo, torch_dtype=dtype)
+        try:
+            pipe = FluxFillPipeline.from_pretrained(hf_repo, torch_dtype=dtype)
+        except Exception as exc:
+            raise NodeExecutionError(
+                node_id,
+                "FLUX Fill requires a Hugging Face token with gated-model access "
+                "(set HF_TOKEN) and the [diffusion] extra.",
+            ) from exc
         pipe = pipe.to(device)
         h, w = image.shape[:2]
         mask = np.zeros((h, w), dtype=np.float32)
         mask_pil = _pil_from_array(np.stack([mask] * 3, axis=-1))
-        result = pipe(
-            prompt=params.get("prompt", "high quality photograph"),
-            image=pil,
-            mask_image=mask_pil,
-            num_inference_steps=steps,
-            guidance_scale=float(params.get("guidance", 3.5)),
-        ).images[0]
+
+        def _fill(crop):
+            return pipe(
+                prompt=params.get("prompt", "high quality photograph"),
+                image=crop,
+                mask_image=mask_pil.resize(crop.size),
+                num_inference_steps=steps,
+                guidance_scale=float(params.get("guidance", 3.5)),
+            ).images[0]
+
+        result = _run_tiled_pil(pil, _fill, tile=tile) if max(w, h) > tile else _fill(pil)
         return _array_from_pil(result)
 
     if mode == "inpaint":
-        from diffusers import AutoPipelineForInpainting  # noqa: PLC0415
-
-        model_id = hf_repo or "runwayml/stable-diffusion-inpainting"
-        pipe = AutoPipelineForInpainting.from_pretrained(
-            model_id,
-            torch_dtype=dtype,
-            safety_checker=None,
-        )
-        pipe = pipe.to(device)
-        w, h = pil.size
-        mask = np.zeros((h, w), dtype=np.uint8)
-        mask_pil = _pil_from_array(np.stack([mask] * 3, axis=-1))
-        result = pipe(
-            prompt=params.get("prompt", "clean photograph"),
-            image=pil,
-            mask_image=mask_pil,
-            num_inference_steps=steps,
+        result = _run_powerpaint_inpaint(
+            node_id,
+            pil,
+            params,
+            device=device,
+            dtype=dtype,
+            weights_dir=weights_dir,
+            hf_repo=hf_repo,
+            steps=steps,
             strength=strength,
-        ).images[0]
+        )
         return _array_from_pil(result)
 
-    from diffusers import StableDiffusionImg2ImgPipeline  # noqa: PLC0415
+    # restore: prefer local checkpoint via spandrel when the architecture is known.
+    local = _local_weight_path(weights_dir, local_filename)
+    if local is not None:
+        try:
+            return run_spandrel_checkpoint(
+                node_id,
+                image,
+                params,
+                ctx,
+                weights_dir=weights_dir,
+                filename=local_filename or local.name,
+            )
+        except NodeExecutionError:
+            pass
 
     model_id = hf_repo or "runwayml/stable-diffusion-v1-5"
-    pipe = StableDiffusionImg2ImgPipeline.from_pretrained(
-        model_id,
-        torch_dtype=dtype,
-        safety_checker=None,
+    try:
+        pipe = _load_img2img_pipe(node_id, model_id, device, dtype)
+    except Exception as exc:
+        raise NodeExecutionError(
+            node_id,
+            "Diffusion restore requires Hugging Face access for the model repo "
+            f"({model_id}). Set HF_TOKEN if the repo is gated.",
+        ) from exc
+
+    prompt = params.get("prompt", "high quality sharp photograph, detailed")
+    eff_strength = min(0.55, strength)
+
+    def _restore(crop):
+        return pipe(
+            prompt=prompt,
+            image=crop,
+            strength=eff_strength,
+            num_inference_steps=steps,
+        ).images[0]
+
+    w, h = pil.size
+    result = (
+        _run_tiled_pil(pil, _restore, tile=tile)
+        if max(w, h) > tile
+        else _restore(pil)
     )
-    pipe = pipe.to(device)
-    result = pipe(
-        prompt=params.get("prompt", "high quality sharp photograph, detailed"),
-        image=pil,
-        strength=min(0.55, strength),
-        num_inference_steps=steps,
-    ).images[0]
     return _array_from_pil(result)
 
 
