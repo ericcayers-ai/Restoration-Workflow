@@ -33,6 +33,29 @@
   flex: 1;
 }
 
+.editorToggle {
+  display: inline-flex;
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.modeTab,
+.modeActive {
+  font: inherit;
+  font-size: 0.75rem;
+  padding: var(--space-1) var(--space-2);
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.modeActive {
+  background: var(--surface-800);
+  color: var(--accent-amber);
+}
+
 .body {
   flex: 1;
   display: flex;

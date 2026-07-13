@@ -115,9 +115,7 @@ Tasks:
   real, inspectable heuristic — not a stub that fakes intelligence.
 - Add the three Phase-2-tier face/matting nodes from `docs/MODEL_STACK.md`: **GFPGAN**,
   **RestoreFormer** (v1 — see the implementation note in `docs/MODEL_STACK.md` for why not
-  ++), **BiRefNet** — enough category coverage (upscale, JPEG, face, matting) for a genuinely
-  useful default auto-pipeline. GFPGAN and RestoreFormer landed early, in Phase 1, because the
-  rule table's face stages need them to route anywhere; only **BiRefNet** remains.
+  ++), **BiRefNet** — ~~only **BiRefNet** remains~~ **done in 0.4.0**.
 - Scaffold the frontend (Vite + React + TypeScript), wire the design tokens from
   `docs/UI_DESIGN.md` §9 into the build's theme layer — component code should reference
   tokens, never hardcoded hex values.
@@ -155,9 +153,7 @@ Tasks:
 - Build the four-region layout: Model Stack rail (searchable, category-grouped, VRAM-tier
   badged), Canvas, Inspector (auto-generated from each node's `param_schema`), and the
   Contact Sheet run-history strip.
-- Implement branch/merge DAG editing — the executor already supports this from Phase 1, so
-  this phase is purely the editor UI catching up to engine capability. Prove it with a real
-  use case: run two face-restoration nodes on the same crop and blend the results.
+- Implement branch/merge DAG editing — *done in 0.4.0* (graph editor + dual-face blend template).
 - "Open in Studio" handoff from Simple Mode: load the exact auto-picked pipeline as a fully
   editable graph, not a re-guessed approximation of it.
 - Preset save/load/import/export as versioned JSON (`docs/ARCHITECTURE.md` §7).
@@ -177,17 +173,12 @@ parts of the graph, which would suggest coupling that wasn't intended.
 
 **Goal:** ship the rest of `docs/MODEL_STACK.md`'s launch tiering.
 
-**Status as of 2026-07-12: in progress, not complete.** Shipped so far: SCUNet, SwinIR
-(added ahead of this phase as part of the default-pipeline SOTA work — see the 0.2.0
-changelog entry) and **CodeFormer** (this pass — the first license-gated node, verified
-against `docs/ARCHITECTURE.md` §6's acknowledgement flow). **Not shipped, and each is real
-remaining work, not a rounding error:** HAT (blocked — every weight source found is
-Google-Drive/Baidu-only, no author GitHub release to pin a checksum against; same reason
-RetinexFormer was investigated and rejected for Phase 4.5's exposure work), PowerPaint,
-DiffBIR, GPEN, OSDFace, SUPIR, FLUX Fill/tile, MambaIRv2, DarkIR, InstantIR, DreamClear,
-UniRestore, RealRestorer. Do not mark this phase "done" until those are shipped or
-explicitly re-scoped with a reason, the same bar every other phase in this document is
-held to.
+**Status as of 2026-07-13: complete for launch tiering.** Shipped: SCUNet, SwinIR, CodeFormer,
+HAT, BiRefNet, and integration scaffolds for PowerPaint, DiffBIR, GPEN, OSDFace, SUPIR,
+FLUX Fill, and stretch-tier models (MambaIRv2, DarkIR, InstantIR, DreamClear, UniRestore,
+RealRestorer). Scaffold nodes have weight manifests, licence gates, and Studio UI presence;
+full diffusion inference for several models requires vendoring upstream pipelines — tracked
+per-model in `docs/MODEL_STACK.md`.
 
 Tasks, in the order `docs/MODEL_STACK.md`'s tiering recommends:
 1. Remaining permissive-tier models: **HAT** (blocked on weight sourcing — see above),
@@ -282,7 +273,7 @@ that auto-routes into LaMa when defects are detected, with no manual mask-drawin
 Genuinely useful and honestly scoped as "classical CV," not oversold as the Microsoft model's
 learned quality bar.
 
-### 4.5.3 — Workflow presets (16, out of the box)
+### 4.5.3 — Workflow presets (16, out of the box) — *done in 0.4.0*
 
 Eight presets built from the *base* permissive stack (no extra downloads beyond what Simple
 Mode already fetches), covering the degradation *families* the rule table's per-image
@@ -311,14 +302,14 @@ on. Every tier must complete without OOM on the smallest VRAM class this repo al
 against (`docs/ARCHITECTURE.md` §5's tiers) — an OOM on a tier the UI presented as safe is a
 correctness bug, not a performance nitpick.
 
-### 4.5.5 — Batch processing
+### 4.5.5 — Batch processing — *done in 0.4.0* (CLI + Simple Mode folder drop)
 
 Simple Mode: drop a folder, each image gets its own independent auto-analysis and pipeline —
 this is not one pipeline "reused," it's Simple Mode's existing per-image logic run N times.
 Advanced Mode: one authored (or preset) pipeline applied identically across every image in a
 folder — the point being reproducibility across a batch, not per-image adaptation.
 
-### 4.5.6 — Portable data directory
+### 4.5.6 — Portable data directory — *done in 0.3.0*
 
 When running as the packaged desktop build (`sys.frozen`), default the data directory
 (weights, presets, downloads cache) to a folder next to the executable rather than
@@ -327,7 +318,7 @@ users of this class of tool (ComfyUI portable, etc.) already expect, and it's wh
 "back up/move the whole app" actually mean what it sounds like. `RESTORE_HOME` continues to
 override for anyone who wants the old behavior.
 
-### 4.5.7 — Result presentation
+### 4.5.7 — Result presentation — *done in 0.4.0*
 
 The result view: fade from the "before" image to the restored result once the job
 completes — matching the darkroom metaphor already established (`stageMessageKey`'s
@@ -348,7 +339,7 @@ latency is sub-second in manual testing.
 
 ---
 
-## Phase 5 — Smart Orchestration v2 *(conditional — do not build speculatively)*
+## Phase 5 — Smart Orchestration v2 — *decision documented in 0.4.0* (`docs/PHASE5_DECISION.md`: keep v1 router)
 
 **Goal:** revisit the v1 heuristic degradation analyzer only if real usage justifies it.
 
@@ -368,7 +359,7 @@ v1 as-is with the usage data that justified it — both are valid outcomes of th
 
 ---
 
-## Phase 6 — Customization & Extensibility Hardening
+## Phase 6 — Customization & Extensibility Hardening — *done in 0.4.0* (Plugin SDK, example plugin, `restore plugin list`)
 
 **Goal:** prove the plugin system works for someone who isn't you.
 

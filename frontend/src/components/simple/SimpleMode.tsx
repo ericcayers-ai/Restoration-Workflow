@@ -37,6 +37,7 @@ import { ModelStackRail } from "../studio/ModelStackRail";
 import { StageList } from "../studio/StageList";
 import { ActionBar } from "./ActionBar";
 import { DropZone } from "./DropZone";
+import { JobLogPanel } from "./JobLogPanel";
 import { LightTable } from "./LightTable";
 import styles from "./SimpleMode.module.css";
 
@@ -84,6 +85,8 @@ export function SimpleMode({
   const [describedNodes, setDescribedNodes] = useState<DescribedNode[]>([]);
   const [reviewStages, setReviewStages] = useState<Stage[]>([]);
   const [reviewError, setReviewError] = useState<string | null>(null);
+  const [batchIndex, setBatchIndex] = useState(0);
+  const [batchTotal, setBatchTotal] = useState(0);
 
   const downloads = useWeightDownloads();
   const jobEvents = useJobEvents(job?.id ?? null);
@@ -250,6 +253,65 @@ export function SimpleMode({
       .catch((err) => setReviewError(err instanceof ApiError ? err.message : String(err)));
   };
 
+  async function waitForJob(jobId: string): Promise<Job> {
+    while (true) {
+      const updated = await getJob(jobId);
+      if (updated.state === "done" || updated.state === "error" || updated.state === "cancelled") {
+        return updated;
+      }
+      await new Promise((r) => setTimeout(r, 300));
+    }
+  }
+
+  async function handleBatch(files: File[]) {
+    setBatchTotal(files.length);
+    for (let i = 0; i < files.length; i++) {
+      setBatchIndex(i + 1);
+      const selected = files[i]!;
+      setFile(selected);
+      if (beforeUrl) URL.revokeObjectURL(beforeUrl);
+      setBeforeUrl(URL.createObjectURL(selected));
+      setJob(null);
+      setErrorMessage(null);
+      setStatus("analyzing");
+      try {
+        const result = await analyzeImage(selected);
+        setAuto(result);
+        const stages = pipelineToStages(result.pipeline, describedByType);
+        setReviewStages(stages);
+        const { pipeline, error } = stagesToPipeline(stages);
+        if (error) break;
+        const missing = missingWeightsFor(pipeline, describedByType);
+        if (missing.length > 0) {
+          setStatus("downloading");
+          const ok = await downloads.downloadAll(missing);
+          if (!ok) break;
+        }
+        setStatus("submitting");
+        const submitted = await submitJob(selected, { pipeline });
+        setJob(submitted);
+        setStatus("processing");
+        const finished = await waitForJob(submitted.id);
+        setJob(finished);
+        setStatus(finished.state === "done" ? "done" : "error");
+        if (finished.state !== "done") break;
+      } catch (err) {
+        setStatus("error");
+        setErrorMessage(err instanceof ApiError ? err.message : String(err));
+        break;
+      }
+    }
+    setBatchTotal(0);
+  }
+
+  function tryAgain() {
+    if (!file) return;
+    setJob(null);
+    setErrorMessage(null);
+    setFallback(null);
+    setStatus("review");
+  }
+
   function reset() {
     setStatus("idle");
     setFile(null);
@@ -260,6 +322,7 @@ export function SimpleMode({
     setFallback(null);
     setReviewStages([]);
     setReviewError(null);
+    setBatchTotal(0);
   }
 
   function download(filename: string) {
@@ -347,7 +410,7 @@ export function SimpleMode({
   if (status === "idle") {
     return (
       <div className={styles.screen}>
-        <DropZone onFile={handleFile} />
+        <DropZone onFile={handleFile} onFiles={(files) => void handleBatch(files)} />
       </div>
     );
   }
@@ -421,6 +484,7 @@ export function SimpleMode({
           afterUrl={jobResultUrl(job.id)}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
+          reveal
         />
         <ActionBar
           onSave={() => download("restored.png")}
@@ -428,6 +492,7 @@ export function SimpleMode({
           onCompare={() => setViewMode((m) => (m === "side-by-side" ? "slider" : "side-by-side"))}
           onOpenInStudio={() => file && onOpenInStudio(job.pipeline, file)}
           onReset={reset}
+          onTryAgain={tryAgain}
         />
       </div>
     );
@@ -479,6 +544,13 @@ export function SimpleMode({
             tone="active"
             busy
           />
+          <JobLogPanel events={jobEvents.byNode} open />
+          {batchTotal > 0 && (
+            <StatusLine
+              message={t("simple.batch.progress", { current: batchIndex, total: batchTotal })}
+              tone="active"
+            />
+          )}
           {job && (
             <Button variant="ghost" size="small" onClick={() => cancelJob(job.id)}>
               {t("common.cancel")}

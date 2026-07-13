@@ -11,7 +11,14 @@ import styles from "./DropZone.module.css";
 
 const ACCEPTED = ".jpg,.jpeg,.png,.webp,.bmp,.tif,.tiff";
 
-export function DropZone({ onFile }: { onFile: (file: File) => void }) {
+export function DropZone({
+  onFile,
+  onFiles,
+}: {
+  onFile: (file: File) => void;
+  /** Batch mode: process every image in a dropped folder (ROADMAP.md 4.5.5). */
+  onFiles?: (files: File[]) => void;
+}) {
   const t = useT();
   const [active, setActive] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -20,10 +27,18 @@ export function DropZone({ onFile }: { onFile: (file: File) => void }) {
 
   const handleFiles = useCallback(
     (files: FileList | null) => {
-      const file = files?.[0];
+      if (!files?.length) return;
+      const imageFiles = Array.from(files).filter((f) =>
+        /\.(jpe?g|png|webp|bmp|tiff?)$/i.test(f.name),
+      );
+      if (onFiles && imageFiles.length > 1) {
+        onFiles(imageFiles);
+        return;
+      }
+      const file = imageFiles[0] ?? files[0];
       if (file) onFile(file);
     },
-    [onFile],
+    [onFile, onFiles],
   );
 
   return (
@@ -56,12 +71,13 @@ export function DropZone({ onFile }: { onFile: (file: File) => void }) {
       </div>
       <p className={styles.title}>{t("simple.dropTitle")}</p>
       <p className={styles.subtitle}>{t("simple.dropSubtitle")}</p>
-      <p className={styles.hint}>{t("simple.dropHint")}</p>
+      <p className={styles.hint}>{onFiles ? t("simple.dropHintBatch") : t("simple.dropHint")}</p>
       <input
         ref={inputRef}
         className={styles.input}
         type="file"
         accept={ACCEPTED}
+        {...(onFiles ? { webkitdirectory: "", multiple: true } : {})}
         tabIndex={-1}
         aria-hidden="true"
         onChange={(e) => {

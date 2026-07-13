@@ -28,6 +28,14 @@ import {
 import { useRegisterCommands } from "../../lib/commands";
 import { useT } from "../../lib/i18n";
 import {
+  createDagNode,
+  dagToPipeline,
+  dualFaceBlendTemplate,
+  pipelineToDag,
+  type DagEdge,
+  type DagNode,
+} from "../../lib/pipelineDag";
+import {
   createStage,
   pipelineToStages,
   stagesToPipeline,
@@ -41,6 +49,7 @@ import { StatusLine } from "../common/StatusLine";
 import { ContactSheet, type RunRecord } from "./ContactSheet";
 import { Inspector } from "./Inspector";
 import { ModelStackRail } from "./ModelStackRail";
+import { PipelineCanvas } from "./PipelineCanvas";
 import { PresetBar } from "./PresetBar";
 import { StageList } from "./StageList";
 import styles from "./StudioMode.module.css";
@@ -66,6 +75,9 @@ export function StudioMode({ handoff }: { handoff: StudioHandoff | null }) {
   const [banner, setBanner] = useState<{ tone: "error" | "success"; message: string } | null>(
     null,
   );
+  const [editorMode, setEditorMode] = useState<"list" | "dag">("list");
+  const [dagNodes, setDagNodes] = useState<DagNode[]>([]);
+  const [dagEdges, setDagEdges] = useState<DagEdge[]>([]);
 
   const downloads = useWeightDownloads();
   const jobEvents = useJobEvents(job?.id ?? null);
@@ -147,22 +159,39 @@ export function StudioMode({ handoff }: { handoff: StudioHandoff | null }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobEvents.terminal]);
 
-  const selectedStage = useMemo(
-    () => stages.find((s) => s.id === selectedId) ?? null,
-    [stages, selectedId],
-  );
+  const selectedStage = useMemo(() => {
+    if (editorMode === "dag") {
+      const n = dagNodes.find((s) => s.id === selectedId);
+      if (!n) return null;
+      return {
+        id: n.id,
+        nodeType: n.nodeType,
+        displayName: n.displayName,
+        category: n.category,
+        params: n.params,
+        pinned: n.pinned,
+      } as Stage;
+    }
+    return stages.find((s) => s.id === selectedId) ?? null;
+  }, [stages, dagNodes, selectedId, editorMode]);
   const selectedDescribed = selectedStage ? (describedByType[selectedStage.nodeType] ?? null) : null;
 
   const onAddStage = useCallback(
     (nodeTypeId: string) => {
       const described = describedByType[nodeTypeId];
       if (!described) return;
-      const stage = createStage(described);
-      setStages((prev) => [...prev, stage]);
-      setSelectedId(stage.id);
+      if (editorMode === "dag") {
+        const node = createDagNode(described, 80 + dagNodes.length * 40, 80);
+        setDagNodes((prev) => [...prev, node]);
+        setSelectedId(node.id);
+      } else {
+        const stage = createStage(described);
+        setStages((prev) => [...prev, stage]);
+        setSelectedId(stage.id);
+      }
       setPipelineError(null);
     },
-    [describedByType],
+    [describedByType, editorMode, dagNodes.length],
   );
 
   const onMoveStage = useCallback((stageId: string, direction: -1 | 1) => {
@@ -232,7 +261,10 @@ export function StudioMode({ handoff }: { handoff: StudioHandoff | null }) {
 
   async function handleRun(): Promise<void> {
     if (!file) return;
-    const { pipeline, error } = stagesToPipeline(stages);
+    const { pipeline, error } =
+      editorMode === "dag"
+        ? dagToPipeline(dagNodes, dagEdges)
+        : stagesToPipeline(stages);
     if (error) {
       setBanner({ tone: "error", message: error });
       return;
@@ -394,6 +426,48 @@ export function StudioMode({ handoff }: { handoff: StudioHandoff | null }) {
           }}
         />
         <div className={styles.spacer} />
+        <div className={styles.editorToggle} role="tablist" aria-label="Editor mode">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={editorMode === "list"}
+            className={editorMode === "list" ? styles.modeActive : styles.modeTab}
+            onClick={() => setEditorMode("list")}
+          >
+            {t("studio.editor.list")}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={editorMode === "dag"}
+            className={editorMode === "dag" ? styles.modeActive : styles.modeTab}
+            onClick={() => {
+              setEditorMode("dag");
+              const { nodes, edges } = pipelineToDag(
+                stagesToPipeline(stages).pipeline,
+                describedByType,
+              );
+              setDagNodes(nodes);
+              setDagEdges(edges);
+            }}
+          >
+            {t("studio.editor.dag")}
+          </button>
+        </div>
+        <Button
+          variant="ghost"
+          size="small"
+          onClick={() => {
+            const tpl = dualFaceBlendTemplate(describedByType);
+            if (!tpl) return;
+            setEditorMode("dag");
+            setDagNodes(tpl.nodes);
+            setDagEdges(tpl.edges);
+          }}
+        >
+          {t("studio.editor.dualFace")}
+        </Button>
+        <div className={styles.spacer} />
         <Button variant="primary" icon="play" onClick={() => void handleRun()} disabled={!file || running}>
           {running ? t("studio.canvas.running") : t("studio.canvas.run")}
         </Button>
@@ -407,15 +481,37 @@ export function StudioMode({ handoff }: { handoff: StudioHandoff | null }) {
 
       <div className={styles.body}>
         <ModelStackRail nodes={describedNodes} onAddNode={onAddStage} />
-        <StageList
-          stages={stages}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-          onMove={onMoveStage}
-          onRemove={onRemoveStage}
-          onAutoOrder={onAutoOrder}
-          error={pipelineError}
-        />
+        {editorMode === "list" ? (
+          <StageList
+            stages={stages}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            onMove={onMoveStage}
+            onRemove={onRemoveStage}
+            onAutoOrder={onAutoOrder}
+            error={pipelineError}
+          />
+        ) : (
+          <PipelineCanvas
+            nodes={dagNodes}
+            edges={dagEdges}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            onMoveNode={(id, x, y) =>
+              setDagNodes((prev) => prev.map((n) => (n.id === id ? { ...n, x, y } : n)))
+            }
+            onConnect={(from, to, toInput) =>
+              setDagEdges((prev) => [
+                ...prev,
+                { id: `e${prev.length}`, from, to, toInput },
+              ])
+            }
+            onRemoveNode={(id) => {
+              setDagNodes((prev) => prev.filter((n) => n.id !== id));
+              setDagEdges((prev) => prev.filter((e) => e.from !== id && e.to !== id));
+            }}
+          />
+        )}
         <Inspector
           selectedStage={selectedStage}
           described={selectedDescribed}

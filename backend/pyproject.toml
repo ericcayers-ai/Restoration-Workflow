@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "restoration-workflow"
-version = "0.3.0"
+version = "0.4.0"
 description = "Local-first photo restoration engine: DAG pipeline executor, restoration node plugins, weight manager, and REST/WebSocket API."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -29,6 +29,7 @@ inference = [
     # MIT-licensed loader code for extra architectures (CodeFormer, ...); a model's own
     # weight license is still checked and gated per-node, same as MAIN_REGISTRY models.
     "spandrel_extra_arches>=0.2",
+    "transformers>=4.40",
     # Capped below 5: opencv-python(-headless) 5.0.0 removed cv2.CascadeClassifier
     # from the top-level namespace (confirmed 2026-07-12, not a relocation — it's
     # gone from the public API entirely in that build), which is what

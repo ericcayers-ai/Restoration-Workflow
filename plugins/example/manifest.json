@@ -1,0 +1,6 @@
+{
+  "name": "example-invert",
+  "version": "1.0.0",
+  "module": "plugin.py",
+  "nodes": ["InvertNode"]
+}

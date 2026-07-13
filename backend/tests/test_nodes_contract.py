@@ -97,7 +97,15 @@ def test_describe_is_json_serializable(cls):
     json.dumps(cls().describe())
 
 
-_GATED_BUILTIN_IDS = {"codeformer"}  # Phase 4's first non-commercial addition
+_GATED_BUILTIN_IDS = {
+    "codeformer",
+    "gpen",
+    "osdface",
+    "supir",
+    "flux_fill",
+    "darkir",
+    "realrestorer",
+}
 
 
 def test_permissively_licensed_nodes_need_no_acknowledgement():

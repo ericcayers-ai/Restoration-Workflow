@@ -24,7 +24,7 @@ from .conftest import ALL_FAKE_NODES
 
 @pytest.fixture
 def services(data_dir: Path) -> AppServices:
-    app_services = AppServices(data_dir=data_dir, force_cpu=True)
+    app_services = AppServices(data_dir=data_dir, force_cpu=True, seed_builtin_presets=False)
     for cls in ALL_FAKE_NODES:
         app_services.registry.register(cls)
     return app_services

@@ -5,7 +5,7 @@
  * difference-heatmap view." (UI_DESIGN.md section 7)
  */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useT } from "../../lib/i18n";
 import { useDifferenceImage } from "../../lib/useDifferenceImage";
 import styles from "./LightTable.module.css";
@@ -23,19 +23,38 @@ export function LightTable({
   afterUrl,
   viewMode,
   onViewModeChange,
+  reveal = false,
 }: {
   beforeUrl: string;
   afterUrl: string;
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
+  /** Fade the restored result in once complete (ROADMAP.md 4.5.7). */
+  reveal?: boolean;
 }) {
   const t = useT();
   const [position, setPosition] = useState(50);
   const [aspectRatio, setAspectRatio] = useState<string>("4 / 3");
+  const [fadeIn, setFadeIn] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const panStart = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
   const diff = useDifferenceImage(beforeUrl, afterUrl, viewMode === "difference");
 
+  useEffect(() => {
+    if (!reveal) return;
+    setFadeIn(false);
+    const timer = window.setTimeout(() => setFadeIn(true), 80);
+    return () => window.clearTimeout(timer);
+  }, [afterUrl, reveal]);
+
+  function onWheel(e: React.WheelEvent) {
+    e.preventDefault();
+    setZoom((z) => Math.min(4, Math.max(1, z + (e.deltaY < 0 ? 0.1 : -0.1))));
+  }
+
   return (
-    <div className={`${styles.mat} grain-surface`}>
+    <div className={styles.mat}>
       <div className={styles.viewModeRow}>
         <div className={styles.segmented} role="radiogroup" aria-label="Comparison view">
           {MODES.map((mode) => (
@@ -51,21 +70,40 @@ export function LightTable({
             </button>
           ))}
         </div>
+        <div className={styles.zoomControls}>
+          <button type="button" className={styles.zoomBtn} onClick={() => setZoom((z) => Math.max(1, z - 0.25))}>−</button>
+          <span className="mono">{Math.round(zoom * 100)}%</span>
+          <button type="button" className={styles.zoomBtn} onClick={() => setZoom((z) => Math.min(4, z + 0.25))}>+</button>
+          <button type="button" className={styles.zoomBtn} onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}>{t("simple.zoom.reset")}</button>
+        </div>
       </div>
 
-      {/* The slider view's two layers are both position:absolute (so they can
-          overlap), which means neither contributes to normal-flow height —
-          without an explicit aspect-ratio here, .frame collapses to 0px tall
-          and the whole comparison silently disappears. Side-by-side and the
-          difference canvas happen to survive without this (an <img>/<canvas>
-          is a replaced element that falls back to its own intrinsic aspect
-          ratio), but deriving it once, from the real "after" image, is the
-          same fix applied uniformly rather than relying on that accident. */}
-      <div className={styles.frame} style={{ aspectRatio }}>
+      <div
+        className={styles.frame}
+        style={{ aspectRatio }}
+        onWheel={onWheel}
+        onPointerDown={(e) => {
+          if (zoom <= 1) return;
+          panStart.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y };
+          (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+        }}
+        onPointerMove={(e) => {
+          if (!panStart.current) return;
+          setPan({
+            x: panStart.current.px + (e.clientX - panStart.current.x),
+            y: panStart.current.py + (e.clientY - panStart.current.y),
+          });
+        }}
+        onPointerUp={() => { panStart.current = null; }}
+      >
+        <div
+          className={styles.zoomLayer}
+          style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
+        >
         {viewMode === "slider" && (
           <div className={styles.compareArea}>
             <img
-              className={styles.layerBase}
+              className={`${styles.layerBase} ${reveal && fadeIn ? styles.revealed : ""}`}
               src={afterUrl}
               alt={t("simple.after")}
               onLoad={(e) => {
@@ -114,6 +152,7 @@ export function LightTable({
             />
           </>
         )}
+        </div>
       </div>
     </div>
   );

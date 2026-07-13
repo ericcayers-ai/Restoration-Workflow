@@ -16,6 +16,8 @@ import { useEffect, useRef, useState } from "react";
 import { jobEventsUrl } from "./api";
 import type { ProgressEvent } from "./types";
 
+export type NodeEvent = ProgressEvent;
+
 const MAX_RECONNECT_ATTEMPTS = 3;
 const RECONNECT_DELAY_MS = 500;
 

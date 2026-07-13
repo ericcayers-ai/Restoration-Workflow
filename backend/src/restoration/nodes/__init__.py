@@ -14,45 +14,90 @@ itself unrunnable when someone actually tries to run it.
 from __future__ import annotations
 
 from ..core.types import BaseRestorationNode
+from .birefnet import BiRefNetNode
 from .codeformer import CodeFormerNode
 from .exposure import ExposureCorrectNode
 from .face_nodes import GfpganNode, RestoreFormerNode
 from .fbcnn import FbcnnNode
+from .hat import HatNode
 from .lama import LamaNode
 from .masks import BlendNode, MaskFromImageNode
+from .phase4 import (
+    DiffBirNode,
+    FluxFillNode,
+    GpenNode,
+    OsdFaceNode,
+    PowerPaintNode,
+    SupirNode,
+)
 from .realesrgan import RealEsrganNode
 from .scunet import ScunetNode
+from .stretch import (
+    DarkIrNode,
+    DreamClearNode,
+    InstantIrNode,
+    MambaIrNode,
+    RealRestorerNode,
+    UniRestoreNode,
+)
 from .swinir import SwinIrDenoiseNode, SwinIrJpegNode, SwinIrSrNode
 
 BUILTIN_NODES: list[type[BaseRestorationNode]] = [
     ExposureCorrectNode,
     RealEsrganNode,
+    HatNode,
     SwinIrSrNode,
     FbcnnNode,
     SwinIrJpegNode,
     ScunetNode,
     SwinIrDenoiseNode,
+    DiffBirNode,
+    MambaIrNode,
+    DarkIrNode,
     GfpganNode,
     RestoreFormerNode,
     CodeFormerNode,
+    GpenNode,
+    OsdFaceNode,
+    BiRefNetNode,
+    PowerPaintNode,
     LamaNode,
     MaskFromImageNode,
     BlendNode,
+    SupirNode,
+    FluxFillNode,
+    InstantIrNode,
+    DreamClearNode,
+    UniRestoreNode,
+    RealRestorerNode,
 ]
 
 __all__ = [
     "BUILTIN_NODES",
+    "BiRefNetNode",
     "BlendNode",
     "CodeFormerNode",
+    "DarkIrNode",
+    "DiffBirNode",
+    "DreamClearNode",
     "ExposureCorrectNode",
     "FbcnnNode",
-    "GfpganNode",
+    "FluxFillNode",
+    "GpenNode",
+    "HatNode",
+    "InstantIrNode",
     "LamaNode",
+    "MambaIrNode",
     "MaskFromImageNode",
+    "OsdFaceNode",
+    "PowerPaintNode",
     "RealEsrganNode",
+    "RealRestorerNode",
     "RestoreFormerNode",
     "ScunetNode",
+    "SupirNode",
     "SwinIrDenoiseNode",
     "SwinIrJpegNode",
     "SwinIrSrNode",
+    "UniRestoreNode",
 ]

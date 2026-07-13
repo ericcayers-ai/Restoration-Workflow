@@ -13,12 +13,14 @@ export function ActionBar({
   onCompare,
   onOpenInStudio,
   onReset,
+  onTryAgain,
 }: {
   onSave: () => void;
   onExport: () => void;
   onCompare: () => void;
   onOpenInStudio: () => void;
   onReset: () => void;
+  onTryAgain?: () => void;
 }) {
   const t = useT();
   return (
@@ -35,8 +37,11 @@ export function ActionBar({
       <Button variant="secondary" icon="export" onClick={onExport}>
         {t("simple.action.export")}
       </Button>
+      <Button variant="ghost" onClick={onTryAgain ?? onReset}>
+        {t("simple.action.tryAgain")}
+      </Button>
       <Button variant="ghost" onClick={onReset}>
-        {t("simple.action.reset")}
+        {t("simple.action.newPhoto")}
       </Button>
     </div>
   );

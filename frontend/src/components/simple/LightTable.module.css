@@ -10,7 +10,49 @@
 
 .viewModeRow {
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.zoomControls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.zoomBtn {
+  font: inherit;
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  background: var(--surface-800);
+  border: 1px solid var(--border-hairline);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.zoomBtn:hover {
+  color: var(--accent-amber);
+  border-color: var(--accent-amber);
+}
+
+.zoomLayer {
+  width: 100%;
+  height: 100%;
+  transform-origin: center center;
+  transition: transform var(--motion-fast);
+}
+
+.revealed {
+  animation: develop var(--motion-base) ease-out forwards;
+}
+
+@keyframes develop {
+  from { opacity: 0; filter: brightness(0.85); }
+  to { opacity: 1; filter: brightness(1); }
 }
 
 .segmented {

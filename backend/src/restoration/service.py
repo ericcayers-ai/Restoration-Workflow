@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .builtin_presets import seed_builtin_presets as _seed_builtin_presets
 from .core.analyzer import DegradationAnalyzer, DegradationProfile
 from .core.executor import PipelineExecutor, PipelineSpec
 from .core.hardware import HardwareDetector, HardwareInfo
@@ -53,6 +54,7 @@ class AppServices:
         rule_table: RuleTable | None = None,
         force_cpu: bool | None = None,
         gpu_slots: int | None = None,
+        seed_builtin_presets: bool = True,
     ) -> None:
         self.data_dir = Path(data_dir) if data_dir else default_data_dir()
         self.plugins_dir = Path(plugins_dir) if plugins_dir else self.data_dir / "plugins"
@@ -65,6 +67,8 @@ class AppServices:
         self.hardware = HardwareDetector(force_cpu=force_cpu)
         self.analyzer = DegradationAnalyzer()
         self.presets = PresetStore(self.data_dir / "presets")
+        if seed_builtin_presets:
+            _seed_builtin_presets(self.presets, self.registry)
 
         self.rule_table = rule_table or RuleTable.load_default()
         # Fails loudly at startup rather than mid-run if the default auto-pipeline

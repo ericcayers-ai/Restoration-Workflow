@@ -5,6 +5,35 @@ All notable changes to this project are documented here. Format follows
 [Semantic Versioning](https://semver.org/) once past 0.x (pre-1.0, minor bumps may
 include breaking changes to the JSON pipeline shape).
 
+## [0.4.0] — 2026-07-13
+
+### Added
+- **BiRefNet** matting node (MIT, Hugging Face weights via `transformers`).
+- **HAT** super-resolution (Apache-2.0, Acly/hat mirror on Hugging Face).
+- **Phase 4 model stack** — integration scaffolds with weight manifests and licence
+  gates for GPEN, OSDFace, PowerPaint, DiffBIR, SUPIR, FLUX Fill, and stretch-tier
+  nodes (MambaIRv2, DarkIR, InstantIR, DreamClear, UniRestore, RealRestorer).
+- **Sixteen built-in workflow presets** (eight base + eight full-stack variants) seeded
+  on first run.
+- **DAG graph editor** in Studio Mode — branch/merge pipelines including a dual-face
+  blend template; list editor retained for linear chains.
+- **Simple Mode batch** — drop a folder for per-image auto-analysis and restoration.
+- **Result presentation** — fade reveal on completion, zoom/pan on the light table,
+  expandable per-stage log during processing, separate Try again / New photo actions.
+- **Plugin SDK** (`docs/PLUGIN_SDK.md`) and `plugins/example/` invert demo.
+- **Phase 5 decision** documented in `docs/PHASE5_DECISION.md` (keep v1 heuristic router).
+- Router override telemetry (`core/router_telemetry.py`).
+- Docker headless image (`Dockerfile`), `NOTICE` license bundle.
+
+### Changed
+- Studio Mode toggles between ordered list and graph editor.
+- `transformers` added to the `[inference]` optional dependency for BiRefNet.
+
+### Notes
+- Diffusion and stretch-tier nodes ship with manifests and UI integration; full upstream
+  inference for several models remains tracked work where vendoring is required — see
+  ROADMAP.md Phase 4 for per-model status.
+
 ## [0.3.0] — 2026-07-13
 
 ### Added

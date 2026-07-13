@@ -1,0 +1,9 @@
+Restoration Workflow — Third-Party Model Licenses
+
+Core orchestration: Apache-2.0 (see LICENSE).
+
+Downloadable model weights retain their upstream licenses. See docs/MODEL_STACK.md
+for the complete tiering table. Non-commercial models (CodeFormer, GPEN, SUPIR,
+FLUX Fill) require explicit per-model acknowledgement before download.
+
+Bundled fonts: Public Sans, IBM Plex Mono (SIL Open Font License).
