@@ -1,8 +1,20 @@
 {
   "version": 1,
-  "comment": "Hand-authored degradation-profile -> node-chain routing for Simple Mode's default auto-pipeline. Stages are evaluated in order; each stage whose conditions all match appends its node to the chain, so the stage ORDER here is the pipeline order: deblock -> denoise -> quality upscale -> face restore. That ordering is deliberate — compression artifacts and noise are removed at native resolution first, so the upscale and face stages don't amplify them, and faces are restored on the cleaned, upscaled image where detection is most reliable. Every node here must be permissively licensed (enforced by RuleTable.validate); the whole chain runs out of the box with no license acknowledgement. The two upscale stages (swinir, realesrgan) are mutually exclusive by min_dimension so the chain never upscales twice. Thresholds: blur_score is Laplacian variance on a 0-255 scale (< ~100 = soft, < ~40 = clearly blurry); noise_score is a robust sigma on 0-1 luma (> ~0.008 = visibly noisy); jpeg_blockiness is boundary/interior gradient excess (> ~0.12 = visible 8x8 blocking). Note: the analyzer also flags low_light/blown_highlights, but no permissive exposure-correction model ships yet, so those are surfaced to the user without being routed (a RetinexFormer node is the tracked follow-up).",
+  "comment": "Hand-authored degradation-profile -> node-chain routing for Simple Mode's default auto-pipeline. Stages are evaluated in order; each stage whose conditions all match appends its node to the chain, so the stage ORDER here is the pipeline order: exposure correct -> deblock -> denoise -> quality upscale -> face restore. That ordering is deliberate — exposure is corrected and compression artifacts and noise are removed at native resolution first, so the upscale and face stages don't amplify them, and faces are restored on the cleaned, upscaled image where detection is most reliable. Every node here must be permissively licensed (enforced by RuleTable.validate); the whole chain runs out of the box with no license acknowledgement. The two upscale stages (swinir, realesrgan) are mutually exclusive by min_dimension so the chain never upscales twice. Thresholds: blur_score is Laplacian variance on a 0-255 scale (< ~100 = soft, < ~40 = clearly blurry); noise_score is a robust sigma on 0-1 luma (> ~0.008 = visibly noisy); jpeg_blockiness is boundary/interior gradient excess (> ~0.12 = visible 8x8 blocking). low_light/blown_highlights now route to exposure_correct, a classical (non-learned) CLAHE-based node — see docs/MODEL_STACK.md's Exposure Recovery section for why no learned model ships here yet.",
   "fallback_chain": ["realesrgan"],
   "stages": [
+    {
+      "node": "exposure_correct",
+      "when": { "low_light": { "is": true } },
+      "params": {},
+      "reason": "underexposed — recover shadow detail before denoising or upscaling amplifies the compression"
+    },
+    {
+      "node": "exposure_correct",
+      "when": { "blown_highlights": { "is": true } },
+      "params": {},
+      "reason": "overexposed — recover highlight detail before denoising or upscaling"
+    },
     {
       "node": "fbcnn",
       "when": { "jpeg_blockiness": { "gte": 0.12 } },

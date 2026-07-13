@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from ..core.types import BaseRestorationNode
 from .codeformer import CodeFormerNode
+from .exposure import ExposureCorrectNode
 from .face_nodes import GfpganNode, RestoreFormerNode
 from .fbcnn import FbcnnNode
 from .lama import LamaNode
@@ -24,6 +25,7 @@ from .scunet import ScunetNode
 from .swinir import SwinIrDenoiseNode, SwinIrJpegNode, SwinIrSrNode
 
 BUILTIN_NODES: list[type[BaseRestorationNode]] = [
+    ExposureCorrectNode,
     RealEsrganNode,
     SwinIrSrNode,
     FbcnnNode,
@@ -42,6 +44,7 @@ __all__ = [
     "BUILTIN_NODES",
     "BlendNode",
     "CodeFormerNode",
+    "ExposureCorrectNode",
     "FbcnnNode",
     "GfpganNode",
     "LamaNode",
