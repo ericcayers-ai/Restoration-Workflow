@@ -5,6 +5,11 @@ All notable changes to this project are documented here. Format follows
 [Semantic Versioning](https://semver.org/) once past 0.x (pre-1.0, minor bumps may
 include breaking changes to the JSON pipeline shape).
 
+## [0.5.2] — 2026-07-14
+
+### Fixed
+- **CI / Release** — lazy OpenCV and GPEN/torch imports so base and release jobs no longer fail at collection/import time; light-theme axe contrast fixes for accessibility CI.
+
 ## [0.5.1] â€” 2026-07-14
 
 ### Added
