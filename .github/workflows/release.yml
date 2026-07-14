@@ -23,6 +23,13 @@ jobs:
       - name: Build Python package
         working-directory: backend
         run: pip install -e ".[dev]" && pytest -q
+      # PyInstaller is not in [dev]; install packaging (+ inference packages that
+      # build_exe.py --collect-all's) before bundling the Windows desktop exe.
+      - name: Install packaging deps
+        working-directory: backend
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -e ".[inference,packaging]"
       - name: PyInstaller bundle
         working-directory: backend
         run: python packaging/build_exe.py

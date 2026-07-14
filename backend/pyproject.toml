@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "restoration-workflow"
-version = "0.5.2"
+version = "0.5.3"
 description = "Local-first photo restoration engine: DAG pipeline executor, restoration node plugins, weight manager, and REST/WebSocket API."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -49,6 +49,10 @@ diffusion = [
 stretch = [
     "mamba-ssm>=2.0",
     "einops>=0.7",
+]
+# Windows desktop PyInstaller bundle (`python packaging/build_exe.py`).
+packaging = [
+    "pyinstaller>=6.0",
 ]
 dev = [
     "pytest>=8.0",
