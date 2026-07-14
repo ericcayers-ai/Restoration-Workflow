@@ -230,8 +230,8 @@ async def test_mask_from_alpha_errors_without_an_alpha_channel(ctx):
 
 
 @pytest.mark.asyncio
-@pytest.mark.asyncio
 async def test_old_photos_scratch_runs(ctx):
+    pytest.importorskip("cv2", reason="old_photos_scratch needs opencv, part of [inference]")
     from restoration.nodes import OldPhotosScratchNode
 
     out = await OldPhotosScratchNode().run(_image(), {}, ctx)

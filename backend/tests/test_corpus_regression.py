@@ -9,7 +9,7 @@ import pytest
 from restoration.core.analyzer import DegradationAnalyzer
 from restoration.core.images import load_image
 from restoration.core.types import RunContext
-from restoration.nodes import MaskFromImageNode, OldPhotosScratchNode
+from restoration.nodes import MaskFromImageNode
 
 CORPUS_DIR = Path(__file__).resolve().parent / "corpus"
 
@@ -42,6 +42,9 @@ def test_analyzer_runs_on_corpus_image(image_path: Path):
 
 @pytest.mark.asyncio
 async def test_old_photos_scratch_on_corpus(ctx):
+    pytest.importorskip("cv2", reason="old_photos_scratch needs opencv, part of [inference]")
+    from restoration.nodes import OldPhotosScratchNode
+
     node = OldPhotosScratchNode()
     for image_path in CORPUS_DIR.glob("*.png"):
         image = load_image(image_path)

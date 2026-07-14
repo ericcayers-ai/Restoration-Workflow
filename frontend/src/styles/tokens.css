@@ -87,7 +87,9 @@
   --border-hairline: #D8CDB4;
   --text-primary: #2B2620;
   --text-secondary: #665D4E;
-  --accent-amber: #B85F19;
+  /* Darkened vs the previous #B85F19 so amber-on-surface-800 active
+     controls meet WCAG AA 4.5:1 (axe color-contrast on CI light theme). */
+  --accent-amber: #8F450E;
   --accent-amber-ink: #F7F3EA;
   --accent-teal: #2E7A6E;
   --accent-brick: #9E3A28;

@@ -50,7 +50,6 @@
   font-family: var(--font-mono);
   font-size: 0.6875rem;
   color: var(--text-secondary);
-  opacity: 0.75;
 }
 
 .input {

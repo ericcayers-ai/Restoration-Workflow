@@ -9,14 +9,23 @@ from __future__ import annotations
 
 from typing import Any
 
-import cv2
 import numpy as np
 
+from ...core.errors import InferenceUnavailableError
 from ...core.types import ImageArray
+
+
+def _require_cv2() -> Any:
+    try:
+        import cv2  # noqa: PLC0415
+    except ImportError as exc:
+        raise InferenceUnavailableError("old_photos_scratch") from exc
+    return cv2
 
 
 def restore_scratches(image: ImageArray, params: dict[str, Any]) -> ImageArray:
     """Detect thin scratches/specks and inpaint them."""
+    cv2 = _require_cv2()
     rgb = image[:, :, :3].copy()
     gray = cv2.cvtColor((rgb * 255).astype(np.uint8), cv2.COLOR_RGB2GRAY)
 
