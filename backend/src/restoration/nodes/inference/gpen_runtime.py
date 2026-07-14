@@ -16,7 +16,6 @@ from .._faces import (
     select_faces,
 )
 from .._torch import merge_alpha, require_torch, split_alpha, to_numpy, to_tensor
-from ..vendored.gpen_model import FullGenerator
 
 
 def run_gpen(
@@ -29,7 +28,7 @@ def run_gpen(
 ) -> ImageArray:
     torch, _ = require_torch("gpen")
     try:
-        from ..vendored import gpen_model  # noqa: F401, PLC0415
+        from ..vendored.gpen_model import FullGenerator  # noqa: PLC0415
     except ImportError as exc:
         raise InferenceUnavailableError("gpen") from exc
 
