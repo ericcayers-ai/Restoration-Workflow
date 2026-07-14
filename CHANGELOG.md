@@ -5,10 +5,17 @@ All notable changes to this project are documented here. Format follows
 [Semantic Versioning](https://semver.org/) once past 0.x (pre-1.0, minor bumps may
 include breaking changes to the JSON pipeline shape).
 
+## [0.5.4] - 2026-07-14
+
+### Added
+- **Windows portable zip** — Release builds ship `RestorationWorkflow-windows.zip` with
+  double-click **`Run.bat`**, a short `README.txt`, and the PyInstaller onedir app.
+  GitHub Releases now attach that zip as the downloadable asset.
+
 ## [0.5.3] - 2026-07-14
 
 ### Fixed
-- **CI / Release (Windows)** â€” install `[packaging]` (PyInstaller) and `[inference]` before the PyInstaller bundle step so `build-windows` no longer fails with `ModuleNotFoundError: No module named 'PyInstaller'`.
+- **CI / Release (Windows)** — install `[packaging]` (PyInstaller) and `[inference]` before the PyInstaller bundle step so `build-windows` no longer fails with `ModuleNotFoundError: No module named 'PyInstaller'`.
 
 ## [0.5.2] — 2026-07-14
 

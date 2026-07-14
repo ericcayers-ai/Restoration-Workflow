@@ -64,10 +64,11 @@ shipped* (and why) are in [`docs/MODEL_STACK.md`](docs/MODEL_STACK.md).
 ### Windows: prebuilt app
 
 Download **`RestorationWorkflow-windows.zip`** from the
-[Releases page](../../releases), extract it, and run `RestorationWorkflow.exe`. It
-starts the local server and opens the app in your browser. No Python install required.
-A GPU is optional — the app runs on CPU, just slower; nothing downloads until you ask
-for a model.
+[Releases page](../../releases), extract the folder anywhere, and double-click
+**`Run.bat`**. It starts the local server and opens the app in your browser. No
+Python install required. A GPU is optional — the app runs on CPU, just slower;
+nothing downloads until you ask for a model. (`RestorationWorkflow.exe` is in
+the same folder if you prefer launching it directly.)
 
 ### From source
 

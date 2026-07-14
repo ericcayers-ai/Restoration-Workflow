@@ -4,6 +4,9 @@ on:
   push:
     tags: ["v*"]
 
+permissions:
+  contents: write
+
 jobs:
   build-windows:
     runs-on: windows-latest
@@ -30,9 +33,33 @@ jobs:
         run: |
           pip install torch --index-url https://download.pytorch.org/whl/cpu
           pip install -e ".[inference,packaging]"
-      - name: PyInstaller bundle
+      - name: PyInstaller bundle + zip
         working-directory: backend
         run: python packaging/build_exe.py
+      - name: Upload Windows zip artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RestorationWorkflow-windows
+          path: backend/dist/RestorationWorkflow-windows.zip
+          if-no-files-found: error
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: backend/dist/RestorationWorkflow-windows.zip
+          generate_release_notes: true
+          body: |
+            ## Windows portable package
+
+            1. Download **RestorationWorkflow-windows.zip**
+            2. Extract the folder anywhere
+            3. Double-click **Run.bat**
+
+            The app starts a local server and opens your browser. No Python install required.
+            A GPU is optional (CPU works, just slower). Model weights download on first use.
+
+            Advanced: you can also run `RestorationWorkflow.exe` directly from the extracted folder.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-macos:
     runs-on: macos-latest
