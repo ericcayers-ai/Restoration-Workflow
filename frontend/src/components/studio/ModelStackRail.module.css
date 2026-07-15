@@ -106,9 +106,9 @@
   font-size: 0.625rem;
   font-weight: 600;
   letter-spacing: 0.02em;
-  color: var(--surface-950);
-  background: var(--category-instruct);
-  border: 1px solid var(--category-instruct);
+  color: var(--badge-master-fg);
+  background: var(--badge-master-bg);
+  border: 1px solid var(--badge-master-bg);
   border-radius: 2px;
   padding: 0 4px;
 }

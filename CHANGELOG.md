@@ -26,6 +26,9 @@ include breaking changes to the JSON pipeline shape).
   prompt / negative / strength params; ~34 workflow presets spanning all lanes;
   Simple Mode preset picker; versioned builtin force-refresh.
 
+### Fixed
+- **A11y** — Master Restorer rail badge (MR) uses theme-aware fill/ink tokens so axe color-contrast passes on dark/light/high-contrast.
+
 ### Changed
 - Licence gate copy: "Accept licence and allow download" with clear NC/Restricted
   explanation (no "download anyway").

@@ -81,6 +81,9 @@
   --accent-brick: #C1523F;
   --focus-ring: var(--accent-amber);
   --grain-opacity: 0.025;
+  /* Master Restorer rail badge — fill+ink pair meets WCAG AA (axe CI). */
+  --badge-master-fg: #14120F;
+  --badge-master-bg: #A8D4B0;
 }
 
 :root[data-theme="light"] {
@@ -100,6 +103,8 @@
   --accent-brick: #9E3A28;
   --focus-ring: var(--accent-amber);
   --grain-opacity: 0.035;
+  --badge-master-fg: #F7F3EA;
+  --badge-master-bg: #2E4A35;
 }
 
 /* A third theme variant, not a toggle buried in an OS setting (section 2) —
@@ -127,6 +132,8 @@
   --category-masking: #F0C96F;
   --category-orchestration: #D8D4C8;
   --category-instruct: #A8D4B0;
+  --badge-master-fg: #000000;
+  --badge-master-bg: #A8D4B0;
 }
 
 @media (prefers-reduced-motion: reduce) {
