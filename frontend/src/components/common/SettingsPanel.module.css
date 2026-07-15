@@ -75,6 +75,26 @@
   word-break: break-all;
 }
 
+.bulkRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-sm);
+}
+
+.totals {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.bulkActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
 .banner {
   font-size: 0.8125rem;
   color: var(--accent-teal);
@@ -144,4 +164,67 @@
   gap: var(--space-2);
   font-size: 0.75rem;
   color: var(--accent-teal);
+}
+
+.filterRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.searchField {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+}
+
+.searchField input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+}
+
+.filterChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.filterChip,
+.filterActive {
+  font: inherit;
+  font-size: 0.6875rem;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  background: transparent;
+  cursor: pointer;
+}
+
+.filterActive {
+  color: var(--accent-amber);
+  border-color: var(--accent-amber);
+  background: var(--surface-800);
+}
+
+.downloadActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.empty {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  padding: var(--space-4);
+  text-align: center;
+  list-style: none;
 }

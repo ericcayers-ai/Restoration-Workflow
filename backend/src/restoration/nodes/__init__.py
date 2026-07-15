@@ -16,10 +16,12 @@ from __future__ import annotations
 from ..core.types import BaseRestorationNode
 from .birefnet import BiRefNetNode
 from .codeformer import CodeFormerNode
+from .ddcolor import DdColorNode
 from .exposure import ExposureCorrectNode
 from .face_nodes import GfpganNode, RestoreFormerNode
 from .fbcnn import FbcnnNode
 from .hat import HatNode
+from .instructir import InstructIrNode
 from .lama import LamaNode
 from .masks import BlendNode, MaskFromImageNode
 from .old_photos import OldPhotosScratchNode
@@ -52,9 +54,11 @@ BUILTIN_NODES: list[type[BaseRestorationNode]] = [
     SwinIrJpegNode,
     ScunetNode,
     SwinIrDenoiseNode,
+    DdColorNode,
     DiffBirNode,
     MambaIrNode,
     DarkIrNode,
+    InstructIrNode,
     GfpganNode,
     RestoreFormerNode,
     CodeFormerNode,
@@ -80,6 +84,7 @@ __all__ = [
     "BlendNode",
     "CodeFormerNode",
     "DarkIrNode",
+    "DdColorNode",
     "DiffBirNode",
     "DreamClearNode",
     "ExposureCorrectNode",
@@ -88,6 +93,7 @@ __all__ = [
     "GpenNode",
     "HatNode",
     "InstantIrNode",
+    "InstructIrNode",
     "LamaNode",
     "MambaIrNode",
     "MaskFromImageNode",

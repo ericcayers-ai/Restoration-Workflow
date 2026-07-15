@@ -1,9 +1,25 @@
-Restoration Workflow — Third-Party Model Licenses
+Restoration Workflow
+Copyright 2026 Eric Ayers
 
-Core orchestration: Apache-2.0 (see LICENSE).
+This product is licensed under the Apache License, Version 2.0.
+See the LICENSE file in the project root.
 
-Downloadable model weights retain their upstream licenses. See docs/MODEL_STACK.md
-for the complete tiering table. Non-commercial models (CodeFormer, GPEN, SUPIR,
-FLUX Fill) require explicit per-model acknowledgement before download.
+---------------------------------------------------------------------------
+Third-party notices (summary)
 
-Bundled fonts: Public Sans, IBM Plex Mono (SIL Open Font License).
+This NOTICE is a pointer. Full attributions, SPDX identifiers, and licence
+texts for bundled code/fonts live in THIRD_PARTY_NOTICES.md. Model research
+and downloadable-weight licence tiers live in docs/MODEL_STACK.md.
+
+Important distinction:
+
+  * Bundled with the app (source, vendored architecture code, UI fonts) —
+    redistributed under the terms recorded in THIRD_PARTY_NOTICES.md and/or
+    this project's Apache-2.0 LICENSE for original orchestration code.
+  * Downloaded on demand (neural network weights) — NOT redistributed by
+    this project's release zip. Each weight file remains under its upstream
+    licence. Non-commercial / restricted models require explicit
+    acknowledgement in Settings before download. See docs/MODEL_STACK.md.
+
+Bundled fonts: Public Sans and IBM Plex Mono (SIL Open Font License 1.1).
+Licence text: frontend/public/fonts/OFL.txt

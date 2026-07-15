@@ -10,11 +10,12 @@ scratch every session.
 
 This repo starts as almost pure planning documentation (this ROADMAP and its supporting
 docs) and grows into a real polyglot codebase (Python backend, TypeScript/React frontend,
-Rust/Tauri shell, per-model plugin folders). That mix — docs that describe an architecture,
-and code that implements it — is exactly what graphify's community detection and
-"surprising connections" analysis is good at surfacing: it will show, concretely, whether the
-code that got built actually matches the layering this roadmap describes, not just whether it
-compiles.
+optional experimental `src-tauri/` tree, per-model plugin folders). That mix — docs that
+describe an architecture, and code that implements it — is exactly what graphify's community
+detection and "surprising connections" analysis is good at surfacing: it will show,
+concretely, whether the code that got built actually matches the layering this roadmap
+describes, not just whether it compiles. Treat the PyInstaller Windows zip + browser UI as
+the shipping desktop shape when judging "does packaging match the docs?".
 
 ## When to run it
 

@@ -36,6 +36,9 @@ jobs:
       - name: PyInstaller bundle + zip
         working-directory: backend
         run: python packaging/build_exe.py
+      - name: Smoke frozen Windows zip
+        working-directory: backend
+        run: python packaging/smoke_windows_zip.py
       - name: Upload Windows zip artifact
         uses: actions/upload-artifact@v4
         with:
@@ -77,6 +80,9 @@ jobs:
       - name: Backend tests
         working-directory: backend
         run: pip install -e ".[dev]" && pytest -q
+      - name: Packaging / v0.6 import smoke
+        working-directory: backend
+        run: python packaging/check_bundle_manifest.py
 
   build-linux:
     runs-on: ubuntu-latest
@@ -94,5 +100,22 @@ jobs:
       - name: Backend tests
         working-directory: backend
         run: pip install -e ".[dev]" && pytest -q
+      - name: Packaging / v0.6 import smoke
+        working-directory: backend
+        run: python packaging/check_bundle_manifest.py
       - name: Docker headless image
         run: docker build -t restoration-workflow:${{ github.ref_name }} .
+      - name: Docker inference smoke
+        run: |
+          docker run --rm -d --name rw-smoke -p 8765:8765 restoration-workflow:${{ github.ref_name }}
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8765/api/health | grep -q '"status":"ok"'; then
+              curl -fsS http://127.0.0.1:8765/api/health
+              docker stop rw-smoke
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs rw-smoke || true
+          docker stop rw-smoke || true
+          exit 1

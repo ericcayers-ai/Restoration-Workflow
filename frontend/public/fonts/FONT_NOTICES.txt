@@ -1,0 +1,15 @@
+Bundled UI fonts — Restoration Workflow
+
+Full SIL Open Font License text: OFL.txt (same directory).
+
+1. Public Sans (variable)
+   Copyright 2015-2021 The Public Sans Project Authors
+   (https://github.com/uswds/public-sans)
+   Licensed under the SIL Open Font License, Version 1.1
+   File: PublicSans-Variable.woff2
+
+2. IBM Plex Mono (Regular, Medium)
+   Copyright © 2017 IBM Corp., with Reserved Font Name "Plex"
+   (https://github.com/IBM/plex)
+   Licensed under the SIL Open Font License, Version 1.1
+   Files: IBMPlexMono-Regular.woff2, IBMPlexMono-Medium.woff2

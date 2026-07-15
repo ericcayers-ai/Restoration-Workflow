@@ -1,0 +1,37 @@
+name: Documentation
+description: Typo, stale version info, broken link, or missing guide.
+labels: [documentation]
+body:
+  - type: textarea
+    id: location
+    attributes:
+      label: Where?
+      description: File path, URL, or UI screen (e.g. README.md, docs/ARCHITECTURE.md §8).
+      placeholder: README.md — Install → Windows
+    validations:
+      required: true
+
+  - type: textarea
+    id: issue
+    attributes:
+      label: What's wrong or missing?
+      description: Quote the stale text if you can, and what you expected instead.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Impact
+      options:
+        - Blocks install or first run
+        - Misleading (e.g. claims a feature that isn't shipped)
+        - Minor typo / clarity
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested fix (optional)
+      description: Proposed wording or a link to the correct source of truth.

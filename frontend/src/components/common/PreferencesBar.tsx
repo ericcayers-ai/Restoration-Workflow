@@ -24,27 +24,30 @@ export function ThemeToggle() {
       role="radiogroup"
       aria-label={t("theme.label")}
     >
-      {THEMES.map(({ value }) => (
-        <button
-          key={value}
-          type="button"
-          role="radio"
-          aria-checked={theme === value}
-          className={`${styles.segment} ${theme === value ? styles.segmentActive : ""}`}
-          onClick={() => setTheme(value)}
-          title={
-            value === "dark"
-              ? t("theme.dark")
-              : value === "light"
-                ? t("theme.light")
-                : value === "high-contrast"
-                  ? t("theme.highContrast")
-                  : t("theme.custom")
-          }
-        >
-          {value === "dark" ? "Dk" : value === "light" ? "Lt" : "HC"}
-        </button>
-      ))}
+      {THEMES.map(({ value }) => {
+        const label =
+          value === "dark"
+            ? t("theme.dark")
+            : value === "light"
+              ? t("theme.light")
+              : value === "high-contrast"
+                ? t("theme.highContrast")
+                : t("theme.custom");
+        return (
+          <button
+            key={value}
+            type="button"
+            role="radio"
+            aria-checked={theme === value}
+            aria-label={label}
+            className={`${styles.segment} ${theme === value ? styles.segmentActive : ""}`}
+            onClick={() => setTheme(value)}
+            title={label}
+          >
+            {value === "dark" ? "Dk" : value === "light" ? "Lt" : "HC"}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -52,6 +55,7 @@ export function ThemeToggle() {
 export function ScaleControl() {
   const { scale, setScale } = usePreferences();
   const t = useT();
+  const percent = Math.round(scale * 100);
 
   return (
     <div className={styles.group} role="group" aria-label={t("scale.label")}>
@@ -60,17 +64,20 @@ export function ScaleControl() {
         className={styles.iconButton}
         onClick={() => setScale(scale - SCALE_STEP)}
         disabled={scale <= SCALE_MIN}
-        aria-label="Decrease UI scale"
+        aria-label={t("scale.decrease")}
       >
         <Icon name="chevron-down" size={14} style={{ transform: "rotate(90deg)" }} />
       </button>
-      <span className={styles.scaleValue}>{Math.round(scale * 100)}%</span>
+      <span className={styles.scaleValue} aria-live="polite">
+        <span className="visually-hidden">{t("scale.value", { percent })}</span>
+        <span aria-hidden>{percent}%</span>
+      </span>
       <button
         type="button"
         className={styles.iconButton}
         onClick={() => setScale(scale + SCALE_STEP)}
         disabled={scale >= SCALE_MAX}
-        aria-label="Increase UI scale"
+        aria-label={t("scale.increase")}
       >
         <Icon name="chevron-down" size={14} style={{ transform: "rotate(-90deg)" }} />
       </button>

@@ -19,7 +19,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
-from ..core.errors import RestorationError
+from ..core.errors import JobCancelled, RestorationError
 from ..service import AppServices
 
 
@@ -27,6 +27,7 @@ class DownloadState(str, enum.Enum):
     RUNNING = "running"
     DONE = "done"
     ERROR = "error"
+    CANCELLED = "cancelled"
 
 
 @dataclass
@@ -40,6 +41,9 @@ class Download:
     error: str | None = None
     started_at: float = field(default_factory=time.time)
     finished_at: float | None = None
+    cancel_requested: bool = False
+    params: dict[str, Any] = field(default_factory=dict)
+    all_variants: bool = False
 
     @property
     def progress(self) -> float:
@@ -61,6 +65,8 @@ class Download:
             "error": self.error,
             "started_at": self.started_at,
             "finished_at": self.finished_at,
+            "params": self.params,
+            "all_variants": self.all_variants,
         }
 
 
@@ -69,12 +75,22 @@ class DownloadManager:
         self.services = services
         self._downloads: dict[str, Download] = {}
         self._by_node: dict[str, str] = {}
-        self._tasks: set[asyncio.Task] = set()
+        self._tasks: dict[str, asyncio.Task] = {}
 
     def get(self, download_id: str) -> Download | None:
         return self._downloads.get(download_id)
 
-    def start(self, node_id: str) -> Download:
+    def list(self) -> list[Download]:
+        return sorted(self._downloads.values(), key=lambda d: d.started_at, reverse=True)
+
+    def start(
+        self,
+        node_id: str,
+        *,
+        params: dict[str, Any] | None = None,
+        all_variants: bool = False,
+        filenames: list[str] | None = None,
+    ) -> Download:
         """Idempotent per node: asking twice returns the download already running."""
         existing_id = self._by_node.get(node_id)
         if existing_id is not None:
@@ -92,20 +108,56 @@ class DownloadManager:
 
             raise LicenseNotAcknowledgedError(node_id, node.license.spdx_id)
 
+        resolved_params = {**node.default_params(), **(params or {})}
+        if filenames is not None:
+            by_name = {wf.filename: wf for wf in node.weight_manifest}
+            wanted = [by_name[n] for n in filenames if n in by_name]
+        elif all_variants:
+            wanted = list(node.weight_manifest)
+        else:
+            wanted = self.services.weights.required_files(node, resolved_params)
+        missing = [
+            wf for wf in wanted
+            if not self.services.weights.file_path(node.id, wf).exists()
+        ]
+        bytes_total = (
+            sum(wf.size_bytes for wf in missing)
+            if missing
+            else sum(wf.size_bytes for wf in wanted)
+        )
+
         download = Download(
             id=uuid.uuid4().hex[:16],
             node_id=node_id,
-            bytes_total=sum(w.size_bytes for w in node.weight_manifest),
+            bytes_total=bytes_total,
+            params=resolved_params,
+            all_variants=all_variants,
         )
         self._downloads[download.id] = download
         self._by_node[node_id] = download.id
 
-        task = asyncio.create_task(self._run(download, node))
-        self._tasks.add(task)
-        task.add_done_callback(self._tasks.discard)
+        task = asyncio.create_task(
+            self._run(download, node, resolved_params, all_variants, filenames)
+        )
+        self._tasks[download.id] = task
+        task.add_done_callback(lambda _t, did=download.id: self._tasks.pop(did, None))
         return download
 
-    async def _run(self, download: Download, node: Any) -> None:
+    def cancel(self, download_id: str) -> bool:
+        download = self._downloads.get(download_id)
+        if download is None or download.state is not DownloadState.RUNNING:
+            return False
+        download.cancel_requested = True
+        return True
+
+    async def _run(
+        self,
+        download: Download,
+        node: Any,
+        params: dict[str, Any],
+        all_variants: bool,
+        filenames: list[str] | None,
+    ) -> None:
         loop = asyncio.get_running_loop()
         # Downloaded-so-far for files that already finished, so progress across a
         # multi-file manifest is monotonic rather than restarting per file.
@@ -122,8 +174,24 @@ class DownloadManager:
 
             loop.call_soon_threadsafe(update)
 
+        def check_cancel() -> None:
+            if download.cancel_requested:
+                raise JobCancelled(f"download {download.id} was cancelled")
+
         try:
-            await asyncio.to_thread(self.services.weights.download, node, on_progress)
+            await asyncio.to_thread(
+                self.services.weights.download,
+                node,
+                on_progress,
+                params=params,
+                filenames=filenames,
+                check_cancel=check_cancel,
+                all_variants=all_variants,
+            )
+        except JobCancelled:
+            download.state = DownloadState.CANCELLED
+            download.error = "cancelled"
+            await asyncio.to_thread(self.services.weights.cleanup_partials, node.id)
         except RestorationError as exc:
             download.state = DownloadState.ERROR
             download.error = str(exc)

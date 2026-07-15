@@ -64,6 +64,21 @@ def _resolve_pipeline(
             else services.presets.get(args.preset)
         )
         return parse_pipeline(preset.pipeline, services.registry), None
+    if getattr(args, "instructir_preset", None):
+        plan = services.build_ensemble(
+            image,
+            prompt_preset_id=args.instructir_preset,
+            mode="guide_and_finish",
+        )
+        return parse_pipeline(plan["pipeline"], services.registry), {
+            "profile": services.analyzer.analyze(image).to_dict(),
+            "routing": {
+                "chain": plan["chain"],
+                "params": plan["params"],
+                "reasons": plan["reasons"],
+            },
+            "master_instruction": plan["instruction"],
+        }
 
     from .core.quality import QualityTier  # noqa: PLC0415
 
@@ -249,7 +264,12 @@ def _download(services: AppServices, node_id: str, *, accept_license: bool) -> N
         services.weights.acknowledge_license(node)
         _eprint(f"  recorded licence acknowledgement for '{node_id}'")
 
-    total = sum(w.size_bytes for w in node.weight_manifest)
+    total = sum(
+        w.size_bytes for w in services.weights.required_files(node)
+        if not services.weights.file_path(node.id, w).exists()
+    )
+    if total <= 0:
+        total = sum(w.size_bytes for w in services.weights.required_files(node))
     _eprint(f"downloading {node_id} ({_human_bytes(total)})")
 
     last = [""]
@@ -364,6 +384,11 @@ def build_parser() -> argparse.ArgumentParser:
     group = run.add_mutually_exclusive_group()
     group.add_argument("--preset", help="preset name or path to a preset JSON file")
     group.add_argument("--pipeline", help="path to a pipeline JSON file")
+    group.add_argument(
+        "--instructir-preset",
+        dest="instructir_preset",
+        help="Master Restorer prompt id — build a guided specialist ensemble",
+    )
     run.add_argument("--download", action="store_true", help="fetch missing weights first")
     run.add_argument("--accept-license", action="store_true",
                      help="record acknowledgement for non-permissive licences")

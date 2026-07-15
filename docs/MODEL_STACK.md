@@ -3,10 +3,18 @@
 Every model in the original README planning notes was fact-checked against live sources
 (GitHub, arXiv, Hugging Face) on **2026-07-09**, not recalled from training memory — model
 repos, stars, and licenses change fast enough that guessing is not good enough for a
-redistribution decision. Sources are linked inline. Treat this document as a snapshot:
-before Phase 4 (full model integration) actually starts, re-verify licenses and repo activity
-— `GRAPHIFY_WORKFLOW.md` explains how to fold that re-check into the graphify loop instead of
-redoing it from scratch.
+redistribution decision. Sources are linked inline. Treat this document as a snapshot.
+
+**Verification status (refresh notes):**
+- Snapshot date for bulk research: **2026-07-09**.
+- **v0.6.0 addenda** (InstructIR, DDColor, analyzer v2 companions): documented in the
+  “Instruction-guided Master Restorer” section below — re-verify HF filenames and licences
+  before each release that changes those manifests.
+- Before shipping a new default Auto node or promoting a gated model, re-verify licences and
+  repo activity — `GRAPHIFY_WORKFLOW.md` explains how to fold that re-check into the graphify
+  loop instead of redoing it from scratch.
+- HAT shipping status was corrected after the 2026-07-09 snapshot: see the regression-models
+  table note (HF mirror on Acly/hat).
 
 **Two corrections to the original README worth flagging up front:**
 - **"DarkIRv2" does not exist.** DarkIR ships size variants (`-m`/`-l`), not a v2 release.
@@ -48,6 +56,26 @@ competitive, reserving non-commercial models (SUPIR, CodeFormer, FLUX Fill) as o
 "maximum quality" choices a user consciously reaches for in Studio Mode. This keeps the
 out-of-the-box experience legally uncomplicated while still giving power users access to the
 best available quality.
+
+---
+
+## Instruction-guided Master Restorer (v0.6.0)
+
+| Model | Repo | License | Role |
+|---|---|---|---|
+| **[InstructIR](https://github.com/mv-lab/InstructIR)** (ECCV’24) | MIT, HF [`marcosv/InstructIR`](https://huggingface.co/marcosv/InstructIR) | **Shipped Master Restorer** — preset + freeform prompts; guides specialist ensembles; optional finish pass |
+| Defusion / AutoDIR / PromptIR | 2025 research | Watch — packaging/licence/weights not yet at this repo’s bar; `InstructionRestorer` protocol is ready for a swap |
+
+Studio Mode: Instruct category on the Model Stack, Inspector prompt library, and
+“Build guided ensemble”. Simple Mode Auto stays rule-table-first (permissive); companions
+(DarkIR, InstructIR, DiffBIR, SUPIR) overlay only when installed (+acked).
+
+**Colourization:** [DDColor](https://github.com/piddnad/DDColor) (Apache-2.0, HF
+`piddnad/DDColor-models`) ships as a first-class CNN peer; Auto routes when
+`is_grayscale`. DeOldify remains out of scope.
+
+**Highlight regeneration:** analyzer v2 clip masks + soft blend; preference InstructIR →
+DiffBIR → SUPIR → classical dual-tone when companions are ready.
 
 ---
 
@@ -113,7 +141,7 @@ module. The node strips both.
 | [RealESRGAN](https://github.com/xinntao/Real-ESRGAN) | 36.1k★ | BSD-3-Clause | ~2-4GB, tiled | **Native** (Spandrel) | De-facto standard blind SR — fast general upscaler |
 | [SwinIR](https://github.com/JingyunLiang/SwinIR) | 4.6k★ | Apache-2.0 | ~4-8GB (MID tier), tiled | Native via Spandrel | Transformer restoration family shipped as **three** nodes from one architecture: `swinir` (real-SR x2/x4, the quality alternative to RealESRGAN), `swinir_denoise` (fixed-level colour denoise), `swinir_jpeg` (JPEG artifact removal, the transformer counterpart to FBCNN). Author's own GitHub release, no Google-Drive-only weights |
 | [SCUNet](https://github.com/cszn/SCUNet) | 500★ | Apache-2.0 | ~2-4GB (LOW tier) | Native via Spandrel | Blind real-world denoising (gan/psnr variants) — no noise-level knob needed, which is why it's the rule table's default denoise stage ahead of any upscaler |
-| [HAT](https://github.com/XPixelGroup/HAT) | 1.6k★ | Apache-2.0 | ~6-8GB+ | Native via Spandrel | SOTA SR quality; **not shipped** — the only trustworthy weight source found was Google Drive/Baidu (no author GitHub release, no clean redistribution basis for a default/Studio node); revisit if an official direct-download mirror appears |
+| [HAT](https://github.com/XPixelGroup/HAT) | 1.6k★ | Apache-2.0 | ~6-8GB+ | Native via Spandrel | SOTA SR quality. **Shipped in 0.4.0+** via Hugging Face mirror [`Acly/hat`](https://huggingface.co/Acly/hat) with sha256 pin (author’s primary Google Drive/Baidu hosts are not used). Not on Simple Mode Auto by default — Studio / manual pick. |
 | [MambaIRv2](https://github.com/csguoh/MambaIR) | 1.1k★ | Apache-2.0 | ~4-6GB | None — not in Spandrel, needs custom node work | Efficient SOTA SR; real engineering cost to integrate, defer past initial launch |
 | BioIR | No public code (NeurIPS'25 poster only) | Unknown | Unknown | None | Real, distinct project — **do not plan around a repo that doesn't exist yet**; revisit later |
 | [FBCNN](https://github.com/jiaxi-jiang/FBCNN) | 522★ | Apache-2.0 | <2GB, fast | [ComfyUI-FBCNN](https://www.runcomfy.com/comfyui-nodes/ComfyUI-FBCNN) | Reference model for adjustable-strength JPEG artifact removal — ship as default |
@@ -121,13 +149,10 @@ module. The node strips both.
 
 **Recommended default:** the shipped rule table chains FBCNN (deblock) → SCUNet (blind
 denoise) → SwinIR or RealESRGAN (quality-vs-speed upscale band) → GFPGAN → RestoreFormer
-(face), all permissive, all weights sourced from the original author's own hosting with a
-verified sha256. HAT was researched and its architecture confirmed to load through spandrel,
-but every weight source found for it is Google Drive/Baidu-only — not something to hardlink a
-default pipeline's automatic download to — so it's deliberately not shipped; SwinIR fills the
-same "transformer quality upscale" role from a source that is. MambaIRv2, BioIR, and DarkIR
-all require real integration engineering (no existing ComfyUI node to reference) — schedule
-them as stretch goals within Phase 4, not launch blockers.
+(face), all permissive, all weights sourced from author hosting or verified mirrors with a
+sha256 pin. **HAT** ships as an opt-in Studio quality upscaler using the Acly/hat HF mirror
+(see table). MambaIRv2, BioIR, and DarkIR still need extra care (custom stacks / unclear
+licence) — treat as opt-in or stretch, not Auto defaults.
 
 ---
 

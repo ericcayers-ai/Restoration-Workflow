@@ -26,10 +26,12 @@ from .types import BaseRestorationNode, NodeCategory
 STAGE_EXPOSURE = 10   # low-light / exposure / white balance
 STAGE_ARTIFACT = 20   # JPEG / compression artifact removal
 STAGE_DENOISE = 30    # noise / grain
+STAGE_COLORIZE = 35   # grayscale → colour (DDColor)
 STAGE_UPSCALE = 40    # super-resolution / general enhancement
 STAGE_FACE = 50       # face restoration
 STAGE_MASK = 60       # mask generation
 STAGE_INPAINT = 65    # inpainting / object removal (consumes a mask)
+STAGE_INSTRUCT = 68   # instruction-guided Master Restorer finish pass
 STAGE_COMPOSE = 70    # blend / compositing (runs last)
 
 # Category defaults, used when a node doesn't declare its own stage. REGRESSION
@@ -40,6 +42,7 @@ _STAGE_BY_CATEGORY = {
     NodeCategory.REGRESSION: STAGE_UPSCALE,
     NodeCategory.FACE: STAGE_FACE,
     NodeCategory.MASKING: STAGE_MASK,
+    NodeCategory.INSTRUCT: STAGE_INSTRUCT,
     NodeCategory.ORCHESTRATION: STAGE_COMPOSE,
 }
 
@@ -61,11 +64,9 @@ def auto_order(nodes: list[BaseRestorationNode]) -> list[BaseRestorationNode]:
     return sorted(nodes, key=stage_rank)
 
 
-# The one in-box node with a required non-primary input. Selecting it without a
-# mask source auto-inserts the box's mask generator right before it — its
-# output feeds LaMa's ``mask`` input, not the next stage's primary image, so it
-# sits outside the main chain rather than in it.
-_MASK_CONSUMER = "lama"
+# In-box nodes with a required non-primary mask input. Selecting one without a
+# mask source auto-inserts the box's mask generator right before it.
+_MASK_CONSUMERS = frozenset({"lama", "powerpaint", "flux_fill"})
 _MASK_PROVIDER = "mask_from_image"
 _MASK_INPUT = "mask"
 
@@ -85,8 +86,10 @@ def auto_order_pipeline(
     instances = [(t, registry.create(t)) for t in node_types]
     ordered = [t for t, _ in sorted(instances, key=lambda pair: stage_rank(pair[1]))]
 
-    if _MASK_CONSUMER in ordered and _MASK_PROVIDER not in ordered:
-        ordered.insert(ordered.index(_MASK_CONSUMER), _MASK_PROVIDER)
+    if any(c in ordered for c in _MASK_CONSUMERS) and _MASK_PROVIDER not in ordered:
+        # Insert provider just before the first mask consumer.
+        insert_at = min(ordered.index(c) for c in _MASK_CONSUMERS if c in ordered)
+        ordered.insert(insert_at, _MASK_PROVIDER)
 
     nodes: list[NodeSpec] = []
     edges: list[EdgeSpec] = []
@@ -100,7 +103,7 @@ def auto_order_pipeline(
             mask_provider_id = nid
             continue  # feeds a consumer's named input, not the main chain
 
-        if node_type == _MASK_CONSUMER and mask_provider_id is not None:
+        if node_type in _MASK_CONSUMERS and mask_provider_id is not None:
             edges.append(EdgeSpec(src=mask_provider_id, dst=nid, dst_input=_MASK_INPUT))
         if prev_id is not None:
             edges.append(EdgeSpec(src=prev_id, dst=nid))

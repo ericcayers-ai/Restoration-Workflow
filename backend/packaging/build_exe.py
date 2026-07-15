@@ -43,23 +43,38 @@ ZIP_PATH = DIST_DIR / "RestorationWorkflow-windows.zip"
 
 # Packages whose non-.py assets (compiled ops, arch metadata, cascade-adjacent
 # resources) PyInstaller's import-following analysis won't discover on its own.
+# transformers (+ tokenizers) are required for InstructIR's BGE text encoder.
 COLLECT_ALL = [
     "torch",
     "spandrel",
     "cv2",
     "safetensors",
     "huggingface_hub",
+    "transformers",
+    "tokenizers",
     "uvicorn",
 ]
 
+# Legal texts shipped beside the exe (ARCHITECTURE.md licence bundle).
+LICENSE_BUNDLE = (
+    REPO_ROOT / "LICENSE",
+    REPO_ROOT / "NOTICE",
+    REPO_ROOT / "THIRD_PARTY_NOTICES.md",
+)
+
 
 def _stage_user_files(app_dir: Path) -> None:
-    """Copy the double-click launcher and short readme next to the exe."""
+    """Copy the double-click launcher, short readme, and licence notices."""
     if not RUN_BAT.is_file():
         raise FileNotFoundError(f"missing launcher: {RUN_BAT}")
     shutil.copy2(RUN_BAT, app_dir / "Run.bat")
     if README_TXT.is_file():
         shutil.copy2(README_TXT, app_dir / "README.txt")
+    missing = [p.name for p in LICENSE_BUNDLE if not p.is_file()]
+    if missing:
+        raise FileNotFoundError(f"missing licence bundle files: {', '.join(missing)}")
+    for src in LICENSE_BUNDLE:
+        shutil.copy2(src, app_dir / src.name)
 
 
 def _zip_app_dir(app_dir: Path, zip_path: Path) -> None:

@@ -4,16 +4,18 @@
 
 ## Checklist
 
-- [ ] `pytest` and `ruff check src/ tests/` pass in `backend/` (or CI will show it)
+- [ ] `pytest -q` and `ruff check src/ tests/` pass in `backend/` (or CI will show it)
 - [ ] `npm run typecheck` and `npm run build` pass in `frontend/` (or CI will show it)
-- [ ] If this changes `core/data/rule_table.json` (the default auto-pipeline), the
-      routing assertions in `tests/test_rules.py` were updated to match
-- [ ] If this adds a model, its license and weight source were verified directly (not
-      taken from a paper's README) — see `docs/MODEL_STACK.md` and `CONTRIBUTING.md`
-- [ ] If this touches weight loading (`nodes/_torch.py`), it still never unpickles a
-      checkpoint — see `SECURITY.md`
+- [ ] If UI-facing: `npm run a11y` considered / run after build; strings go through `en.json`
+- [ ] If this changes `core/data/rule_table.json`, routing tests in `tests/test_rules.py` match
+- [ ] If this adds a model, licence and weight source were verified directly — see
+      `docs/MODEL_STACK.md` and `CONTRIBUTING.md`
+- [ ] If this touches weight loading (`nodes/_torch.py`), checkpoints are still never
+      unpickled — see `SECURITY.md`
+- [ ] User-visible behaviour: `CHANGELOG.md` updated (Keep a Changelog)
+- [ ] Docs do not claim a shipping Tauri auto-updater (Windows zip / `Run.bat` is the
+      supported desktop path — `RELEASING.md`)
 
 ## Testing
 
-<!-- How did you verify this works? A failing test that now passes, a manual repro
-     steps list, a screenshot/recording for UI changes — whatever actually proves it. -->
+<!-- How did you verify this? Failing→passing test, manual repro steps, screenshot for UI. -->

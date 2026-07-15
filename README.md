@@ -4,76 +4,91 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Latest release](https://img.shields.io/github/v/release/ericcayers-ai/Restoration-Workflow?include_prereleases)](https://github.com/ericcayers-ai/Restoration-Workflow/releases)
 
-Local-first photo restoration. Drop a photo and get it fixed with zero configuration, or
-build a custom pipeline over an extensible model stack — both are the same engine, not
-two products bolted together. No cloud, no account, no subscription; your photos never
-leave your machine unless you decide to send them somewhere.
+**Version 0.6.0** — local-first photo restoration. Drop a photo and restore it with
+almost no setup (Simple Mode), or author a pipeline in Studio Mode. Both UIs drive
+the same FastAPI engine and DAG executor. No cloud account, no subscription; photos
+stay on your machine unless you send them elsewhere.
 
 ## Screenshots
 
-| Simple Mode — customizable review | Advanced pipeline builder |
+| Simple Mode — review the auto pipeline | Studio Mode — build a custom pipeline |
 |---|---|
-| ![Simple Mode: the auto-picked workflow shown as an editable stage list before running](docs/screenshots/simple-mode-review.png) | ![Advanced Mode: an ordered stage list with the Inspector open on SCUNet's parameters](docs/screenshots/advanced-pipeline-builder.png) |
+| ![Simple Mode: auto-picked workflow as an editable stage list before running](docs/screenshots/simple-mode-review.png) | ![Studio Mode: ordered stage list with Inspector open on a node’s parameters](docs/screenshots/advanced-pipeline-builder.png) |
 
 <details>
 <summary>Settings → Manage Downloads</summary>
 
-![Every model in the stack with install state and a download/remove control](docs/screenshots/manage-downloads.png)
+![Model stack with install state and download controls](docs/screenshots/manage-downloads.png)
 </details>
 
-## What makes this different
+> Screenshots may lag the latest Safelight UI polish. Intended shipped behaviour for
+> 0.6.0 is described below; if a screenshot disagrees with the running app, trust the
+> app and [`CHANGELOG.md`](CHANGELOG.md).
 
-- **One engine, two ways in.** Simple Mode's automatic pipeline and the Advanced builder
-  submit the exact same pipeline JSON to the same executor — Simple Mode is not a
-  stripped-down separate app, and nothing it does is hidden from the Advanced view.
-- **An auto-order engine, not just a model list.** Every node carries a canonical
-  restoration-stage rank (deblock → denoise → upscale → face → mask → inpaint →
-  compose). Pick any set of models and "Auto-order" arranges them correctly — including
-  auto-inserting a mask source when an inpainting node needs one.
-- **A new model is a function call, not a module.** If it's one of the 40+ architectures
-  [spandrel](https://github.com/chaiNNer-org/spandrel)'s `MAIN_REGISTRY` already supports,
-  wrapping it is one call to `spandrel_image_node(...)` — see
-  [`CONTRIBUTING.md`](CONTRIBUTING.md).
-- **Workflows are `.txt` files.** Export a pipeline, read it in a text editor, hand it to
-  someone else, import it back — no proprietary project format.
-- **Weights are never unpickled.** Every checkpoint loads through `torch.load(...,
-  weights_only=True)` or `safetensors`, with a real sha256 pinned per file — never
-  `spandrel.ModelLoader.load_from_file`, which permits arbitrary pickle globals. See
-  [`SECURITY.md`](SECURITY.md).
-- **CPU works.** Every in-box node runs without a GPU; a CUDA GPU makes it faster, it
-  doesn't gate functionality.
+## What you get
 
-## The model stack (out of the box)
+- **One engine, two entries.** Simple Mode (auto-analyze → review stages → restore)
+  and Studio Mode (Model Stack + list/graph editors + Inspector) submit the same
+  pipeline JSON to the same executor.
+- **Auto-order, not just a model list.** Nodes carry restoration-stage ranks
+  (deblock → denoise → upscale → face → …). “Auto-order” arranges a chosen set and
+  can insert a mask source when inpainting needs one.
+- **Downloads on demand.** Weights are not installed with the app. Settings → Manage
+  Downloads lists models, sizes, and licence status; missing weights download when
+  needed (gated models require acknowledgement first).
+- **Quality tiers.** Simple Mode Auto can run draft / balanced / high — tiling and model swaps adapt to hardware without changing the stages the analyzer chose.
+- **Master Restorer (InstructIR).** Instruction-guided finish / guided ensembles and
+  prompt presets; DDColor handles grayscale colourization on the Auto path.
+- **Workflows as text.** Export a pipeline, edit it, share it, import it back.
+- **Safe weight loading.** Checkpoints load via `torch.load(..., weights_only=True)`
+  or safetensors, with sha256 pins — see [`SECURITY.md`](SECURITY.md).
+- **CPU works.** A CUDA GPU speeds things up; it does not gate basic functionality.
 
-| Model | Role | License |
+## Privacy
+
+Inference runs locally. The default server binds to `127.0.0.1` only. There is no
+telemetry by default and no account system. Optional upstream downloads (weights)
+occur only when you request a model.
+
+## Model lanes (out of the box)
+
+Permissive models power the default Simple Mode Auto path. Non-commercial and
+restricted models remain opt-in in Studio / Downloads behind acknowledgement.
+
+| Model | Role | Licence (code/weights) |
 |---|---|---|
 | FBCNN | JPEG artifact removal | Apache-2.0 |
 | SCUNet | Blind real-world denoising | Apache-2.0 |
-| SwinIR | Transformer super-resolution, denoise, JPEG removal (3 nodes) | Apache-2.0 |
+| SwinIR | SR / denoise / JPEG (3 nodes) | Apache-2.0 |
 | RealESRGAN | Fast general super-resolution | BSD-3-Clause |
-| GFPGAN | Fast face restoration | Apache-2.0 |
-| RestoreFormer | Quality face restoration | Apache-2.0 |
-| LaMa | Large-mask inpainting / object removal | Apache-2.0 |
+| HAT | Higher-quality SR (HF mirror weights) | Apache-2.0 |
+| GFPGAN / RestoreFormer | Face restoration | Apache-2.0 |
+| LaMa | Large-mask inpainting | Apache-2.0 |
+| DDColor | Grayscale colourization | Apache-2.0 |
+| InstructIR | Master Restorer / guided ensembles | MIT |
+| BiRefNet, PowerPaint, DiffBIR, … | Matting, text-guided inpaint, diffusion peers | See stack doc |
+| CodeFormer, GPEN, SUPIR, FLUX Fill, … | Opt-in / gated quality | Non-commercial or restricted — ack required |
 
-All permissive; the default automatic pipeline is validated at startup to never depend
-on anything else. Full research notes, license tiers, and what was *considered but not
-shipped* (and why) are in [`docs/MODEL_STACK.md`](docs/MODEL_STACK.md).
+Full research notes and tiers: [`docs/MODEL_STACK.md`](docs/MODEL_STACK.md). Notices for
+bundled code/fonts vs downloadable weights: [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
 ## Install
 
-### Windows: prebuilt app
+### Windows: portable app (supported desktop build)
 
-Download **`RestorationWorkflow-windows.zip`** from the
-[Releases page](../../releases), extract the folder anywhere, and double-click
-**`Run.bat`**. It starts the local server and opens the app in your browser. No
-Python install required. A GPU is optional — the app runs on CPU, just slower;
-nothing downloads until you ask for a model. (`RestorationWorkflow.exe` is in
-the same folder if you prefer launching it directly.)
+Download **`RestorationWorkflow-windows.zip`** from
+[Releases](https://github.com/ericcayers-ai/Restoration-Workflow/releases), extract
+anywhere, and double-click **`Run.bat`**. That starts the local PyInstaller-bundled
+server and opens the UI in your browser. No separate Python install required. A GPU
+is optional. Nothing downloads until you ask for a model.
+
+> **Desktop packaging note:** the supported double-click experience is this Windows
+> portable zip. A `src-tauri/` scaffold may exist for experiments; it is **not** a
+> shipping multi-OS updater product. Prefer Releases + `Run.bat` (or run from source).
 
 ### From source
 
-Requirements: Python 3.10+, Node 18+. A CUDA GPU speeds up inference but is optional —
-every node in the box also runs on CPU.
+Requirements: **Python 3.10+**, **Node 18+** (Node 20 used in CI). CUDA optional.
 
 ```bash
 git clone https://github.com/ericcayers-ai/Restoration-Workflow.git
@@ -87,32 +102,44 @@ cd ../backend
 restore serve
 ```
 
-`restore serve` prints the URL it's listening on (`http://127.0.0.1:8765` by default)
-and serves the built frontend from that same address — open it in a browser. Model
-weights are fetched on demand from Settings → Manage Downloads, or automatically the
-first time Simple Mode needs one; nothing downloads at install time.
+`restore serve` listens on `http://127.0.0.1:8765` by default and serves the built
+frontend from the same origin. For a hot-reload UI against a running API, use
+`npm run dev` in `frontend/` (see [`CONTRIBUTING.md`](CONTRIBUTING.md)).
 
-Prefer a terminal? The same engine is a CLI: `restore run -i photo.jpg -o out/`,
-`restore nodes`, `restore weights list` — run `restore --help` for the rest.
+CLI (same engine): `restore run -i photo.jpg -o out/`, `restore nodes`,
+`restore weights list` — `restore --help`.
+
+### Docker (headless / server)
+
+A root `Dockerfile` builds a headless image for `restore serve`-style use. Confirm
+the image’s optional `[inference]` extras match what you need before expecting GPU
+inference; smoke-test a real restore after build.
 
 ## Documentation
 
-- [`ROADMAP.md`](ROADMAP.md) — the build plan and the vision this project executes against
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — engine, API, plugin contract, packaging
-- [`docs/UI_DESIGN.md`](docs/UI_DESIGN.md) — visual identity, layout, accessibility rules
-- [`docs/MODEL_STACK.md`](docs/MODEL_STACK.md) — every model considered, fact-checked and licensed
-- [`CHANGELOG.md`](CHANGELOG.md) — what shipped, by version
-- [`CONTRIBUTING.md`](CONTRIBUTING.md) — dev setup, adding a model, PR expectations
-- [`SECURITY.md`](SECURITY.md) — vulnerability reporting, and what the engine already guards against
+| Doc | Contents |
+|-----|----------|
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Engine, API, plugins, packaging (as-shipped) |
+| [`docs/UI_DESIGN.md`](docs/UI_DESIGN.md) | Safelight visual identity |
+| [`docs/ACCESSIBILITY.md`](docs/ACCESSIBILITY.md) | a11y bar and checklist |
+| [`docs/MODEL_STACK.md`](docs/MODEL_STACK.md) | Models, licences, verification notes |
+| [`docs/QA_LAUNCH.md`](docs/QA_LAUNCH.md) | Corpus / beta / launch gates |
+| [`RELEASING.md`](RELEASING.md) | How to cut a release |
+| [`SUPPORT.md`](SUPPORT.md) | Where to get help |
+| [`CHANGELOG.md`](CHANGELOG.md) | What shipped per version |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Dev setup and PR expectations |
+| [`SECURITY.md`](SECURITY.md) | Vulnerability reporting |
+| [`ROADMAP.md`](ROADMAP.md) | Longer-range build plan |
 
 ## Contributing
 
-Issues and PRs are welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md) for dev setup and
-[`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) for community expectations. Adding a new model
-is usually the smallest kind of change this codebase supports; see CONTRIBUTING's walk-through.
+Issues and PRs are welcome. Read [`CONTRIBUTING.md`](CONTRIBUTING.md) and the
+[`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md). Security issues: [`SECURITY.md`](SECURITY.md)
+only (no public issues).
 
 ## License
 
-Core orchestration (this repository): **Apache 2.0** — see [`LICENSE`](LICENSE).
-Individual model weights retain their own upstream licenses; see
-[`docs/MODEL_STACK.md`](docs/MODEL_STACK.md) for the license of each.
+Core orchestration: **Apache-2.0** — [`LICENSE`](LICENSE) (copyright holder:
+Eric Ayers). Individual model weights and some vendored architectures retain
+upstream terms — [`NOTICE`](NOTICE), [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md),
+and [`docs/MODEL_STACK.md`](docs/MODEL_STACK.md).

@@ -105,6 +105,8 @@ _TOFU_PHASE4_IDS = {
     "dreamclear",
     "unirestore",
     "realrestorer",
+    "ddcolor",
+    "instructir",  # BGE text-encoder companion files use TOFU pins
 }
 
 

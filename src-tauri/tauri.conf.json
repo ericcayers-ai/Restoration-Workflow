@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Restoration Workflow",
-  "version": "0.5.4",
+  "version": "0.6.0",
   "identifier": "ai.ericcayers.restoration-workflow",
   "build": {
     "beforeDevCommand": "npm run dev --prefix ../frontend",
@@ -24,7 +24,7 @@
     "active": true,
     "targets": "all",
     "icon": ["icons/icon.ico"],
-    "createUpdaterArtifacts": true
+    "createUpdaterArtifacts": false
   },
   "plugins": {
     "updater": {

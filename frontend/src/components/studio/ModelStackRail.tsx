@@ -17,6 +17,7 @@ import { Icon } from "../common/Icon";
 import styles from "./ModelStackRail.module.css";
 
 const CATEGORY_ORDER: NodeCategory[] = [
+  "instruct",
   "generative",
   "face",
   "regression",
@@ -78,6 +79,11 @@ export function ModelStackRail({
                     className={styles.item}
                     onClick={() => onAddNode(node.id)}
                     disabled={node.availability.state === "unavailable"}
+                    aria-label={`${node.display_name}${
+                      !node.weights.installed ? `, ${t("studio.rail.notInstalled")}` : ""
+                    }${
+                      node.id === "instructir" ? `, ${t("studio.inspector.masterRestorer")}` : ""
+                    }`}
                     title={
                       node.availability.reason
                         ? t("studio.rail.unavailable", { reason: node.availability.reason })
@@ -87,8 +93,22 @@ export function ModelStackRail({
                     <span className={styles.itemName}>{node.display_name}</span>
                     <span className={styles.badges}>
                       {node.license.requires_acknowledgement && (
-                        <span className={styles.licenseBadge} title={node.license.spdx_id}>
+                        <span
+                          className={styles.licenseBadge}
+                          title={
+                            node.license.spdx_id +
+                            " — " +
+                            (licenseAbbrev(node.license.kind)
+                              ? t("studio.inspector.licenseBadge.hint")
+                              : "")
+                          }
+                        >
                           {licenseAbbrev(node.license.kind)}
+                        </span>
+                      )}
+                      {node.id === "instructir" && (
+                        <span className={styles.masterBadge} title={t("studio.inspector.masterRestorer")}>
+                          MR
                         </span>
                       )}
                       <span className={styles.vramBadge} data-state={node.availability.state}>

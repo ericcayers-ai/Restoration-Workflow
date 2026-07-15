@@ -66,7 +66,7 @@ export function App() {
     <div className={styles.app}>
       <header className={styles.topBar}>
         <span className={styles.title}>{t("app.title")}</span>
-        <div className={styles.modeSwitch} role="tablist" aria-label="Mode">
+        <div className={styles.modeSwitch} role="tablist" aria-label={t("app.modeSwitch")}>
           <button
             type="button"
             role="tab"

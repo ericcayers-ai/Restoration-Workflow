@@ -84,6 +84,7 @@ class WeightsStatus:
     total_size_bytes: int
     acknowledged: bool
     requires_acknowledgement: bool
+    missing_size_bytes: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -91,6 +92,7 @@ class WeightsStatus:
             "installed": self.installed,
             "files": self.files,
             "total_size_bytes": self.total_size_bytes,
+            "missing_size_bytes": self.missing_size_bytes,
             "acknowledged": self.acknowledged,
             "requires_acknowledgement": self.requires_acknowledgement,
         }
@@ -169,36 +171,71 @@ class WeightManager:
 
     # -- status ------------------------------------------------------------------
 
-    def is_installed(self, node: BaseRestorationNode) -> bool:
-        if not node.weight_manifest:
-            return True  # nothing to install (orchestration nodes)
-        return all(self.file_path(node.id, wf).exists() for wf in node.weight_manifest)
+    def required_files(
+        self,
+        node: BaseRestorationNode,
+        params: dict[str, Any] | None = None,
+    ) -> list[WeightFile]:
+        """Files needed to run ``node`` once with ``params`` (defaults if None)."""
+        return node.required_weight_files(params)
 
-    def status(self, node: BaseRestorationNode) -> WeightsStatus:
+    def is_installed(
+        self,
+        node: BaseRestorationNode,
+        params: dict[str, Any] | None = None,
+    ) -> bool:
+        """True when every file required for ``params`` (or defaults) is on disk.
+
+        Multi-variant nodes only need their selected checkpoint — installing
+        DDColor ``modelscope`` does not require ``artistic`` / ``paper``.
+        """
+        required = self.required_files(node, params)
+        if not required:
+            return True
+        return all(self.file_path(node.id, wf).exists() for wf in required)
+
+    def status(
+        self,
+        node: BaseRestorationNode,
+        params: dict[str, Any] | None = None,
+    ) -> WeightsStatus:
+        required = {wf.filename for wf in self.required_files(node, params)}
         files = []
         for wf in node.weight_manifest:
             p = self.file_path(node.id, wf)
             files.append({
                 "filename": wf.filename,
                 "installed": p.exists(),
+                "required_for_defaults": wf.filename in required,
                 "size_bytes": p.stat().st_size if p.exists() else wf.size_bytes,
                 "declared_size_bytes": wf.size_bytes,
                 "sha256": self._expected_sha256(node.id, wf),
             })
+        # Status totals use required (default/selected) bytes, not the full
+        # multi-variant manifest — Settings "download sizes" stay honest.
+        required_files = self.required_files(node, params)
+        missing_required = [
+            wf for wf in required_files if not self.file_path(node.id, wf).exists()
+        ]
         return WeightsStatus(
             node_id=node.id,
-            installed=self.is_installed(node),
+            installed=self.is_installed(node, params),
             files=files,
-            total_size_bytes=sum(wf.size_bytes for wf in node.weight_manifest),
+            total_size_bytes=sum(wf.size_bytes for wf in required_files),
+            missing_size_bytes=sum(wf.size_bytes for wf in missing_required),
             acknowledged=(not node.license.requires_acknowledgement)
                          or self.is_acknowledged(node.id),
             requires_acknowledgement=node.license.requires_acknowledgement,
         )
 
-    def ensure_installed(self, node: BaseRestorationNode) -> Path:
+    def ensure_installed(
+        self,
+        node: BaseRestorationNode,
+        params: dict[str, Any] | None = None,
+    ) -> Path:
         """Path to the node's weights dir; raises if not installed (no implicit
         multi-gigabyte downloads mid-run — downloads are always explicit)."""
-        if not self.is_installed(node):
+        if not self.is_installed(node, params):
             raise WeightsNotInstalledError(node.id)
         return self.node_dir(node.id)
 
@@ -224,16 +261,36 @@ class WeightManager:
         self,
         node: BaseRestorationNode,
         progress: Callable[[str, int, int], None] | None = None,
+        *,
+        params: dict[str, Any] | None = None,
+        filenames: list[str] | None = None,
+        check_cancel: Callable[[], None] | None = None,
+        all_variants: bool = False,
     ) -> Path:
-        """Download & verify every file in the node's manifest.
+        """Download & verify weight files for the node.
+
+        By default only files required for ``params`` (or the node's default
+        params) are fetched. Pass ``all_variants=True`` to pull the full
+        manifest, or ``filenames`` to target specific entries.
 
         ``progress(filename, bytes_done, bytes_total)`` is called as data lands.
+        ``check_cancel`` is polled between chunks; raising ``JobCancelled`` aborts
+        and leaves a ``.part`` file for resume (or deletes it when cleaned up by
+        the download manager).
         Blocking; callers on the event loop run it in a thread.
         """
         self._gate_license(node)
 
+        if filenames is not None:
+            by_name = {wf.filename: wf for wf in node.weight_manifest}
+            wanted = [by_name[name] for name in filenames if name in by_name]
+        elif all_variants:
+            wanted = list(node.weight_manifest)
+        else:
+            wanted = self.required_files(node, params)
+
         missing = [
-            wf for wf in node.weight_manifest
+            wf for wf in wanted
             if not self.file_path(node.id, wf).exists()
         ]
         if not missing:
@@ -248,39 +305,64 @@ class WeightManager:
         dest_dir = self.node_dir(node.id)
         dest_dir.mkdir(parents=True, exist_ok=True)
         for wf in missing:
-            self._download_one(node.id, wf, progress)
+            if check_cancel is not None:
+                check_cancel()
+            self._download_one(node.id, wf, progress, check_cancel=check_cancel)
         return dest_dir
+
+    def cleanup_partials(self, node_id: str) -> int:
+        """Remove incomplete ``.part`` downloads for a node. Returns count deleted."""
+        d = self.node_dir(node_id)
+        if not d.is_dir():
+            return 0
+        removed = 0
+        for path in d.rglob("*.part"):
+            try:
+                path.unlink()
+                removed += 1
+            except OSError:
+                continue
+        return removed
 
     def _download_one(
         self,
         node_id: str,
         wf: WeightFile,
         progress: Callable[[str, int, int], None] | None,
+        *,
+        check_cancel: Callable[[], None] | None = None,
     ) -> None:
         dest = self.file_path(node_id, wf)
+        dest.parent.mkdir(parents=True, exist_ok=True)
         if wf.hf_repo_id is not None:
-            self._download_hf(wf, dest, progress)
+            self._download_hf(wf, dest, progress, check_cancel=check_cancel)
         else:
-            self._download_url(wf, dest, progress)
+            self._download_url(wf, dest, progress, check_cancel=check_cancel)
         self._verify(node_id, wf, dest)
 
     def _download_hf(
         self, wf: WeightFile, dest: Path,
         progress: Callable[[str, int, int], None] | None,
+        *,
+        check_cancel: Callable[[], None] | None = None,
     ) -> None:
-        from huggingface_hub import hf_hub_download  # noqa: PLC0415
+        """Fetch Hub files through the URL path so progress and cancel work."""
+        from huggingface_hub import hf_hub_url  # noqa: PLC0415
 
-        if progress:
-            progress(wf.filename, 0, wf.size_bytes)
-        got = hf_hub_download(repo_id=wf.hf_repo_id, filename=wf.hf_filename)
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(got, dest)  # keep hub cache linkage out of our dir
-        if progress:
-            progress(wf.filename, wf.size_bytes, wf.size_bytes)
+        url = hf_hub_url(repo_id=wf.hf_repo_id, filename=wf.hf_filename)
+        url_wf = WeightFile(
+            filename=wf.filename,
+            size_bytes=wf.size_bytes,
+            sha256=wf.sha256,
+            url=url,
+        )
+        self._download_url(url_wf, dest, progress, check_cancel=check_cancel)
 
     def _download_url(
         self, wf: WeightFile, dest: Path,
         progress: Callable[[str, int, int], None] | None,
+        *,
+        check_cancel: Callable[[], None] | None = None,
     ) -> None:
         part = dest.with_suffix(dest.suffix + ".part")
         done = part.stat().st_size if part.exists() else 0
@@ -305,6 +387,8 @@ class WeightManager:
                     total = done + int(length)
                 with part.open(mode) as f:
                     for chunk in resp.iter_bytes(_CHUNK):
+                        if check_cancel is not None:
+                            check_cancel()
                         f.write(chunk)
                         done += len(chunk)
                         if progress:

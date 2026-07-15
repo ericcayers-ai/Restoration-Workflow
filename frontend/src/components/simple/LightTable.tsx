@@ -12,7 +12,10 @@ import styles from "./LightTable.module.css";
 
 type ViewMode = "slider" | "side-by-side" | "difference";
 
-const MODES: { value: ViewMode; key: "simple.viewMode.slider" | "simple.viewMode.sideBySide" | "simple.viewMode.difference" }[] = [
+const MODES: {
+  value: ViewMode;
+  key: "simple.viewMode.slider" | "simple.viewMode.sideBySide" | "simple.viewMode.difference";
+}[] = [
   { value: "slider", key: "simple.viewMode.slider" },
   { value: "side-by-side", key: "simple.viewMode.sideBySide" },
   { value: "difference", key: "simple.viewMode.difference" },
@@ -39,6 +42,7 @@ export function LightTable({
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const panStart = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
   const diff = useDifferenceImage(beforeUrl, afterUrl, viewMode === "difference");
 
   useEffect(() => {
@@ -53,10 +57,30 @@ export function LightTable({
     setZoom((z) => Math.min(4, Math.max(1, z + (e.deltaY < 0 ? 0.1 : -0.1))));
   }
 
+  function onFrameKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "ArrowLeft" && viewMode === "slider") {
+      e.preventDefault();
+      setPosition((p) => Math.max(0, p - 5));
+    } else if (e.key === "ArrowRight" && viewMode === "slider") {
+      e.preventDefault();
+      setPosition((p) => Math.min(100, p + 5));
+    } else if (e.key === "+" || e.key === "=") {
+      e.preventDefault();
+      setZoom((z) => Math.min(4, z + 0.25));
+    } else if (e.key === "-" || e.key === "_") {
+      e.preventDefault();
+      setZoom((z) => Math.max(1, z - 0.25));
+    } else if (e.key === "1" || e.key === "2" || e.key === "3") {
+      e.preventDefault();
+      const next = MODES[Number(e.key) - 1];
+      if (next) onViewModeChange(next.value);
+    }
+  }
+
   return (
     <div className={styles.mat}>
       <div className={styles.viewModeRow}>
-        <div className={styles.segmented} role="radiogroup" aria-label="Comparison view">
+        <div className={styles.segmented} role="radiogroup" aria-label={t("simple.viewMode.label")}>
           {MODES.map((mode) => (
             <button
               key={mode.value}
@@ -70,18 +94,48 @@ export function LightTable({
             </button>
           ))}
         </div>
-        <div className={styles.zoomControls}>
-          <button type="button" className={styles.zoomBtn} onClick={() => setZoom((z) => Math.max(1, z - 0.25))}>−</button>
-          <span className="mono">{Math.round(zoom * 100)}%</span>
-          <button type="button" className={styles.zoomBtn} onClick={() => setZoom((z) => Math.min(4, z + 0.25))}>+</button>
-          <button type="button" className={styles.zoomBtn} onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}>{t("simple.zoom.reset")}</button>
+        <div className={styles.zoomControls} role="group" aria-label={t("simple.zoom.label", { percent: Math.round(zoom * 100) })}>
+          <button
+            type="button"
+            className={styles.zoomBtn}
+            onClick={() => setZoom((z) => Math.max(1, z - 0.25))}
+            aria-label={t("simple.zoom.out")}
+          >
+            −
+          </button>
+          <span className="mono" aria-hidden>
+            {Math.round(zoom * 100)}%
+          </span>
+          <button
+            type="button"
+            className={styles.zoomBtn}
+            onClick={() => setZoom((z) => Math.min(4, z + 0.25))}
+            aria-label={t("simple.zoom.in")}
+          >
+            +
+          </button>
+          <button
+            type="button"
+            className={styles.zoomBtn}
+            onClick={() => {
+              setZoom(1);
+              setPan({ x: 0, y: 0 });
+            }}
+          >
+            {t("simple.zoom.reset")}
+          </button>
         </div>
       </div>
 
       <div
+        ref={frameRef}
         className={styles.frame}
         style={{ aspectRatio }}
+        tabIndex={0}
+        role="img"
+        aria-label={`${t("simple.before")} / ${t("simple.after")}`}
         onWheel={onWheel}
+        onKeyDown={onFrameKeyDown}
         onPointerDown={(e) => {
           if (zoom <= 1) return;
           panStart.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y };
@@ -94,66 +148,83 @@ export function LightTable({
             y: panStart.current.py + (e.clientY - panStart.current.y),
           });
         }}
-        onPointerUp={() => { panStart.current = null; }}
+        onPointerUp={() => {
+          panStart.current = null;
+        }}
       >
         <div
           className={styles.zoomLayer}
           style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
         >
-        {viewMode === "slider" && (
-          <div className={styles.compareArea}>
-            <img
-              className={`${styles.layerBase} ${reveal && fadeIn ? styles.revealed : ""}`}
-              src={afterUrl}
-              alt={t("simple.after")}
-              onLoad={(e) => {
-                const img = e.currentTarget;
-                setAspectRatio(`${img.naturalWidth} / ${img.naturalHeight}`);
-              }}
-            />
-            <div className={styles.beforeClip} style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}>
-              <img className={styles.layerBase} src={beforeUrl} alt={t("simple.before")} />
+          {viewMode === "slider" && (
+            <div className={styles.compareArea}>
+              <img
+                className={`${styles.layerBase} ${reveal && fadeIn ? styles.revealed : ""}`}
+                src={afterUrl}
+                alt={t("simple.after")}
+                onLoad={(e) => {
+                  const img = e.currentTarget;
+                  setAspectRatio(`${img.naturalWidth} / ${img.naturalHeight}`);
+                }}
+              />
+              <div className={styles.beforeClip} style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}>
+                <img className={styles.layerBase} src={beforeUrl} alt={t("simple.before")} />
+              </div>
+              <div className={styles.dividerLine} style={{ left: `${position}%` }} aria-hidden />
+              <input
+                className={styles.rangeInput}
+                type="range"
+                min={0}
+                max={100}
+                value={position}
+                onChange={(e) => setPosition(Number(e.target.value))}
+                aria-label={`${t("simple.before")} / ${t("simple.after")}`}
+                aria-valuetext={`${position}%`}
+              />
             </div>
-            <div className={styles.dividerLine} style={{ left: `${position}%` }} />
-            <input
-              className={styles.rangeInput}
-              type="range"
-              min={0}
-              max={100}
-              value={position}
-              onChange={(e) => setPosition(Number(e.target.value))}
-              aria-label={`${t("simple.before")} / ${t("simple.after")}`}
-              aria-valuetext={`${position}%`}
-            />
-          </div>
-        )}
+          )}
 
-        {viewMode === "side-by-side" && (
-          <div className={styles.sideBySide}>
-            <figure>
-              <img src={beforeUrl} alt={t("simple.before")} />
-              <figcaption className={styles.caption}>{t("simple.before")}</figcaption>
-            </figure>
-            <figure>
-              <img src={afterUrl} alt={t("simple.after")} />
-              <figcaption className={styles.caption}>{t("simple.after")}</figcaption>
-            </figure>
-          </div>
-        )}
+          {viewMode === "side-by-side" && (
+            <div className={styles.sideBySide}>
+              <figure>
+                <img
+                  src={beforeUrl}
+                  alt={t("simple.before")}
+                  onLoad={(e) => {
+                    const img = e.currentTarget;
+                    setAspectRatio(`${img.naturalWidth} / ${img.naturalHeight}`);
+                  }}
+                />
+                <figcaption className={styles.caption}>{t("simple.before")}</figcaption>
+              </figure>
+              <figure>
+                <img src={afterUrl} alt={t("simple.after")} />
+                <figcaption className={styles.caption}>{t("simple.after")}</figcaption>
+              </figure>
+            </div>
+          )}
 
-        {viewMode === "difference" && (
-          <>
-            {diff.error && <p className={styles.diffStatus}>{diff.error}</p>}
-            {!diff.ready && !diff.error && <p className={styles.diffStatus}>{t("common.loading")}</p>}
-            <canvas
-              ref={diff.canvasRef}
-              className={styles.diffCanvas}
-              style={{ display: diff.ready ? "block" : "none" }}
-            />
-          </>
-        )}
+          {viewMode === "difference" && (
+            <>
+              {diff.error && <p className={styles.diffStatus}>{diff.error}</p>}
+              {!diff.ready && !diff.error && (
+                <p className={styles.diffStatus}>{t("common.loading")}</p>
+              )}
+              <canvas
+                ref={diff.canvasRef}
+                className={styles.diffCanvas}
+                style={{ display: diff.ready ? "block" : "none" }}
+                aria-label={t("simple.viewMode.difference")}
+              />
+              {/* Text alternative for screen readers when canvas is opaque */}
+              <p className="visually-hidden">
+                {t("simple.viewMode.difference")}: {t("simple.before")} → {t("simple.after")}
+              </p>
+            </>
+          )}
         </div>
       </div>
     </div>
   );
 }
+

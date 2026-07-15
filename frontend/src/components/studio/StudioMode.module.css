@@ -8,6 +8,7 @@
 .toolbarRow {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
   border-bottom: 1px solid var(--border-hairline);
@@ -31,6 +32,7 @@
 
 .spacer {
   flex: 1;
+  min-width: var(--space-2);
 }
 
 .editorToggle {
@@ -56,10 +58,63 @@
   color: var(--accent-amber);
 }
 
+.easelToggles {
+  display: none;
+  gap: var(--space-1);
+}
+
+.easelBtn {
+  font: inherit;
+  font-size: 0.6875rem;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  background: transparent;
+  cursor: pointer;
+}
+
+.easelBtn[aria-pressed="true"] {
+  color: var(--accent-amber);
+  border-color: var(--accent-amber);
+}
+
 .body {
   flex: 1;
   display: flex;
   min-height: 0;
+}
+
+.easelRail {
+  display: flex;
+  min-height: 0;
+}
+
+.easelWorkflow {
+  flex: 1;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
+
+.easelInspector {
+  display: flex;
+  min-height: 0;
+}
+
+.resultPane {
+  border-top: 1px solid var(--border-hairline);
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-height: 42vh;
+  overflow: auto;
+  background: var(--surface-900);
+}
+
+.stickyRun {
+  /* class hook for narrow sticky primary action */
 }
 
 .banner {
@@ -75,3 +130,49 @@
 .bannerSuccess {
   color: var(--accent-teal);
 }
+
+/* Medium: collapsible easels shown via toolbar toggles */
+@media (max-width: 1100px) {
+  .easelToggles {
+    display: inline-flex;
+  }
+}
+
+/* Narrow: stacked steps + sticky Run */
+@media (max-width: 720px) {
+  .body {
+    flex-direction: column;
+    overflow: auto;
+  }
+
+  .easelRail,
+  .easelWorkflow,
+  .easelInspector {
+    width: 100%;
+    border-bottom: 1px solid var(--border-hairline);
+  }
+
+  .easelRail :global(aside),
+  .easelInspector :global(aside) {
+    width: 100%;
+    border: none;
+    max-height: 220px;
+  }
+
+  .toolbarRow {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--surface-950);
+  }
+
+  .stickyRun {
+    position: sticky;
+    right: var(--space-2);
+  }
+
+  .resultPane {
+    max-height: none;
+  }
+}
+

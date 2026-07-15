@@ -17,9 +17,11 @@ export interface RunRecord {
 export function ContactSheet({
   runs,
   onFork,
+  onOpen,
 }: {
   runs: RunRecord[];
   onFork: (job: Job) => void;
+  onOpen?: (job: Job) => void;
 }) {
   const t = useT();
 
@@ -33,14 +35,27 @@ export function ContactSheet({
           type="button"
           className={styles.frame}
           data-state={job.state}
-          onClick={() => onFork(job)}
-          title={t("studio.contactSheet.recall")}
+          onClick={() => {
+            onFork(job);
+            onOpen?.(job);
+          }}
+          title={
+            job.state === "done" ? t("studio.contactSheet.open") : t("studio.contactSheet.recall")
+          }
+          aria-label={
+            job.state === "done"
+              ? `${t("studio.contactSheet.open")}: ${job.pipeline.nodes.map((n) => n.type).join(" > ")}`
+              : `${t("studio.contactSheet.recall")}: ${job.state}`
+          }
         >
           {job.state === "done" ? (
             <img src={jobResultUrl(job.id)} alt="" />
           ) : (
             <div className={styles.spinner}>
-              <Icon name={job.state === "error" ? "warning" : "spinner"} size={18} />
+              <Icon
+                name={job.state === "error" || job.state === "cancelled" ? "warning" : "spinner"}
+                size={18}
+              />
             </div>
           )}
           <span className={styles.frameLabel}>
@@ -51,3 +66,4 @@ export function ContactSheet({
     </div>
   );
 }
+

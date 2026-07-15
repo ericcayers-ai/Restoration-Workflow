@@ -61,7 +61,12 @@ export function useJobEvents(jobId: string | null): JobEventsState {
       socket.onmessage = (message) => {
         if (cancelled) return;
         const event = JSON.parse(message.data as string) as ProgressEvent;
-        if (event.node_id === "" && (event.status === "done" || event.status === "error")) {
+        // Job-level terminal: empty node_id. Cancelled jobs emit status "error"
+        // with message "cancelled" (see JobManager._finish).
+        if (
+          event.node_id === "" &&
+          (event.status === "done" || event.status === "error")
+        ) {
           terminalRef.current = true;
         }
         setState((prev) => ({

@@ -3,9 +3,12 @@
 ## Reporting a vulnerability
 
 Please **do not** open a public issue for a security vulnerability. Instead, use
-[GitHub's private vulnerability reporting](../../security/advisories/new) for this
-repository, or email the maintainer listed on the repository's GitHub profile. Include
-enough detail to reproduce the issue (affected version, request/input that triggers it,
+[GitHub's private vulnerability reporting](https://github.com/ericcayers-ai/Restoration-Workflow/security/advisories/new)
+for this repository. If you cannot use advisories, contact the maintainer privately via
+the path listed on [@ericcayers-ai](https://github.com/ericcayers-ai) (see also
+[`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) for non-security private reports).
+
+Include enough detail to reproduce (affected version, request/input that triggers it,
 expected vs. actual behavior).
 
 You should expect an initial response within a few days. This is a small, independently
@@ -15,14 +18,15 @@ credited in the fix.
 ## Supported versions
 
 The `main` branch and the latest tagged release receive fixes. Older releases are not
-patched individually; upgrade to the latest release to pick up a fix.
+patched individually; upgrade to the latest release to pick up a fix. Current line:
+**0.6.0**.
 
 ## What this app already does about it
 
 This app downloads and executes third-party neural network weights, and runs a local
 HTTP/WebSocket server — two things worth being deliberate about. The relevant design
-decisions live in `docs/ARCHITECTURE.md` §6, and are enforced in code, not just written
-down:
+decisions live in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (Weight Manager /
+local binding sections) and are enforced in code, not just written down:
 
 - **Weights are never unpickled.** Checkpoints are read with `torch.load(...,
   weights_only=True)` or `safetensors.torch.load_file` — both refuse a file that carries
@@ -41,8 +45,8 @@ down:
   before their weights download, and Simple Mode's default automatic pipeline is
   validated at startup (`RuleTable.validate()`) to never depend on one.
 - **The server binds to `127.0.0.1` only**, never `0.0.0.0` — `restore serve` and the
-  packaged desktop build are both local-only by default; there is no built-in remote
-  access or authentication layer, because there is no remote surface to authenticate.
+  packaged Windows PyInstaller build are both local-only by default; there is no built-in
+  remote access or authentication layer, because there is no remote surface to authenticate.
 - **Pipeline JSON is structurally validated** before it reaches the executor
   (`core/executor.parse_pipeline`) — unknown node types, malformed edges, and multi-sink
   graphs are rejected with a typed error, not passed through to code that assumes

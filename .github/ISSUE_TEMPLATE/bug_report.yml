@@ -2,6 +2,11 @@ name: Bug report
 description: Something in the engine, API, CLI, or UI isn't working as expected.
 labels: [bug]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug. Security issues go to [SECURITY.md](https://github.com/ericcayers-ai/Restoration-Workflow/blob/main/SECURITY.md) — do not report them here.
+
   - type: textarea
     id: what-happened
     attributes:
@@ -15,9 +20,10 @@ body:
     attributes:
       label: How are you running it?
       options:
-        - Prebuilt Windows exe (RestorationWorkflow.exe)
-        - From source (pip install -e + npm run build)
-        - CLI (restore run / analyze / ...)
+        - Windows portable zip (Run.bat / RestorationWorkflow.exe)
+        - From source (pip install -e + npm run build / restore serve)
+        - CLI only (restore run / analyze / …)
+        - Docker
     validations:
       required: true
 
@@ -25,8 +31,8 @@ body:
     id: version
     attributes:
       label: Version
-      description: From the exe's startup line, `restore --version`, or `GET /api/health`.
-      placeholder: "0.2.0"
+      description: From the launcher banner, `restore --version`, or `GET /api/health`.
+      placeholder: "0.6.0"
     validations:
       required: true
 
@@ -35,9 +41,8 @@ body:
     attributes:
       label: Pipeline (if relevant)
       description: >
-        The pipeline JSON, degradation reasons ("Why this pipeline" in Simple Mode), or
-        model chain involved. Paste it verbatim rather than paraphrasing — the exact
-        node types and params matter here.
+        Pipeline JSON, Simple Mode “why this pipeline” text, or the model chain
+        involved. Paste verbatim when possible.
       render: json
 
   - type: textarea
@@ -45,8 +50,8 @@ body:
     attributes:
       label: Relevant logs or error output
       description: >
-        Console output from `restore serve` / the exe's terminal window, and/or your
-        browser's DevTools console if this is a UI issue.
+        Console from `restore serve` / the Windows terminal window, and/or the
+        browser DevTools console for UI issues.
       render: shell
 
   - type: dropdown

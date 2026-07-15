@@ -2,8 +2,10 @@
 
 The engine: a DAG pipeline executor, the `RestorationNode` plugin contract, a weight manager,
 hardware detection, the degradation analyzer, a FastAPI REST/WebSocket surface, and the
-`restore` CLI. No UI. Everything here is exercisable from a terminal, which is the point —
-see [`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) for the design this implements.
+`restore` CLI. No UI. Everything here is exercisable from a terminal — see
+[`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md).
+
+**Package version:** `0.6.0` (`pyproject.toml` / `restoration.__version__`).
 
 ## Install
 
@@ -12,96 +14,82 @@ pip install -e ".[dev]"           # engine, API, CLI, analyzer, tests
 pip install -e ".[inference,dev]" # ...plus torch/spandrel/opencv, to actually run models
 ```
 
-The `inference` extra is genuinely optional. Without it the API serves, the CLI runs, the
-analyzer analyzes, and the nodes report themselves unrunnable rather than the app failing to
-start.
+Optional extras: `[diffusion]` (diffusers-tier nodes), `[stretch]` (MambaIRv2 and peers),
+`[packaging]` (PyInstaller Windows zip).
+
+The `inference` extra is optional. Without it the API serves, the CLI runs, the analyzer
+analyzes, and nodes report themselves unrunnable rather than the app failing to start.
 
 ## Use it
 
 ```bash
 restore hardware                                  # what compute backend was detected
-restore nodes                                     # every node, its licence, VRAM tier, install state
+restore nodes                                     # every node, licence, VRAM tier, install state
 restore weights download realesrgan               # checksum-verified, resumable
-restore analyze -i photo.jpg                      # the degradation profile and the chain it picks
+restore analyze -i photo.jpg                      # degradation profile and chosen chain
 restore run -i photo.jpg -o out/                  # Simple Mode: no configuration
 restore run -i photos/ -o out/ --pipeline p.json  # batch, explicit DAG
-restore serve --port 8765                         # headless API + WebSocket
+restore serve --port 8765                         # local API + WebSocket (+ built frontend if present)
 ```
 
 `restore run` with no `--preset`/`--pipeline` is Simple Mode: the analyzer profiles the image
-and the rule table picks the chain. It prints what it chose and why.
+and the rule table picks the chain.
 
 > On Git Bash for Windows, `/usr/bin/restore` shadows this command. Use the full path to
 > `Scripts/restore.exe`, or `python -m restoration.cli`.
 
-## In-box nodes
+## In-box nodes (illustrative)
 
-All permissively licensed; Simple Mode's default path never depends on anything else.
+Simple Mode’s default Auto path stays on permissively licensed nodes. Studio Mode exposes
+the wider stack (including acknowledgement-gated models). For the verified research table
+see [`../docs/MODEL_STACK.md`](../docs/MODEL_STACK.md). Core permissive examples:
 
 | Node | Model | Licence | Role |
 |---|---|---|---|
-| `realesrgan` | RealESRGAN x2/x4 | BSD-3-Clause | Default general upscaler |
-| `fbcnn` | FBCNN | Apache-2.0 | JPEG artifacts, adjustable quality factor |
-| `gfpgan` | GFPGAN v1.4 | Apache-2.0 | Fast face restoration |
-| `restoreformer` | RestoreFormer | Apache-2.0 | Quality face restoration |
-| `lama` | LaMa | Apache-2.0 | Large-mask inpainting (needs a `mask` input) |
-| `mask_from_image` | — | Apache-2.0 | Builds a mask from alpha or luminance |
-| `blend` | — | Apache-2.0 | Merges two DAG branches |
+| `fbcnn` | FBCNN | Apache-2.0 | JPEG artifacts |
+| `scunet` | SCUNet | Apache-2.0 | Blind denoise |
+| `swinir` / `_denoise` / `_jpeg` | SwinIR | Apache-2.0 | Transformer SR / denoise / JPEG |
+| `realesrgan` | RealESRGAN | BSD-3-Clause | Fast general upscaler |
+| `hat` | HAT | Apache-2.0 | Higher-quality SR (HF mirror) |
+| `gfpgan` / `restoreformer` | GFPGAN / RestoreFormer | Apache-2.0 | Face restoration |
+| `lama` | LaMa | Apache-2.0 | Large-mask inpainting |
+| `ddcolor` | DDColor | Apache-2.0 | Grayscale colourization |
+| `instructir` | InstructIR | MIT | Master Restorer / ensembles |
+| `mask_from_image` / `blend` / `exposure_correct` | — | Apache-2.0 | Orchestration / classical |
 
-Face detection and alignment use OpenCV's YuNet (MIT), a detector — never a restoration model.
+Face detection uses OpenCV YuNet (MIT) — a detector, not a restoration model. Full registry:
+`restore nodes` or `nodes/__init__.py` (`BUILTIN_NODES`).
 
 ## Pipelines
 
-A pipeline is a DAG, not a chain. Any node with no incoming `image` edge receives the input
-image; exactly one node may have no outgoing edge.
-
-```json
-{"version": 1,
- "nodes": [{"id": "m", "type": "mask_from_image", "params": {"source": "alpha"}},
-           {"id": "l", "type": "lama"}],
- "edges": [{"from": "m", "to": "l", "to_input": "mask"}]}
-```
-
-Branch and merge, which is why the executor is a DAG:
-
-```json
-{"version": 1,
- "nodes": [{"id": "g", "type": "gfpgan"},
-           {"id": "r", "type": "restoreformer"},
-           {"id": "b", "type": "blend", "params": {"alpha": 0.5}}],
- "edges": [{"from": "g", "to": "b", "to_input": "image"},
-           {"from": "r", "to": "b", "to_input": "image_b"}]}
-```
+A pipeline is a DAG. Any node with no incoming `image` edge receives the input image; exactly
+one node may have no outgoing edge. See root [`README.md`](../README.md) and
+`docs/ARCHITECTURE.md` for examples (mask→LaMa, dual-face blend).
 
 ## Plugins
 
-Drop `plugins/<name>/{manifest.json,plugin.py}` into the data directory. In-box nodes and
-third-party nodes register through the same path; no core-code change is required. A plugin
-that fails to load is recorded and skipped, never fatal.
-
-```json
-{"name": "my-plugin", "version": "1.0.0", "module": "plugin.py", "nodes": ["MyNode"]}
-```
+Drop `plugins/<name>/{manifest.json,plugin.py}` into the data directory. Same registration
+path as in-box nodes. A plugin that fails to load is recorded and skipped, never fatal.
+See [`../docs/PLUGIN_SDK.md`](../docs/PLUGIN_SDK.md).
 
 ## Tests
 
 ```bash
-python -m pytest      # 229 tests, no GPU, no weights, seconds
+python -m pytest -q     # currently ~409 tests collected (no GPU, no weight downloads)
 python -m ruff check src/ tests/
 ```
 
 The suite deliberately never downloads a checkpoint: executor, registry, weights, analyzer,
-rules, presets, tiling and the HTTP surface are all covered with fakes and mock transports.
-Node *contracts* are asserted; node *inference* is verified out-of-band against real weights.
+rules, presets, tiling and the HTTP surface use fakes and mock transports. Node *contracts*
+are asserted; node *inference* is verified out-of-band against real weights when needed.
 
 ## Two things worth knowing
 
-**Weights are never unpickled.** Checkpoints load via `torch.load(weights_only=True)` or as
-`safetensors`, never `spandrel.ModelLoader.load_from_file`. A checksum proves a file is the one
-we expected; it does not prove the file is safe. Both gates are enforced in `WeightManager` and
-`nodes/_torch.py`. This rule is why LaMa ships from a `safetensors` export — see the note in
-`docs/MODEL_STACK.md`.
+**Weights are never unpickled.** Checkpoints load via `torch.load(weights_only=True)` or
+`safetensors`, never `spandrel.ModelLoader.load_from_file`. A checksum proves identity, not
+safety. Both gates live in `WeightManager` and `nodes/_torch.py`. See
+[`../SECURITY.md`](../SECURITY.md) and the LaMa note in `MODEL_STACK.md`.
 
-**Architectures come from `spandrel`'s main registry only.** That package is MIT and excludes
-the non-commercial architectures (CodeFormer, MAT, …) that upstream ships in
-`spandrel_extra_arches`. The dependency boundary is itself a licensing guardrail.
+**Downloadable weights ≠ bundled code.** Orchestration is Apache-2.0; fonts and vendored
+architectures are attributed in [`../THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md);
+weights stay under upstream terms after on-demand download.

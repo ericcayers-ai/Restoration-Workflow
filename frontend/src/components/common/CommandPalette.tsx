@@ -8,6 +8,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useCommands, type Command } from "../../lib/commands";
 import { useT } from "../../lib/i18n";
+import { useFocusTrap } from "../../lib/useFocusTrap";
 import { Icon } from "./Icon";
 import styles from "./CommandPalette.module.css";
 
@@ -18,7 +19,10 @@ export function CommandPalette() {
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-  const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const close = () => setOpen(false);
+
+  useFocusTrap(open, panelRef, close);
 
   const results = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -35,27 +39,17 @@ export function CommandPalette() {
       if (isModK) {
         event.preventDefault();
         setOpen((prev) => !prev);
-        return;
-      }
-      if (event.key === "Escape" && open) {
-        event.preventDefault();
-        setOpen(false);
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open]);
+  }, []);
 
   useEffect(() => {
-    if (open) {
-      restoreFocusRef.current = document.activeElement as HTMLElement | null;
-      setQuery("");
-      setActiveIndex(0);
-      // Wait a tick so the input exists before focusing it.
-      requestAnimationFrame(() => inputRef.current?.focus());
-    } else {
-      restoreFocusRef.current?.focus();
-    }
+    if (!open) return;
+    setQuery("");
+    setActiveIndex(0);
+    requestAnimationFrame(() => inputRef.current?.focus());
   }, [open]);
 
   useEffect(() => {
@@ -90,7 +84,13 @@ export function CommandPalette() {
         if (e.target === e.currentTarget) setOpen(false);
       }}
     >
-      <div className={styles.panel} role="dialog" aria-modal="true" aria-label="Command palette">
+      <div
+        ref={panelRef}
+        className={styles.panel}
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("commandPalette.title")}
+      >
         <div className={styles.searchRow}>
           <Icon name="command" size={16} />
           <input

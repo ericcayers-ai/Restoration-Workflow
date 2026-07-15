@@ -95,6 +95,7 @@ export function PresetBar({
         type="file"
         accept=".txt"
         className="visually-hidden"
+        aria-label={t("studio.presets.import")}
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) onImport(file);

@@ -20,7 +20,7 @@ would fight against a curated "just fix this photo" Simple Mode anyway.
 
 ```mermaid
 flowchart LR
-    subgraph Desktop Shell (Tauri)
+    subgraph Desktop["Desktop / browser shell"]
         UI[React + TypeScript UI]
     end
     UI <-->|REST + WebSocket, localhost only| API[FastAPI Backend]
@@ -33,31 +33,28 @@ flowchart LR
     Executor --> GPU[(Local GPU / CPU)]
 ```
 
+**As shipped (0.6.x):** the supported desktop artefact is a **Windows PyInstaller portable
+zip** (`Run.bat` launches the local FastAPI process and opens a browser). `restore serve`
+is the same stack without the wrapper. An experimental `src-tauri/` tree may exist; it is
+**not** a shipping multi-OS updater shell — see [`RELEASING.md`](../RELEASING.md).
+
 ---
 
 ## 1. Process model
 
-Three logical processes, two on desktop:
+Three logical pieces:
 
-1. **Desktop shell (Tauri v2, or Electron if the sidecar prototype in §8 says otherwise)** —
-   native window, menu, file-drop handling, spawns/supervises the backend as a sidecar
-   process, shuts it down cleanly on quit. Owns nothing about restoration logic — it's a
-   window and a process supervisor, full stop.
-2. **Backend (Python, FastAPI or aiohttp)** — bound to `127.0.0.1` only, random free port on
-   launch (not a fixed port — avoids collisions and makes the local API harder to hit
-   accidentally from another process). Owns the pipeline executor, model plugins, weight
-   manager, hardware detection, and job state. FastAPI is the default pick for its WebSocket
-   ergonomics; ComfyUI itself runs on aiohttp for the same job, so either is proven — don't
-   treat this as a hard constraint if FastAPI turns out to be the wrong fit.
+1. **Desktop / browser shell (as shipped: browser + PyInstaller launcher on Windows)** —
+   the Windows zip’s `Run.bat` / `RestorationWorkflow.exe` starts the backend and opens a
+   browser tab. There is no required native WebView shell for day-one use. An optional
+   Tauri scaffold under `src-tauri/` is experimental only — not a product updater path.
+2. **Backend (Python / FastAPI)** — bound to `127.0.0.1` only (fixed default port `8765` in
+   current builds, overridable). Owns the pipeline executor, model plugins, weight manager,
+   hardware detection, and job state.
 3. **Frontend (React + TypeScript, served by the backend or by Vite in dev)** — talks to the
-   backend only over `localhost`; never assumes it's bundled in Tauri, so the exact same
-   frontend build also works as a plain browser tab in **server mode** (see §7). The node
-   canvas (Studio Mode) uses `@xyflow/react` (React Flow) — still the dominant choice for a
-   React-based node editor (~7.5M weekly downloads vs. low thousands for alternatives), fully
-   MIT-licensed at its core; the paid tier only removes an on-canvas attribution badge and
-   adds support, it doesn't gate any engine capability this app needs. Note ComfyUI itself
-   uses `litegraph.js` (raw Canvas2D) instead, purely for render performance at far larger
-   node counts than this app's use case involves — not a signal to follow here.
+   backend only over `localhost`. The same frontend build works as a plain browser tab in
+   **server mode** (see §7). Studio Mode supports an ordered list editor and a DAG graph
+   editor for branch/merge pipelines.
 
 This split means "the app" and "the engine" are independently testable: the backend has a
 full REST/WebSocket API that works with `curl`/Postman/a Python script with zero UI running,
@@ -230,9 +227,10 @@ gigabytes without hunting through the filesystem manually.
 - **CLI**: `restore run --input <folder> --preset <name> --output <folder>` drives the same
   backend API a script or cron job could hit directly — batch/automation is a first-class
   path, not an afterthought bolted onto the GUI.
-- **Server mode**: running `restore serve` starts just the FastAPI backend (no Tauri shell)
-  and opens a browser tab — the identical frontend build works headless on a Linux box or a
-  remote GPU machine reached over SSH port-forward. One codebase, two deployment shapes.
+- **Server mode**: running `restore serve` starts the FastAPI backend (no native desktop
+  shell) and serves the built frontend — the identical UI works headless on a Linux box or a
+  remote GPU machine reached over SSH port-forward. One codebase, two deployment shapes
+  (portable Windows zip vs. source/Docker server).
 - **Theming**: the CSS custom-property tokens in `UI_DESIGN.md` §9 are loaded from a
   user-overridable theme file, not compiled into the bundle — an accent-color swap or a
   custom high-contrast variant doesn't require a fork.
@@ -241,25 +239,19 @@ gigabytes without hunting through the filesystem manually.
 
 ## 8. Desktop packaging
 
-**Tauri v2** for the shell (small binary, native webview) is the default recommendation,
-spawning the Python backend as a sidecar via Tauri's documented `externalBin` mechanism.
-Jan.ai's Electron→Tauri migration cut their installer from ~1GB to under 200MB using exactly
-this pattern. This is a genuine judgment call, not a settled fact: **no one has yet publicly
-shipped a multi-gigabyte PyTorch+CUDA sidecar inside Tauri** the way this app needs to, and
-`externalBin` has known rough edges (antivirus/Defender false-positives, macOS notarization
-failures). **Electron is the proven fallback**, not a failure state, if Tauri's sidecar story
-turns out to be a blocker in practice — ComfyUI Desktop already ships exactly this shape
-(Electron + a relocatable Python/PyTorch/CUDA install run as a subprocess reached over
-localhost) at real scale. Decide this concretely early in Phase 8 by prototyping the sidecar
-path first, rather than assuming Tauri works and discovering otherwise late.
+**Supported path (0.5.4+):** Windows **PyInstaller `--onedir`** bundle zip
+(`RestorationWorkflow-windows.zip`) produced by `.github/workflows/release.yml` via
+`backend/packaging/build_exe.py`. Users extract, run `Run.bat`, and get a local server +
+browser UI. CPU wheels are enough to start; CUDA accelerates when present. Model **weights
+are not** in the zip — they download on demand through the Weight Manager.
 
-Either way, the installer does **not** attempt to bundle PyTorch/CUDA inside the app package
-itself — that combination is multi-gigabyte and brittle across the wide range of user GPU
-driver versions. Instead, first run walks the user through a managed Python environment setup
-(own venv, hardware-appropriate PyTorch wheel selected by the hardware detector from §5) with
-a real progress UI, the same pattern ComfyUI Desktop and Pinokio both use. This is slower on
-first launch than a fully bundled installer but far more reliable across actual hardware
-diversity.
+**Not supported as a product:** Tauri / Electron auto-updater narratives. A `src-tauri/`
+scaffold may remain for experiments; do not document or market it as a shipping multi-OS
+updater. Prefer documenting Releases + `Run.bat` or `restore serve` from source/Docker.
+
+**Licence bundle:** ship `LICENSE`, `NOTICE`, and `THIRD_PARTY_NOTICES.md` with binary
+artefacts when packaging includes them; keep downloadable-weight terms in
+`docs/MODEL_STACK.md` distinct from bundled code/fonts.
 
 ---
 

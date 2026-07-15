@@ -114,18 +114,30 @@ class ExposureCorrectNode(BaseRestorationNode):
 
         rgb_clipped = np.clip(rgb, 0.0, 1.0)
 
-        # CLAHE alone recovers *local* contrast/detail but is a local operation —
-        # it does not correct the image's overall brightness, so a badly crushed
-        # exposure would come out with recovered shadow texture that's still, on
-        # the whole, dark. An auto-gamma pass first moves the image's own mean
-        # luma toward middle grey (clamped so a well-exposed photo is left almost
-        # untouched), and CLAHE then has a properly-exposed image to recover
-        # local detail from rather than one still globally too dark or bright.
-        mean_luma = float(rgb_clipped.mean())
+        # Dual-tone path: lift shadows and gently compress highlights separately
+        # so blown regions get a soft recovery curve without washing midtones.
+        luma = (
+            0.2126 * rgb_clipped[..., 0]
+            + 0.7152 * rgb_clipped[..., 1]
+            + 0.0722 * rgb_clipped[..., 2]
+        )
+        shadow_mask = np.clip((0.35 - luma) / 0.35, 0.0, 1.0)[..., None]
+        highlight_mask = np.clip((luma - 0.70) / 0.30, 0.0, 1.0)[..., None]
+        # Soft highlight rolloff (preserves remaining detail near clip).
+        highlight_soft = np.power(np.clip(rgb_clipped, 0, 1), 1.25)
+        shadow_lift = np.power(np.clip(rgb_clipped, 1e-6, 1), 0.75)
+        tone_mapped = (
+            rgb_clipped * (1.0 - shadow_mask) * (1.0 - highlight_mask * 0.5)
+            + shadow_lift * shadow_mask
+            + highlight_soft * highlight_mask * 0.5
+        )
+        tone_mapped = np.clip(tone_mapped, 0.0, 1.0)
+
+        mean_luma = float(tone_mapped.mean())
         gamma = 1.0
         if 1e-4 < mean_luma < 1.0 - 1e-4:
             gamma = float(np.clip(np.log(0.5) / np.log(mean_luma), 0.35, 3.0))
-        gamma_corrected = np.power(rgb_clipped, gamma)
+        gamma_corrected = np.power(tone_mapped, gamma)
 
         rgb_u8 = (gamma_corrected * 255.0 + 0.5).astype(np.uint8)
 

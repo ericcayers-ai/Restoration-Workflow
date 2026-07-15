@@ -1,0 +1,174 @@
+{
+  "version": 1,
+  "comment": "InstructIR Master Restorer prompt library. Each preset pairs with workflow names and optional ensemble_hint for the conductor.",
+  "presets": [
+    {
+      "id": "jpeg_cleanup",
+      "title": "JPEG cleanup",
+      "instruction": "Remove JPEG compression artifacts and blockiness while preserving natural detail and edges.",
+      "ensemble_hint": "deblock_denoise",
+      "pairs_with_workflow": ["Digital Photo", "Phone Snapshot"]
+    },
+    {
+      "id": "heavy_denoise",
+      "title": "Heavy denoise",
+      "instruction": "Strongly reduce sensor noise and grain while keeping edges sharp; avoid plastic over-smoothing.",
+      "ensemble_hint": "heavy_denoise",
+      "pairs_with_workflow": ["Night Noise", "Robust All-in-One"]
+    },
+    {
+      "id": "deblur_faces",
+      "title": "Deblur faces carefully",
+      "instruction": "Sharpen slight blur and restore facial detail carefully without inventing identity or makeup.",
+      "ensemble_hint": "face_quality",
+      "pairs_with_workflow": ["Wedding Candid", "Dual Face Natural"]
+    },
+    {
+      "id": "low_light_lift",
+      "title": "Low-light lift",
+      "instruction": "Brighten underexposed areas, reduce crushed shadows, and control amplified noise.",
+      "ensemble_hint": "low_light",
+      "pairs_with_workflow": ["Night DarkIR", "Low Light Rescue"]
+    },
+    {
+      "id": "blown_highlight_rescue",
+      "title": "Blown highlight rescue",
+      "instruction": "Regenerate natural detail in overexposed and blown-out regions; preserve unclipped areas.",
+      "ensemble_hint": "highlight_regen",
+      "pairs_with_workflow": ["Blown Highlight Rescue"]
+    },
+    {
+      "id": "scratched_print",
+      "title": "Scratched print",
+      "instruction": "Remove dust, scratches and paper defects while keeping film grain and paper texture.",
+      "ensemble_hint": "defect_inpaint",
+      "pairs_with_workflow": ["Damaged Print", "Archival Soft"]
+    },
+    {
+      "id": "vhs_dump",
+      "title": "VHS dump",
+      "instruction": "Clean VHS tape capture: reduce chroma noise, deblock, and restore modest sharpness without cartoon edges.",
+      "ensemble_hint": "vhs",
+      "pairs_with_workflow": ["VHS Capture", "VHS Capture Full"]
+    },
+    {
+      "id": "film_35mm",
+      "title": "35mm film scan",
+      "instruction": "Restore a scanned 35mm still: gentle denoise, natural colour, careful face detail.",
+      "ensemble_hint": "film_scan",
+      "pairs_with_workflow": ["35mm Film Scan", "35mm Film Scan Full"]
+    },
+    {
+      "id": "bw_restore",
+      "title": "B&W restore (no recolour)",
+      "instruction": "Restore this black-and-white photograph. Do not invent colour; keep monochrome tones natural.",
+      "ensemble_hint": "bw_no_color",
+      "pairs_with_workflow": ["B and W Film", "B and W Film Full"]
+    },
+    {
+      "id": "colorize_accompany",
+      "title": "Colorize accompany",
+      "instruction": "Support colourization with natural historical palette; avoid neon or surreal hues.",
+      "ensemble_hint": "colorize",
+      "pairs_with_workflow": ["Colorize BW", "Colorize Artistic"]
+    },
+    {
+      "id": "dual_face_natural",
+      "title": "Dual-face natural",
+      "instruction": "Restore faces to a natural look with balanced skin texture; avoid plastic skin.",
+      "ensemble_hint": "face_quality",
+      "pairs_with_workflow": ["Dual Face Natural", "Wedding Candid"]
+    },
+    {
+      "id": "archival_soft",
+      "title": "Archival soft",
+      "instruction": "Gentle archival restoration: reduce defects modestly and keep period character.",
+      "ensemble_hint": "archival",
+      "pairs_with_workflow": ["Archival Soft", "Old Film"]
+    },
+    {
+      "id": "max_perceptual",
+      "title": "Max perceptual",
+      "instruction": "Maximize perceptual clarity and detail for display; mild generative enhancement is acceptable.",
+      "ensemble_hint": "generative_polish",
+      "pairs_with_workflow": ["DiffBIR Polish", "SUPIR Maximum"]
+    },
+    {
+      "id": "fidelity_first",
+      "title": "Fidelity first",
+      "instruction": "Prefer fidelity over punch: remove only clear degradation; do not invent texture.",
+      "ensemble_hint": "fidelity",
+      "pairs_with_workflow": ["Digital Photo", "Fidelity First"]
+    },
+    {
+      "id": "night_darkir",
+      "title": "Night DarkIR guide",
+      "instruction": "Guide low-light restoration toward clean night photography with controlled contrast.",
+      "ensemble_hint": "low_light",
+      "pairs_with_workflow": ["Night DarkIR"]
+    },
+    {
+      "id": "dust_keep_grain",
+      "title": "Remove dust keep grain",
+      "instruction": "Remove dust spots and scratches but preserve authentic film grain.",
+      "ensemble_hint": "defect_inpaint",
+      "pairs_with_workflow": ["Damaged Print", "Old Film Full"]
+    },
+    {
+      "id": "phone_snapshot",
+      "title": "Phone snapshot",
+      "instruction": "Clean a phone snapshot: mild denoise, fix compression, keep a natural look.",
+      "ensemble_hint": "deblock_denoise",
+      "pairs_with_workflow": ["Phone Snapshot", "Digital Photo"]
+    },
+    {
+      "id": "wedding_candid",
+      "title": "Wedding candid",
+      "instruction": "Restore a candid portrait: soft faces, clean skin without plastic effect, natural colours.",
+      "ensemble_hint": "face_quality",
+      "pairs_with_workflow": ["Wedding Candid"]
+    },
+    {
+      "id": "animation_flat",
+      "title": "Animation / cartoon",
+      "instruction": "Clean flat-colour and line art: light denoise, keep edges crisp, avoid painterly smear.",
+      "ensemble_hint": "animation",
+      "pairs_with_workflow": ["Animation Cartoon", "Animation Cartoon Full"]
+    },
+    {
+      "id": "instruct_only_general",
+      "title": "General instruct pass",
+      "instruction": "Restore this photograph following a balanced all-in-one cleanup of blur, noise, and compression.",
+      "ensemble_hint": "instruct_only",
+      "pairs_with_workflow": ["InstructIR Solo"]
+    },
+    {
+      "id": "old_film_motion",
+      "title": "Old film / motion picture",
+      "instruction": "Restore aged motion-picture stills: deblock, denoise, gentle face recovery, keep film character.",
+      "ensemble_hint": "film_scan",
+      "pairs_with_workflow": ["Old Film", "Old Film Full"]
+    },
+    {
+      "id": "powerpaint_clean",
+      "title": "Inpaint cleanup",
+      "instruction": "Support object removal and hole fill with seamless surrounding texture.",
+      "ensemble_hint": "inpaint",
+      "pairs_with_workflow": ["PowerPaint Cleanup"]
+    },
+    {
+      "id": "mamba_quality",
+      "title": "Efficient quality upscale",
+      "instruction": "Enhance resolution and clarity with efficient transformer-class detail recovery.",
+      "ensemble_hint": "quality_upscale",
+      "pairs_with_workflow": ["MambaIR Quality"]
+    },
+    {
+      "id": "instantir_creative",
+      "title": "Creative blind restore",
+      "instruction": "Blind restoration with mild creative clarity; keep the photo believable.",
+      "ensemble_hint": "generative_polish",
+      "pairs_with_workflow": ["InstantIR Creative"]
+    }
+  ]
+}

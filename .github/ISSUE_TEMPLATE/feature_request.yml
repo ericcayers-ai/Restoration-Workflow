@@ -17,9 +17,22 @@ body:
       description: >
         If this is a new model: does spandrel's MAIN_REGISTRY already support its
         architecture? Where are the official weights hosted, and under what license?
-        (See CONTRIBUTING.md's "Adding a new restoration model" — a permissive,
-        author-hosted weight source with a real sha256 is required for anything shipped
-        as a default; non-commercial models are still welcome as opt-in Studio nodes.)
+        (See CONTRIBUTING.md — a permissive, pinable weight source is required for
+        defaults; non-commercial models are welcome as opt-in Studio nodes.)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where would this show up?
+      options:
+        - Simple Mode
+        - Studio Mode
+        - Settings / Downloads
+        - CLI / API
+        - Docs / packaging
+        - Unsure
     validations:
       required: true
 

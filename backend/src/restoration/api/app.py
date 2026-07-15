@@ -87,6 +87,25 @@ class AutoOrderBody(BaseModel):
     params: dict[str, dict[str, Any]] = Field(default_factory=dict)
 
 
+class EnsembleBody(BaseModel):
+    prompt_preset_id: str | None = None
+    instruction: str | None = None
+    mode: str = Field(
+        default="guide_and_finish",
+        description="finish_only | instruct_only | guide_and_finish",
+    )
+    profile: dict[str, Any] | None = Field(
+        default=None,
+        description="Optional analyzer profile from /api/analyze for ensembles.",
+    )
+
+
+class DownloadBody(BaseModel):
+    params: dict[str, Any] = Field(default_factory=dict)
+    all_variants: bool = False
+    filenames: list[str] | None = None
+
+
 class WorkflowExportBody(BaseModel):
     pipeline: dict[str, Any]
     name: str = ""
@@ -95,6 +114,13 @@ class WorkflowExportBody(BaseModel):
 
 class WorkflowImportBody(BaseModel):
     text: str
+
+
+def _form_str(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
 
 
 def create_app(services: AppServices | None = None) -> FastAPI:
@@ -211,12 +237,24 @@ def create_app(services: AppServices | None = None) -> FastAPI:
                 raise HTTPException(400, f"'pipeline' is not valid JSON: {exc}") from exc
             spec = parse_pipeline(document, services.registry)
         elif preset:
-            spec = parse_pipeline(services.presets.get(preset).pipeline, services.registry)
+            preset_obj = services.presets.get(preset)
+            gate = services.preset_licence_gate(preset_obj.pipeline)
+            if not gate["ready"]:
+                raise LicenseNotAcknowledgedError(
+                    ",".join(gate["unacknowledged_node_ids"]),
+                    "restricted",
+                )
+            spec = parse_pipeline(preset_obj.pipeline, services.registry)
         else:
             tier = _parse_quality_tier(quality_tier)
             auto = await asyncio.to_thread(services.analyze, array, tier)
             spec = auto.spec
             analysis = auto.to_dict()
+
+        # Explicit pipelines can also include gated nodes — close the bypass.
+        unacked = services.unacknowledged_nodes(spec)
+        if unacked:
+            raise LicenseNotAcknowledgedError(",".join(unacked), "restricted")
 
         missing = services.missing_weights(spec)
         if missing:
@@ -243,6 +281,16 @@ def create_app(services: AppServices | None = None) -> FastAPI:
     async def cancel_job(job_id: str) -> dict[str, Any]:
         job = _job_or_404(job_id)
         return {"cancelled": jobs.cancel(job_id), "state": job.state.value}
+
+    @app.delete("/api/jobs/{job_id}")
+    async def delete_job(job_id: str) -> dict[str, Any]:
+        _job_or_404(job_id)
+        return {"deleted": jobs.delete(job_id)}
+
+    @app.post("/api/jobs/cleanup")
+    async def cleanup_jobs() -> dict[str, Any]:
+        purged = jobs.cleanup()
+        return {"purged": purged, "remaining": len(jobs.list())}
 
     @app.get("/api/jobs/{job_id}/result")
     async def job_result(job_id: str) -> FileResponse:
@@ -280,7 +328,7 @@ def create_app(services: AppServices | None = None) -> FastAPI:
 
     @app.get("/api/weights")
     async def list_weights() -> dict[str, Any]:
-        return {
+        overview = {
             "cache_dir": str(services.weights.root),
             "nodes": [
                 services.weights.status(node).to_dict()
@@ -289,6 +337,45 @@ def create_app(services: AppServices | None = None) -> FastAPI:
             ],
             "installed": services.weights.list_installed(),
         }
+        overview["totals"] = services.weight_download_totals()
+        return overview
+
+    @app.get("/api/instructir/prompts")
+    async def instructir_prompts() -> dict[str, Any]:
+        from ..core.ensemble import prompt_library_summary  # noqa: PLC0415
+
+        return prompt_library_summary()
+
+    @app.post("/api/pipelines/ensemble")
+    async def build_ensemble(request: Request) -> dict[str, Any]:
+        """Build a guided ensemble.
+
+        Accepts JSON (``EnsembleBody``, optional ``profile``) or multipart with
+        an image so Studio can pass analyzer-aware context in one round-trip.
+        """
+        ctype = (request.headers.get("content-type") or "").lower()
+        if "multipart/form-data" in ctype:
+            form = await request.form()
+            upload = form.get("image")
+            array = None
+            if upload is not None and hasattr(upload, "read"):
+                data = await upload.read()  # type: ignore[union-attr]
+                if data:
+                    array = load_image_bytes(data)
+            return services.build_ensemble(
+                array,
+                prompt_preset_id=_form_str(form.get("prompt_preset_id")),
+                instruction=_form_str(form.get("instruction")),
+                mode=_form_str(form.get("mode")) or "guide_and_finish",
+            )
+        payload = await request.json()
+        body = EnsembleBody.model_validate(payload)
+        return services.build_ensemble(
+            prompt_preset_id=body.prompt_preset_id,
+            instruction=body.instruction,
+            mode=body.mode,
+            profile_dict=body.profile,
+        )
 
     @app.post("/api/weights/{node_id}/acknowledge")
     async def acknowledge(node_id: str, body: AcknowledgeBody) -> dict[str, Any]:
@@ -299,8 +386,21 @@ def create_app(services: AppServices | None = None) -> FastAPI:
         return services.weights.status(node).to_dict()
 
     @app.post("/api/weights/{node_id}/download", status_code=202)
-    async def download_weights(node_id: str) -> dict[str, Any]:
-        return downloads.start(node_id).to_dict()
+    async def download_weights(node_id: str, request: Request) -> dict[str, Any]:
+        opts = DownloadBody()
+        raw = await request.body()
+        if raw:
+            opts = DownloadBody.model_validate(json.loads(raw))
+        return downloads.start(
+            node_id,
+            params=opts.params,
+            all_variants=opts.all_variants,
+            filenames=opts.filenames,
+        ).to_dict()
+
+    @app.get("/api/weights/downloads")
+    async def list_downloads() -> list[dict[str, Any]]:
+        return [d.to_dict() for d in downloads.list()]
 
     @app.get("/api/weights/downloads/{download_id}")
     async def download_status(download_id: str) -> dict[str, Any]:
@@ -308,6 +408,13 @@ def create_app(services: AppServices | None = None) -> FastAPI:
         if state is None:
             raise HTTPException(404, f"no download {download_id!r}")
         return state.to_dict()
+
+    @app.post("/api/weights/downloads/{download_id}/cancel")
+    async def cancel_download(download_id: str) -> dict[str, Any]:
+        state = downloads.get(download_id)
+        if state is None:
+            raise HTTPException(404, f"no download {download_id!r}")
+        return {"cancelled": downloads.cancel(download_id), "state": state.state.value}
 
     @app.delete("/api/weights/{node_id}")
     async def remove_weights(node_id: str) -> dict[str, Any]:
@@ -320,14 +427,23 @@ def create_app(services: AppServices | None = None) -> FastAPI:
         return services.presets
 
     @app.get("/api/presets")
-    async def list_presets(store: PresetStore = Depends(preset_store)) -> list[dict[str, Any]]:
-        return [p.to_dict() for p in store.list()]
+    async def list_presets(
+        store: PresetStore = Depends(preset_store),
+        include_gated: bool = True,
+    ) -> list[dict[str, Any]]:
+        out = []
+        for preset in store.list():
+            described = services.describe_preset(preset)
+            if not include_gated and not described["licence"]["ready"]:
+                continue
+            out.append(described)
+        return out
 
     @app.get("/api/presets/{name}")
     async def get_preset(
         name: str, store: PresetStore = Depends(preset_store)
     ) -> dict[str, Any]:
-        return store.get(name).to_dict()
+        return services.describe_preset(store.get(name))
 
     @app.put("/api/presets/{name}")
     async def save_preset(
@@ -338,7 +454,7 @@ def create_app(services: AppServices | None = None) -> FastAPI:
         parse_pipeline(body.pipeline, services.registry)
         preset = Preset(name=name, pipeline=body.pipeline, description=body.description)
         store.save(preset)
-        return preset.to_dict()
+        return services.describe_preset(preset)
 
     @app.delete("/api/presets/{name}")
     async def delete_preset(

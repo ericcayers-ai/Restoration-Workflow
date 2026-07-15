@@ -4,11 +4,21 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "restoration-workflow"
-version = "0.5.4"
+version = "0.6.0"
 description = "Local-first photo restoration engine: DAG pipeline executor, restoration node plugins, weight manager, and REST/WebSocket API."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
+authors = [{ name = "Eric Ayers" }]
+keywords = ["photo-restoration", "image-restoration", "local-first", "fastapi"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
 dependencies = [
     "fastapi>=0.110",
     "uvicorn[standard]>=0.29",
@@ -60,6 +70,13 @@ dev = [
     "ruff>=0.6",
 ]
 
+[project.urls]
+Homepage = "https://github.com/ericcayers-ai/Restoration-Workflow"
+Repository = "https://github.com/ericcayers-ai/Restoration-Workflow"
+Issues = "https://github.com/ericcayers-ai/Restoration-Workflow/issues"
+Changelog = "https://github.com/ericcayers-ai/Restoration-Workflow/blob/main/CHANGELOG.md"
+Documentation = "https://github.com/ericcayers-ai/Restoration-Workflow#documentation"
+
 [project.scripts]
 restore = "restoration.cli:main"
 restoration-workflow = "restoration.launcher:main"
@@ -89,5 +106,7 @@ ignore = [
 # Tests import fixtures and node classes inside functions to keep the module
 # import graph free of torch.
 "tests/*" = ["PLC0415"]
+# Packaging smoke scripts append src/ to sys.path before importing the package.
+"packaging/*" = ["PLC0415"]
 # Vendored upstream model architectures — linted as-is from upstream repos.
 "src/restoration/nodes/vendored/*" = ["E", "F", "W", "B", "I", "UP", "N"]

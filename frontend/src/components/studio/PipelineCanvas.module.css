@@ -28,7 +28,7 @@
   padding: 10px 10px 8px 14px;
   background: var(--surface-800);
   border: 1px solid var(--border-hairline);
-  cursor: grab;
+  cursor: default;
   user-select: none;
   display: flex;
   flex-direction: column;
@@ -37,7 +37,7 @@
 
 .nodeSelected {
   border-color: var(--accent-amber);
-  box-shadow: 0 0 0 1px var(--accent-amber);
+  outline: 1px solid var(--accent-amber);
 }
 
 .tab {
@@ -48,11 +48,12 @@
   width: 4px;
 }
 
-.cat_generative { background: #7a6b8a; }
-.cat_face { background: #c17a5c; }
-.cat_regression { background: #5a8f7b; }
-.cat_masking { background: #6a8ab0; }
-.cat_orchestration { background: #8a8578; }
+.cat_generative { background: var(--category-generative); }
+.cat_face { background: var(--category-face); }
+.cat_regression { background: var(--category-regression); }
+.cat_masking { background: var(--category-masking); }
+.cat_orchestration { background: var(--category-orchestration); }
+.cat_instruct { background: var(--category-instruct); }
 
 .nodeName {
   font-size: 12px;
@@ -98,3 +99,4 @@
   transform: translateX(-50%);
   color: var(--accent-amber);
 }
+

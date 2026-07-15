@@ -172,6 +172,11 @@ class DiffusionNode(BaseRestorationNode):
                 "default": "high quality photograph, sharp, detailed",
                 "title": "Prompt",
             },
+            "negative_prompt": {
+                "type": "string",
+                "default": "blurry, low quality, artifacts, oversaturated",
+                "title": "Negative prompt",
+            },
         },
         "additionalProperties": False,
     }
@@ -237,11 +242,11 @@ class PowerPaintNode(DiffusionNode):
 
 class DiffBirNode(DiffusionNode):
     id = "diffbir"
-    category = NodeCategory.REGRESSION
+    category = NodeCategory.GENERATIVE
     pipeline_stage = STAGE_UPSCALE
     display_name = "DiffBIR"
     description = (
-        "Blind image restoration via diffusion; general/background pre-stage "
+        "Blind image restoration via diffusion; equal-tier generative peer "
         "(Apache-2.0). Requires Hugging Face access to ai-forever/DiffBIR-v2."
     )
     license = LicenseInfo(

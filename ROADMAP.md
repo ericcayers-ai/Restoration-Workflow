@@ -68,7 +68,7 @@ before any product code exists.
 
 ---
 
-## Phase 1 — Core Engine
+## Phase 1 — Core Engine — *complete as of 0.3.0 / maintained through 0.6.0*
 
 **Goal:** a working backend with zero UI — provable entirely from a terminal.
 
@@ -103,7 +103,7 @@ directly instead of going through the registry, that's a layering leak worth fix
 
 ---
 
-## Phase 2 — Simple Mode (instant automation, drag-and-drop MVP)
+## Phase 2 — Simple Mode (instant automation, drag-and-drop MVP) — *complete; 0.6.0 polish*
 
 **Goal:** the actual "drop a photo, get it fixed" deliverable. This is the phase most worth
 getting exactly right — it's the app's first impression.
@@ -142,7 +142,7 @@ centrality here, but a UI component showing up as a backend-wide dependency hub 
 
 ---
 
-## Phase 3 — Studio Mode (full node canvas, full customizability)
+## Phase 3 — Studio Mode (full node canvas, full customizability) — *complete; 0.6.0 Studio UX harden*
 
 **Goal:** every choice Simple Mode made, made visible and editable — plus real DAG authoring
 power Simple Mode never needs.
@@ -226,7 +226,7 @@ just regenerate it.
 
 ---
 
-## Phase 4.5 — Restoration Completeness, Presets, Adaptive Performance & Batch
+## Phase 4.5 — Restoration Completeness, Presets, Adaptive Performance & Batch — *complete as of 0.5.x–0.6.0*
 
 **Goal:** close the gap between "a good model stack" and "a tool that reliably gets *this
 photo, right now* to its best possible restored version with no manual pipeline-building,"
@@ -241,7 +241,7 @@ from a scratched film negative, a frame grabbed from a VHS capture, or a flat di
 photo all want materially different chains, and asking a first-time user to hand-build one
 in Advanced Mode defeats Simple Mode's entire premise.
 
-### 4.5.1 — Exposure recovery
+### 4.5.1 — Exposure recovery — *done (classical `exposure_correct`; DarkIR companion when installed)*
 
 **Research finding (2026-07-12):** no learned exposure-correction model clears this repo's
 bar for a *default/auto-download* node. Every serious candidate is either non-commercial
@@ -266,7 +266,7 @@ routes on them — wire an `exposure_correct` node into the rule table gated on 
 ordered before denoise/upscale (correcting exposure first avoids amplifying compressed
 noise in the process).
 
-### 4.5.2 — Scratch and dust detection
+### 4.5.2 — Scratch and dust detection — *classical path done; Microsoft Bringing-Old-Photos still deferred*
 
 **Research finding (2026-07-12):** the strongest learned candidate is Microsoft's
 `Bringing-Old-Photos-Back-to-Life` (CVPR'20, MIT, real GitHub-release weights
@@ -285,7 +285,7 @@ that auto-routes into LaMa when defects are detected, with no manual mask-drawin
 Genuinely useful and honestly scoped as "classical CV," not oversold as the Microsoft model's
 learned quality bar.
 
-### 4.5.3 — Workflow presets (16, out of the box) — *done in 0.4.0*
+### 4.5.3 — Workflow presets — *done in 0.4.0; expanded to ~34 lanes in 0.6.0*
 
 Eight presets built from the *base* permissive stack (no extra downloads beyond what Simple
 Mode already fetches), covering the degradation *families* the rule table's per-image
@@ -304,7 +304,7 @@ Each preset is a real, validated `PipelineJson` (the exact shape `PresetStore` a
 persists) with its own independent node ordering and params — not the same chain with a
 different name.
 
-### 4.5.4 — Hardware-adaptive quality tiers
+### 4.5.4 — Hardware-adaptive quality tiers — *done (API/CLI + Simple Mode draft/balanced/high)*
 
 A draft → balanced → high-quality axis, mapped to tile size (smaller tiles / more OOM
 headroom in draft, larger contiguous inference in high) and model choice within a category
@@ -343,7 +343,7 @@ every future cancel click — and a cancelled run can be resumed/restarted, not 
 two distinct actions, not one overloaded button. The before/after view supports zoom and pan
 in addition to the existing slider/side-by-side/difference modes.
 
-**Acceptance criteria:** all 16 presets are real, independently-authored, validated
+**Acceptance criteria:** builtin presets (~34 as of 0.6.0, including the original 16-family set) are real, independently-authored, validated
 pipelines a user can pick and run with no further configuration; a folder of 10 mixed-format
 images processes correctly in both Simple (per-image) and Advanced (identical-pipeline)
 batch modes; the smallest tested VRAM class never OOMs at any quality tier; cancel-to-stopped
@@ -388,7 +388,7 @@ Model Stack rail, with zero core-code changes.
 
 ---
 
-## Phase 7 — Accessibility, i18n Scaffold & Polish — *verification in 0.5.1*
+## Phase 7 — Accessibility, i18n Scaffold & Polish — *expanded in 0.6.0 QOL; NVDA/VoiceOver still deferred*
 
 **Goal:** the accessibility bar from `docs/UI_DESIGN.md` §6 was a requirement from Phase 2
 onward, not a checklist to backfill — this phase is verification and the parts that only make
@@ -413,27 +413,30 @@ assistance.
 
 ---
 
-## Phase 8 — Packaging & Distribution — *updater key in 0.5.1*
+## Phase 8 — Packaging & Distribution — *Windows zip + Docker supported; Tauri updater de-scoped*
 
 **Goal:** the "double-click and it works" experience from Phase 2, finished properly.
 
 Tasks:
-- Tauri v2 config + updater plugin with real minisign pubkey (`src-tauri/updater.key.pub`) — *0.5.1*; private key via `TAURI_SIGNING_PRIVATE_KEY` in release CI. PyInstaller remains the
-  primary Windows portable path from 0.2.0.
-- Per-OS CI builds in `.github/workflows/release.yml` — *0.5.0*
-- Package `restore serve` as a headless/server-mode option (e.g. a Docker image) for users
-  running on a remote GPU box rather than locally.
-- Produce a license-compliance bundle: an aggregate NOTICE file listing every bundled and
-  every downloadable model's license, matching `docs/MODEL_STACK.md`'s tiers exactly.
-- Write the contribution guide for the plugin ecosystem opened up in Phase 6.
+- **Supported:** PyInstaller Windows portable zip (`RestorationWorkflow-windows.zip` +
+  `Run.bat`) on GitHub Releases — *0.5.4*; keep packing `LICENSE` / notices with the artefact.
+- Per-OS CI in `.github/workflows/release.yml` — Windows publishes the zip; macOS/Linux run
+  build+test (Linux also Docker) — *0.5.0+*.
+- Package `restore serve` as a headless/server-mode option (Docker image) for remote GPU boxes.
+- Licence-compliance bundle: `NOTICE` + `THIRD_PARTY_NOTICES.md` for bundled code/fonts;
+  downloadable-weight tiers stay in `docs/MODEL_STACK.md`.
+- Contribution / community docs: CONTRIBUTING, SUPPORT, RELEASING, CoC — *see repo root*.
+- **De-scoped:** shipping a Tauri multi-OS auto-updater. `src-tauri/` may remain as an
+  experiment; do not wire release marketing or CI around `latest.json` updater artefacts
+  until that path is deliberately rebuilt and verified.
 
-**Acceptance criteria:** a clean machine with no pre-existing Python or CUDA setup reaches a
-working Simple Mode first-drop in a reasonable, clearly-communicated amount of time, on each
-target OS — the user should never be staring at a frozen window wondering if it's broken.
+**Acceptance criteria:** a clean Windows machine with no pre-existing Python reaches a
+working Simple Mode first-drop from the zip in a reasonable, clearly-communicated amount of
+time — the user should never be staring at a frozen window wondering if it's broken.
 
 ---
 
-## Phase 9 — Testing, QA & Launch Readiness — *corpus + docs in 0.5.0*
+## Phase 9 — Testing, QA & Launch Readiness — *corpus/docs in 0.5.0; regression + a11y expanded in 0.6.0*
 
 **Goal:** close the loop.
 
@@ -448,6 +451,51 @@ Tasks:
   connections.
 
 ---
+
+---
+
+## Phase 10 — v0.6.0 QOL Overhaul & Master Restorer — *complete as of 0.6.0*
+
+**Goal:** harden the already-shipped Phase 1–9 stack into a coherent 0.6 product without replacing
+the FastAPI / React / CLI / PyInstaller architecture, and record truthful status for what remains.
+
+### Shipped in this wrap-up
+
+- **Master Restorer (InstructIR)** — MIT instruction-guided node, prompt library, finish / instruct /
+  guide modes, guided-ensemble conductor (`POST /api/pipelines/ensemble`, CLI preset), soft clip-mask
+  highlight blend; `InstructionRestorer` protocol left open for future backends.
+- **DDColor** colourization with Auto routing on grayscale; Colorize presets.
+- **Analyzer v2** — multi-scale blur, anisotropy, continuous exposure / clip mask, chroma, confidence;
+  Blown Highlight Rescue companions (InstructIR → DiffBIR → SUPIR when ready).
+- **Weights & jobs hygiene** — parameter/variant-aware readiness and download totals; download cancel +
+  partial cleanup; bounded job retention / result TTL; licence gates that Simple presets cannot bypass.
+- **Studio / Simple workflows** — canonical pipeline state across list + graph; batch completion /
+  preflight; Light Table compare/export reuse; searchable Downloads inventory; Master Restorer UX copy.
+- **Safelight UI / a11y / i18n** — responsive Studio easels, focus traps, keyboard parity, token hygiene,
+  expanded axe coverage; English catalog remains the i18n seam.
+- **Quality tiers in Simple Mode** — draft / balanced / high surface the existing Phase 4.5.4 engine.
+- **Packaging & docs** — Windows zip packs LICENSE / notices; Docker installs advertised inference extra;
+  community set refreshed (README, CoC, CONTRIBUTING, SUPPORT, RELEASING, issue/PR templates,
+  THIRD_PARTY_NOTICES). `src-tauri/` stays an **experiment**, not a shipping updater.
+
+### Explicitly still open (honest remaining items)
+
+| Item | Status |
+|---|---|
+| Microsoft **Bringing-Old-Photos** learned scratch restore | Deferred — classical `old_photos_scratch` / defect→LaMa ships instead |
+| Full vendor DiffBIR / SUPIR / FLUX architectures beyond diffusers fallback | Stretch engineering, not a 0.6 launch blocker |
+| Defusion / AutoDIR / PromptIR as Master Restorer backends | Watch list; protocol ready, packaging/licence bar not met |
+| Restore-R1 / learned Phase 5 router | No usable public code; keep v1 analyzer (`docs/PHASE5_DECISION.md`) |
+| NVDA / VoiceOver manual screen-reader certification | Checklist exists; live pass remains release-QA |
+| Native macOS/Linux desktop installers + Tauri auto-updater | De-scoped; use source, `restore serve`, or Docker |
+| Structured external beta loop / full VRAM-matrix certification | Process in `docs/QA_LAUNCH.md`; not claimed finished by 0.6 alone |
+
+**Acceptance for 0.6.0:** CI green on ruff/pytest (non-inference + inference where installed), frontend
+test/typecheck/build/a11y; Windows zip path remains the documented double-click install; roadmap claims
+above match the code rather than aspirational scaffolding.
+
+**Graphify checkpoint:** `/graphify . --update` after this wrap if regenerating the knowledge graph for
+launch gating (Phase 9); not a substitute for the verification commands above.
 
 ## Definition of Done
 
@@ -465,7 +513,7 @@ The project is launch-ready when all of the following are true at once, not indi
   reskin — this is a judgment call, but it's a real one: hold a finished screen next to the
   "explicitly avoid" list in `docs/UI_DESIGN.md` §1 and confirm none of it snuck back in.
 - Automated and manual accessibility checks pass (Phase 7).
-- Install-to-first-result works on a clean machine on every target OS (Phase 8).
+- Install-to-first-result works on a clean Windows machine from the portable zip (Phase 8 supported desktop artefact); macOS/Linux are source/`restore serve` / Docker paths, not a second native installer product.
 - The graphify knowledge graph is current, and its own analysis (god nodes, surprising
   connections) doesn't surface an unresolved architectural surprise (Phase 9,
   `docs/GRAPHIFY_WORKFLOW.md`).

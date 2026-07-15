@@ -131,15 +131,233 @@ class AppServices:
                 self.registry.create("restoreformer")
             ),
         )
-        decision = RoutingDecision(chain=chain, params=params, reasons=decision.reasons)
+        chain, params, extra_reasons = self._apply_companion_overlays(profile, chain, params)
+        reasons = list(decision.reasons) + extra_reasons
+        decision = RoutingDecision(chain=chain, params=params, reasons=reasons)
         spec = auto_order_pipeline(chain, self.registry, params)
         return AutoPipeline(profile=profile, decision=decision, spec=spec)
 
+    def _node_ready(self, node_id: str) -> bool:
+        """Installed (+ licence acked when required)."""
+        try:
+            node = self.registry.create(node_id)
+        except Exception:
+            return False
+        if not node.weight_manifest:
+            return True
+        if not self.weights.is_installed(node):
+            return False
+        if node.license.requires_acknowledgement and not self.weights.is_acknowledged(node_id):
+            return False
+        return True
+
+    def _apply_companion_overlays(
+        self,
+        profile: DegradationProfile,
+        chain: list[str],
+        params: dict[str, dict[str, Any]],
+    ) -> tuple[list[str], dict[str, dict[str, Any]], list[dict[str, str]]]:
+        """Prefer DarkIR / InstructIR / DiffBIR companions when ready.
+
+        Never puts gated models into ``rule_table.json``; overlays only when the
+        user already installed (+acked) the companion weights.
+        """
+        chain = list(chain)
+        params = {k: dict(v) for k, v in params.items()}
+        reasons: list[dict[str, str]] = []
+
+        def insert_after(anchor: str, node_id: str) -> None:
+            if node_id in chain:
+                return
+            if anchor in chain:
+                chain.insert(chain.index(anchor) + 1, node_id)
+            else:
+                chain.insert(0, node_id)
+
+        def replace(old: str, new: str) -> None:
+            if old in chain and new not in chain:
+                chain[chain.index(old)] = new
+                if old in params:
+                    params[new] = params.pop(old)
+
+        # Low-light: DarkIR prefers over classical exposure when ready.
+        if profile.low_light and self._node_ready("darkir"):
+            if "exposure_correct" in chain:
+                replace("exposure_correct", "darkir")
+                reasons.append({
+                    "node": "darkir",
+                    "reason": "low-light — DarkIR installed; preferred over classical exposure",
+                })
+            elif "darkir" not in chain:
+                chain.insert(0, "darkir")
+                reasons.append({
+                    "node": "darkir",
+                    "reason": "low-light — DarkIR companion overlay",
+                })
+        elif profile.low_light and self._node_ready("instructir") and "instructir" not in chain:
+            if "exposure_correct" in chain:
+                anchor = "exposure_correct"
+            else:
+                anchor = chain[0] if chain else ""
+            if anchor:
+                insert_after(anchor, "instructir")
+            else:
+                chain.append("instructir")
+            params.setdefault("instructir", {})
+            params["instructir"].update({
+                "prompt_preset": "low_light_lift",
+                "mode": "finish_only",
+                "instruction": (
+                    "Brighten underexposed areas, reduce crushed shadows, "
+                    "and control amplified noise."
+                ),
+            })
+            reasons.append({
+                "node": "instructir",
+                "reason": "low-light — InstructIR companion overlay",
+            })
+
+        # Severe blown highlights: InstructIR → DiffBIR → SUPIR (if ready).
+        severe_clip = profile.blown_highlights and (
+            profile.clip_fraction >= 0.04 or profile.over_exposure >= 0.55
+        )
+        if severe_clip:
+            companion = None
+            for cand in ("instructir", "diffbir", "supir"):
+                if self._node_ready(cand):
+                    companion = cand
+                    break
+            if companion and companion not in chain:
+                if "exposure_correct" in chain:
+                    insert_after("exposure_correct", companion)
+                elif chain:
+                    insert_after(chain[0], companion)
+                else:
+                    chain.append(companion)
+                if companion == "instructir":
+                    params.setdefault("instructir", {})
+                    params["instructir"].update({
+                        "prompt_preset": "blown_highlight_rescue",
+                        "mode": "finish_only",
+                        "mask_highlights": True,
+                        "instruction": (
+                            "Regenerate natural detail in overexposed and blown-out "
+                            "regions; preserve unclipped areas."
+                        ),
+                    })
+                reasons.append({
+                    "node": companion,
+                    "reason": (
+                        f"severe blown highlights (clip={profile.clip_fraction:.3f}) — "
+                        f"{companion} companion overlay"
+                    ),
+                })
+
+        return chain, params, reasons
+
+    def build_ensemble(
+        self,
+        image: ImageArray | None = None,
+        *,
+        prompt_preset_id: str | None = None,
+        instruction: str | None = None,
+        mode: str = "guide_and_finish",
+        profile: DegradationProfile | None = None,
+        profile_dict: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        from .core.ensemble import build_guided_ensemble  # noqa: PLC0415
+
+        if profile is None and profile_dict is not None:
+            profile = DegradationProfile.from_dict(profile_dict)
+        if profile is None and image is not None:
+            profile = self.analyzer.analyze(image)
+        installed = {
+            n.id for n in self.registry.all_nodes() if self.weights.is_installed(n)
+        }
+        acked = {
+            n.id
+            for n in self.registry.all_nodes()
+            if n.license.requires_acknowledgement and self.weights.is_acknowledged(n.id)
+        }
+        plan = build_guided_ensemble(
+            profile,
+            registry=self.registry,
+            prompt_preset_id=prompt_preset_id,
+            instruction=instruction,
+            mode=mode,
+            installed=installed,
+            acknowledged=acked,
+        )
+        return plan.to_dict()
+
     def missing_weights(self, spec: PipelineSpec) -> list[str]:
-        """Node types in ``spec`` whose weights aren't installed yet."""
+        """Node types in ``spec`` whose required weights for their params aren't installed."""
         missing = []
-        for node_type in dict.fromkeys(n.type for n in spec.nodes):
-            node = self.registry.create(node_type)
-            if not self.weights.is_installed(node):
-                missing.append(node_type)
+        for node_spec in spec.nodes:
+            node = self.registry.create(node_spec.type)
+            params = {**node.default_params(), **node_spec.params}
+            if not self.weights.is_installed(node, params):
+                if node_spec.type not in missing:
+                    missing.append(node_spec.type)
         return missing
+
+    def unacknowledged_nodes(self, spec: PipelineSpec) -> list[str]:
+        """Gated node types in ``spec`` that still need a licence acknowledgement."""
+        seen: list[str] = []
+        for node_spec in spec.nodes:
+            node = self.registry.create(node_spec.type)
+            if (
+                node.license.requires_acknowledgement
+                and not self.weights.is_acknowledged(node_spec.type)
+                and node_spec.type not in seen
+            ):
+                seen.append(node_spec.type)
+        return seen
+
+    def preset_licence_gate(self, pipeline: dict[str, Any]) -> dict[str, Any]:
+        """Licence readiness for a preset/pipeline document (Simple Mode gate)."""
+        from .core.executor import parse_pipeline  # noqa: PLC0415
+
+        spec = parse_pipeline(pipeline, self.registry)
+        unacked = self.unacknowledged_nodes(spec)
+        return {
+            "ready": not unacked,
+            "unacknowledged_node_ids": unacked,
+            "missing_weights": self.missing_weights(spec),
+        }
+
+    def describe_preset(self, preset: Any) -> dict[str, Any]:
+        """Preset JSON plus licence/weight gate fields for Simple Mode filtering."""
+        payload = preset.to_dict() if hasattr(preset, "to_dict") else dict(preset)
+        gate = self.preset_licence_gate(payload["pipeline"])
+        payload["licence"] = gate
+        return payload
+
+    def weight_download_totals(self) -> dict[str, Any]:
+        """Bytes / counts for missing *default-variant* permissive vs restricted weights."""
+        permissive_bytes = restricted_bytes = 0
+        permissive_n = restricted_n = 0
+        missing_ids: list[str] = []
+        for node in self.registry.all_nodes():
+            if not node.weight_manifest:
+                continue
+            if self.weights.is_installed(node):
+                continue
+            status = self.weights.status(node)
+            size = status.missing_size_bytes
+            missing_ids.append(node.id)
+            if node.license.requires_acknowledgement:
+                restricted_bytes += size
+                restricted_n += 1
+            else:
+                permissive_bytes += size
+                permissive_n += 1
+        return {
+            "missing_node_ids": missing_ids,
+            "permissive": {"count": permissive_n, "bytes": permissive_bytes},
+            "restricted": {"count": restricted_n, "bytes": restricted_bytes},
+            "grand": {
+                "count": permissive_n + restricted_n,
+                "bytes": permissive_bytes + restricted_bytes,
+            },
+        }

@@ -1,6 +1,6 @@
 [package]
 name = "restoration-workflow"
-version = "0.5.4"
+version = "0.6.0"
 description = "Restoration Workflow desktop shell"
 authors = ["Eric Cayers"]
 edition = "2021"

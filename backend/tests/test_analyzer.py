@@ -69,22 +69,22 @@ def test_noise_score_rises_with_added_noise():
     rng = np.random.default_rng(11)
     noisy = np.clip(base + rng.normal(0, 0.05, base.shape), 0, 1).astype(np.float32)
 
-    assert analyzer.analyze(base).noise_score < 0.008
-    assert analyzer.analyze(noisy).noise_score >= 0.008
+    assert analyzer.analyze(base).noise_score < 0.007
+    assert analyzer.analyze(noisy).noise_score >= 0.007
 
 
 def test_jpeg_blockiness_detects_8x8_block_edges():
     clean = analyzer.analyze(_smooth_gradient())
     blocky = analyzer.analyze(_blocky())
-    assert clean.jpeg_blockiness < 0.12
-    assert blocky.jpeg_blockiness >= 0.12
+    assert clean.jpeg_blockiness < 0.10
+    assert blocky.jpeg_blockiness >= 0.10
 
 
 def test_flat_block_interiors_read_as_maximally_blocky_not_as_clean():
     """A divide-by-zero guard that returns 0.0 would call the most heavily
     quantized image imaginable 'pristine' and route it away from FBCNN."""
     profile = analyzer.analyze(_flat_blocks())
-    assert profile.jpeg_blockiness >= 0.12
+    assert profile.jpeg_blockiness >= 0.10
 
 
 def test_blockiness_of_a_perfectly_uniform_image_is_zero():
@@ -166,8 +166,48 @@ def test_profile_dict_is_json_shaped():
     assert set(payload) >= {
         "width", "height", "min_dimension", "blur_score", "noise_score",
         "jpeg_blockiness", "face_count", "low_light", "blown_highlights",
-        "defect_score",
+        "defect_score", "clip_fraction", "is_grayscale", "mean_saturation",
+        "under_exposure", "over_exposure", "confidence",
     }
+
+
+def test_grayscale_detection():
+    gray = np.full((64, 64, 3), 0.4, dtype=np.float32)
+    profile = analyzer.analyze(gray)
+    assert profile.is_grayscale is True
+    assert profile.mean_saturation < 0.05
+
+
+def test_colour_photo_is_not_grayscale():
+    colour = _sharp(64)
+    # Force strong chroma
+    colour[..., 0] = 0.9
+    colour[..., 1] = 0.1
+    colour[..., 2] = 0.2
+    assert analyzer.analyze(colour).is_grayscale is False
+
+
+def test_clip_fraction_and_over_exposure_on_blown_image():
+    bright = np.full((64, 64, 3), 0.99, dtype=np.float32)
+    profile = analyzer.analyze(bright)
+    assert profile.clip_fraction > 0.5
+    assert profile.over_exposure > 0.4
+    assert profile.blown_highlights is True
+    mask = profile.clip_mask(bright)
+    assert mask.shape == (64, 64)
+    assert float(mask.mean()) > 0.5
+
+
+def test_under_exposure_score_on_dark_image():
+    dark = np.full((64, 64, 3), 0.05, dtype=np.float32)
+    profile = analyzer.analyze(dark)
+    assert profile.under_exposure > 0.4
+    assert profile.low_light is True
+
+
+def test_confidence_keys_present():
+    conf = analyzer.analyze(_sharp(64)).confidence
+    assert "blur" in conf and "noise" in conf and "jpeg" in conf
 
 
 @pytest.mark.parametrize("size", [16, 17, 33, 129])

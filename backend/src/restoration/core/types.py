@@ -29,6 +29,7 @@ class NodeCategory(str, enum.Enum):
     REGRESSION = "regression"
     MASKING = "masking"
     ORCHESTRATION = "orchestration"
+    INSTRUCT = "instruct"  # instruction-guided Master Restorer lane
 
 
 class VramTier(str, enum.Enum):
@@ -300,6 +301,17 @@ class BaseRestorationNode:
             if isinstance(spec, dict) and "default" in spec:
                 out[name] = spec["default"]
         return out
+
+    def required_weight_files(
+        self, params: dict[str, Any] | None = None
+    ) -> list[WeightFile]:
+        """Weight files needed to run once with these params.
+
+        Default: the full ``weight_manifest``. Multi-variant nodes (DDColor,
+        SwinIR, SCUNet, RealESRGAN, …) override so only the selected
+        checkpoint is required — one installed variant is enough to run.
+        """
+        return list(self.weight_manifest)
 
     def describe(self) -> dict[str, Any]:
         """Serializable description for GET /api/nodes and `restore nodes`."""

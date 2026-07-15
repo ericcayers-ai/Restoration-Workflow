@@ -18,6 +18,9 @@ from __future__ import annotations
 
 import asyncio
 import enum
+import logging
+import os
+import shutil
 import time
 import uuid
 from collections.abc import AsyncIterator, Callable
@@ -33,6 +36,21 @@ from ..service import AppServices
 
 _SENTINEL = object()
 _MAX_EVENTS = 2000
+_log = logging.getLogger("restoration.jobs")
+
+# Bounded retention (overridable via env for long Studio sessions).
+_DEFAULT_MAX_JOBS = 50
+_DEFAULT_TTL_SECONDS = 24 * 60 * 60  # 24h
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if raw is None or raw.strip() == "":
+        return default
+    try:
+        return max(1, int(raw))
+    except ValueError:
+        return default
 
 
 class JobState(str, enum.Enum):
@@ -60,6 +78,7 @@ class Job:
     fallback: str | None = None
     analysis: dict[str, Any] | None = None
     events: list[dict[str, Any]] = field(default_factory=list)
+    events_truncated: bool = False
     cancel_requested: bool = False
     result_path: Path | None = None
     _previews: int = 0
@@ -76,13 +95,27 @@ class Job:
             "analysis": self.analysis,
             "pipeline": self.spec.to_dict(),
             "result_url": f"/api/jobs/{self.id}/result" if self.result_path else None,
+            "events_truncated": self.events_truncated,
         }
 
 
 class JobManager:
-    def __init__(self, services: AppServices, root: Path | None = None) -> None:
+    def __init__(
+        self,
+        services: AppServices,
+        root: Path | None = None,
+        *,
+        max_jobs: int | None = None,
+        ttl_seconds: int | None = None,
+    ) -> None:
         self.services = services
         self.root = Path(root) if root else services.data_dir / "jobs"
+        self.max_jobs = max_jobs if max_jobs is not None else _env_int(
+            "RESTORE_JOB_MAX", _DEFAULT_MAX_JOBS
+        )
+        self.ttl_seconds = ttl_seconds if ttl_seconds is not None else _env_int(
+            "RESTORE_JOB_TTL_SECONDS", _DEFAULT_TTL_SECONDS
+        )
         self._jobs: dict[str, Job] = {}
         self._queue: asyncio.Queue[Job | None] = asyncio.Queue()
         self._subscribers: dict[str, list[asyncio.Queue]] = {}
@@ -114,9 +147,11 @@ class JobManager:
         *,
         analysis: dict[str, Any] | None = None,
     ) -> Job:
+        self.cleanup()
         job = Job(id=uuid.uuid4().hex[:16], spec=spec, image=image, analysis=analysis)
         self._jobs[job.id] = job
         self._subscribers.setdefault(job.id, [])
+        _log.info("job_submitted id=%s nodes=%d", job.id, len(spec.nodes))
         await self._queue.put(job)
         return job
 
@@ -124,6 +159,7 @@ class JobManager:
         return self._jobs.get(job_id)
 
     def list(self) -> list[Job]:
+        self.cleanup()
         return sorted(self._jobs.values(), key=lambda j: j.created_at, reverse=True)
 
     def cancel(self, job_id: str) -> bool:
@@ -131,7 +167,46 @@ class JobManager:
         if job is None or job.state.terminal:
             return False
         job.cancel_requested = True
+        _log.info("job_cancel_requested id=%s state=%s", job.id, job.state.value)
         return True
+
+    def delete(self, job_id: str) -> bool:
+        """Drop a terminal job and delete its on-disk artifacts."""
+        job = self._jobs.get(job_id)
+        if job is None:
+            return False
+        if not job.state.terminal and job.state is not JobState.QUEUED:
+            return False
+        if job.state is JobState.QUEUED:
+            job.cancel_requested = True
+        self._purge_job(job)
+        _log.info("job_deleted id=%s", job_id)
+        return True
+
+    def cleanup(self) -> list[str]:
+        """TTL + max-job retention. Returns purged job ids. Non-PII logging only."""
+        now = time.time()
+        purged: list[str] = []
+        # TTL: terminal jobs past retention window.
+        for job in list(self._jobs.values()):
+            stamp = job.finished_at or job.created_at
+            if job.state.terminal and (now - stamp) > self.ttl_seconds:
+                self._purge_job(job)
+                purged.append(job.id)
+        # Cap: drop oldest terminal jobs beyond max_jobs.
+        terminal = sorted(
+            (j for j in self._jobs.values() if j.state.terminal),
+            key=lambda j: j.finished_at or j.created_at,
+        )
+        overflow = len(self._jobs) - self.max_jobs
+        if overflow > 0:
+            for job in terminal[:overflow]:
+                if job.id not in purged:
+                    self._purge_job(job)
+                    purged.append(job.id)
+        if purged:
+            _log.info("job_cleanup purged=%d remaining=%d", len(purged), len(self._jobs))
+        return purged
 
     async def subscribe(self, job_id: str) -> AsyncIterator[dict[str, Any]]:
         """Replay this job's events, then stream new ones until it finishes."""
@@ -160,12 +235,20 @@ class JobManager:
 
     # -- internals ----------------------------------------------------------
 
+    def _purge_job(self, job: Job) -> None:
+        self._jobs.pop(job.id, None)
+        self._subscribers.pop(job.id, None)
+        job_dir = self.root / job.id
+        if job_dir.exists():
+            shutil.rmtree(job_dir, ignore_errors=True)
+
     def _publish(self, job: Job, event: dict[str, Any] | object) -> None:
         """Runs on the event loop thread only."""
         if event is not _SENTINEL:
             job.events.append(event)  # type: ignore[arg-type]
             if len(job.events) > _MAX_EVENTS:
                 del job.events[: len(job.events) - _MAX_EVENTS]
+                job.events_truncated = True
         for queue in list(self._subscribers.get(job.id, [])):
             queue.put_nowait(event)
 
@@ -241,6 +324,16 @@ class JobManager:
     def _finish(self, job: Job, state: JobState, emit: Callable[[ProgressEvent], None]) -> None:
         job.state = state
         job.finished_at = time.time()
+        duration_ms = None
+        if job.started_at is not None:
+            duration_ms = int((job.finished_at - job.started_at) * 1000)
+        _log.info(
+            "job_finished id=%s state=%s duration_ms=%s events_truncated=%s",
+            job.id,
+            state.value,
+            duration_ms,
+            job.events_truncated,
+        )
         # Job-level terminal event: node_id "" is the job itself, per the
         # progress-event contract in ARCHITECTURE.md section 2.
         emit(

@@ -34,7 +34,7 @@ from typing import Any
 import numpy as np
 
 from ..core.errors import InferenceUnavailableError, NodeExecutionError
-from ..core.types import BaseRestorationNode, ImageArray, RunContext
+from ..core.types import BaseRestorationNode, ImageArray, RunContext, WeightFile
 
 # A tile smaller than this costs more in per-tile overhead than it saves in peak
 # memory, and starves the network of context.
@@ -345,6 +345,20 @@ class SpandrelNode(BaseRestorationNode):
                 f"and must override weight_filename()"
             )
         return self.weight_manifest[0].filename
+
+    def required_weight_files(
+        self, params: dict[str, Any] | None = None
+    ) -> list[WeightFile]:
+        """Only the checkpoint selected by ``weight_filename`` is required to run."""
+        if not self.weight_manifest:
+            return []
+        merged = {**self.default_params(), **(params or {})}
+        name = self.weight_filename(merged)
+        by_name = {wf.filename: wf for wf in self.weight_manifest}
+        chosen = by_name.get(name)
+        if chosen is None:
+            return list(self.weight_manifest)
+        return [chosen]
 
     def descriptor(self, ctx: RunContext, params: dict[str, Any]) -> Any:
         filename = self.weight_filename(params)

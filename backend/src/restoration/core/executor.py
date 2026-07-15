@@ -406,9 +406,10 @@ class PipelineExecutor:
             )
 
         weights_dir: str | None = None
+        params = {**node.default_params(), **node_spec.params}
         if node.weight_manifest:
             emit(ProgressEvent(node_id=node_spec.id, status=NodeStatus.LOADING_WEIGHTS))
-            weights_dir = str(self.weights.ensure_installed(node))
+            weights_dir = str(self.weights.ensure_installed(node, params=params))
 
         ctx = RunContext(
             job_id=job_id,
@@ -420,7 +421,6 @@ class PipelineExecutor:
             _is_cancelled=is_cancelled,
             _preview_sink=preview_sink,
         )
-        params = {**node.default_params(), **node_spec.params}
 
         emit(ProgressEvent(node_id=node_spec.id, status=NodeStatus.RUNNING))
         try:

@@ -37,6 +37,10 @@ jobs:
       - name: Test
         run: pytest -q
 
+      - name: Packaging / v0.6 import smoke
+        if: matrix.python-version == '3.12'
+        run: python packaging/check_bundle_manifest.py
+
   backend-inference:
     name: backend (inference extra)
     runs-on: ubuntu-latest
@@ -82,6 +86,9 @@ jobs:
 
       - name: Typecheck
         run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
 
       - name: Build
         run: npm run build

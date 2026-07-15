@@ -124,6 +124,12 @@ class FaceRestorationNode(SpandrelNode):
     def weight_filename(self, params: dict[str, Any]) -> str:
         return self.model_filename
 
+    def required_weight_files(
+        self, params: dict[str, Any] | None = None
+    ) -> list[WeightFile]:
+        """Model checkpoint + shared YuNet detector — both are always required."""
+        return list(self.weight_manifest)
+
     #: The checkpoint this node restores faces with (the manifest also carries
     #: the shared YuNet detector).
     model_filename: str = ""

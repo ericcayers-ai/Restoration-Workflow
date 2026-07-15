@@ -1,13 +1,15 @@
 /*
  * DAG pipeline canvas (ROADMAP.md Phase 3) — branch/merge editing without
  * re-introducing the full React Flow dependency removed in 0.2.0. Nodes are
- * draggable cards; connections are drawn as SVG paths.
+ * keyboard-addressable cards; arrow keys nudge, Delete removes, Enter connects.
  */
 
 import { useCallback, useRef, useState } from "react";
 import { useT } from "../../lib/i18n";
 import type { DagEdge, DagNode } from "../../lib/pipelineDag";
 import styles from "./PipelineCanvas.module.css";
+
+const NUDGE = 12;
 
 export function PipelineCanvas({
   nodes,
@@ -56,6 +58,38 @@ export function PipelineCanvas({
 
   const nodeById = Object.fromEntries(nodes.map((n) => [n.id, n]));
 
+  function onCanvasKeyDown(e: React.KeyboardEvent) {
+    if (!selectedId) return;
+    const node = nodeById[selectedId];
+    if (!node) return;
+    if (e.key === "Delete" || e.key === "Backspace") {
+      e.preventDefault();
+      onRemoveNode(selectedId);
+      setConnectFrom(null);
+      return;
+    }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (connectFrom && connectFrom !== selectedId) {
+        onConnect(connectFrom, selectedId, "image");
+        setConnectFrom(null);
+      } else {
+        setConnectFrom(selectedId);
+      }
+      return;
+    }
+    let dx = 0;
+    let dy = 0;
+    if (e.key === "ArrowLeft") dx = -NUDGE;
+    else if (e.key === "ArrowRight") dx = NUDGE;
+    else if (e.key === "ArrowUp") dy = -NUDGE;
+    else if (e.key === "ArrowDown") dy = NUDGE;
+    if (dx || dy) {
+      e.preventDefault();
+      onMoveNode(selectedId, node.x + dx, node.y + dy);
+    }
+  }
+
   return (
     <div
       ref={canvasRef}
@@ -63,9 +97,12 @@ export function PipelineCanvas({
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onClick={() => onSelect(null)}
+      onKeyDown={onCanvasKeyDown}
       role="application"
       aria-label={t("studio.canvas.dagLabel")}
+      tabIndex={0}
     >
+      <p className="visually-hidden">{t("studio.canvas.moveHint")}</p>
       <svg className={styles.edges} aria-hidden>
         {edges.map((e) => {
           const a = nodeById[e.from];
@@ -95,18 +132,25 @@ export function PipelineCanvas({
           onClick={(e) => e.stopPropagation()}
           role="button"
           tabIndex={0}
-          aria-label={`${node.displayName} node`}
+          aria-label={t("studio.canvas.nodeStatus", {
+            name: node.displayName,
+            status: selectedId === node.id ? "selected" : "idle",
+          })}
           onKeyDown={(e) => {
-            if (e.key === "Enter") onSelect(node.id);
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onSelect(node.id);
+            }
           }}
         >
-          <span className={`${styles.tab} ${styles[`cat_${node.category}`]}`} />
+          <span className={`${styles.tab} ${styles[`cat_${node.category}`] ?? ""}`} aria-hidden />
           <span className={`mono ${styles.nodeName}`}>{node.displayName}</span>
           <div className={styles.nodeActions}>
             <button
               type="button"
               className={styles.port}
               title={t("studio.canvas.connectOut")}
+              aria-label={t("studio.canvas.connectOut")}
               onClick={(e) => {
                 e.stopPropagation();
                 setConnectFrom(connectFrom === node.id ? null : node.id);
@@ -118,6 +162,7 @@ export function PipelineCanvas({
               type="button"
               className={styles.port}
               title={t("studio.canvas.connectIn")}
+              aria-label={t("studio.canvas.connectIn")}
               onClick={(e) => {
                 e.stopPropagation();
                 if (connectFrom && connectFrom !== node.id) {
@@ -148,3 +193,4 @@ export function PipelineCanvas({
     </div>
   );
 }
+

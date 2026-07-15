@@ -30,7 +30,7 @@ export interface Stage extends Record<string, unknown> {
   cached?: boolean;
 }
 
-const MASK_CONSUMER = "lama";
+const MASK_CONSUMERS = new Set(["lama", "powerpaint", "flux_fill"]);
 const MASK_PROVIDER = "mask_from_image";
 const MASK_INPUT = "mask";
 const IMAGE_INPUT = "image";
@@ -121,11 +121,11 @@ export function stagesToPipeline(stages: Stage[]): { pipeline: PipelineJson; err
   }
 
   const maskStage = stages.find((s) => s.nodeType === MASK_PROVIDER);
-  const hasMaskConsumer = stages.some((s) => s.nodeType === MASK_CONSUMER);
+  const hasMaskConsumer = stages.some((s) => MASK_CONSUMERS.has(s.nodeType));
   if (maskStage && !hasMaskConsumer) {
     return {
       pipeline: { version: 1, nodes: [], edges: [] },
-      error: `"Mask from image" produces a mask but nothing in the workflow uses it — add "LaMa", or remove it.`,
+      error: `"Mask from image" produces a mask but nothing in the workflow uses it — add an inpaint node (LaMa / PowerPaint / FLUX Fill), or remove it.`,
     };
   }
 
@@ -140,7 +140,7 @@ export function stagesToPipeline(stages: Stage[]): { pipeline: PipelineJson; err
   let error: string | null = null;
 
   for (const s of stages) {
-    if (s.nodeType === MASK_CONSUMER) {
+    if (MASK_CONSUMERS.has(s.nodeType)) {
       if (maskStage) edges.push({ from: maskStage.id, to: s.id, to_input: MASK_INPUT });
       else error ??= `"${s.displayName}" needs a "Mask from image" stage somewhere in the workflow to fill from.`;
     }

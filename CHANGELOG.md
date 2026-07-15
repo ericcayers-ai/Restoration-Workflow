@@ -5,29 +5,58 @@ All notable changes to this project are documented here. Format follows
 [Semantic Versioning](https://semver.org/) once past 0.x (pre-1.0, minor bumps may
 include breaking changes to the JSON pipeline shape).
 
+## [0.6.0] - 2026-07-14
+
+### Added
+- **InstructIR Master Restorer** -- MIT instruction-guided node with prompt library
+  (`instructir_prompts.json`, 24 presets), Inspector preset/custom UI, modes
+  (`finish_only` / `instruct_only` / `guide_and_finish`), ensemble conductor
+  (`POST /api/pipelines/ensemble`, CLI `--instructir-preset`), and swappable
+  `InstructionRestorer` protocol for future Defusion/AutoDIR backends.
+- **DDColor** colourization (Apache-2.0) with Auto routing on `is_grayscale` and
+  Colorize B&W / Colorize Artistic presets.
+- **Analyzer v2** -- multi-scale blur, anisotropy, continuous exposure / clip mask,
+  chroma/grayscale, per-metric confidence; richer Simple Mode "why this stage".
+- **Blown Highlight Rescue** preset + companion overlays (InstructIR -> DiffBIR ->
+  SUPIR when installed) with soft clip-mask blend helper.
+- **Download all** in Settings with permissive / restricted / grand totals and
+  bulk licence acknowledgement.
+- **Simple Mode quality tiers** -- draft / balanced / high mapped to the existing Phase 4.5.4 adaptive engine (tile size + upscale/face model swaps).
+- **Equal lanes** -- Instruct category on the Model Stack; diffusion peers share
+  prompt / negative / strength params; ~34 workflow presets spanning all lanes;
+  Simple Mode preset picker; versioned builtin force-refresh.
+
+### Changed
+- Licence gate copy: "Accept licence and allow download" with clear NC/Restricted
+  explanation (no "download anyway").
+- Classical exposure recovery dual-tone harden; DarkIR preferred for low-light when
+  installed+acked (rule table stays all-permissive).
+- DiffBIR elevated to generative peer category.
+
 ## [0.5.4] - 2026-07-14
 
 ### Added
-- **Windows portable zip** � Release builds ship `RestorationWorkflow-windows.zip` with
+- **Windows portable zip** -- Release builds ship `RestorationWorkflow-windows.zip` with
   double-click **`Run.bat`**, a short `README.txt`, and the PyInstaller onedir app.
   GitHub Releases now attach that zip as the downloadable asset.
 
 ## [0.5.3] - 2026-07-14
 
 ### Fixed
-- **CI / Release (Windows)** � install `[packaging]` (PyInstaller) and `[inference]` before the PyInstaller bundle step so `build-windows` no longer fails with `ModuleNotFoundError: No module named 'PyInstaller'`.
+- **CI / Release (Windows)** -- install `[packaging]` (PyInstaller) and `[inference]` before the PyInstaller bundle step so `build-windows` no longer fails with `ModuleNotFoundError: No module named 'PyInstaller'`.
 
-## [0.5.2] � 2026-07-14
+## [0.5.2] - 2026-07-14
 
 ### Fixed
-- **CI / Release** � lazy OpenCV and GPEN/torch imports so base and release jobs no longer fail at collection/import time; light-theme axe contrast fixes for accessibility CI.
+- **CI / Release** -- lazy OpenCV and GPEN/torch imports so base and release jobs no longer fail at collection/import time; light-theme axe contrast fixes for accessibility CI.
 
 ## [0.5.1] — 2026-07-14
 
 ### Added
-- **Tauri updater signing key** — real minisign pubkey in `src-tauri/tauri.conf.json`; private key
-  gitignored (`src-tauri/updater.key`, set `TAURI_SIGNING_PRIVATE_KEY` in release CI).
 - **Puppeteer-based axe-core** (`@axe-core/puppeteer`) replacing flaky selenium CLI on Windows.
+- **Experimental `src-tauri/` scaffold** -- Tauri v2 config and updater *plugin wiring*
+  were sketched here; **they are not a shipping multi-OS auto-updater**. The supported
+  desktop artefact remains the PyInstaller Windows zip (`Run.bat`). See `RELEASING.md`.
 
 ### Changed
 - **Diffusion runtime** — tiled img2img for large restores, PowerPaint BrushNet path when weights
@@ -53,8 +82,8 @@ include breaking changes to the JSON pipeline shape).
 - **Canvas undo/redo** (Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z) in Studio Mode.
 - **API contract 1.0.0** — semver-stabilized REST/WebSocket surface.
 - **axe-core** in CI (`npm run a11y`); `docs/ACCESSIBILITY.md` manual pass checklist.
-- **Tauri v2 scaffold** (`src-tauri/`) with updater plugin config; release workflow for
-  Windows/macOS/Linux.
+- **Experimental Tauri v2 scaffold** (`src-tauri/`) — not the supported desktop distribution;
+  release workflow publishes the **PyInstaller Windows zip** (and runs macOS/Linux test builds).
 - **Regression corpus** (`backend/tests/corpus/`) and `docs/QA_LAUNCH.md` beta/graphify gate.
 
 ### Changed
@@ -94,7 +123,7 @@ include breaking changes to the JSON pipeline shape).
 
 ### Added
 - **CodeFormer** — the first license-gated node, behind the acknowledgement flow from
-  `docs/ARCHITECTURE.md` §6.
+  `docs/ARCHITECTURE.md` (Weight Manager / local binding).
 - **Exposure recovery** (`exposure_correct`) — classical auto-gamma + CLAHE, no weights;
   the rule table routes on `low_light` / `blown_highlights` before denoise/upscale.
 - **Scratch/dust detection** — classical defect scoring in the degradation analyzer, a
@@ -128,9 +157,8 @@ include breaking changes to the JSON pipeline shape).
   spandrel-supported architecture is one function call.
 - Workflows save/load as commented `.txt` files (`core/workflow_text.py`,
   `POST /api/workflows/{export,import}`).
-- Advanced pipeline builder: replaces the React Flow node-graph canvas with an ordered
-  stage list — reorder with two buttons, "Auto-order" calls the engine above. Removed
-  `@xyflow/react` and everything that existed only to serve it.
+- Studio pipeline builder: ordered stage list (reorder, Auto-order). React Flow was
+  temporarily removed in this release and later returned as an optional graph editor.
 - Simple Mode review step: the auto-picked pipeline is shown as an editable stage list
   (permissive models only) before the photo is processed, with an Auto-order action.
 - Settings → Manage Downloads: every model in the stack, install state, and a
@@ -140,7 +168,8 @@ include breaking changes to the JSON pipeline shape).
 - `POST /api/pipelines/auto-order` endpoint exposing the ordering engine.
 
 ### Changed
-- Bundle size dropped ~376KB → ~202KB with the node-graph canvas removed.
+- Bundle size dropped ~376KB → ~202KB with the node-graph canvas removed (later restored
+  as an optional Studio graph mode in 0.4.0).
 
 ## [0.1.0] — 2026-07-11
 
@@ -153,9 +182,10 @@ include breaking changes to the JSON pipeline shape).
   RestoreFormer, LaMa, plus the weightless `mask_from_image` and `blend` orchestration
   nodes.
 - FastAPI REST + per-job WebSocket API, the `restore` CLI (`run` / `analyze` / `nodes` /
-  `hardware` / `weights` / `presets` / `plugin` / `serve`), and 229 tests.
-- Frontend: Simple Mode (drop a photo, zero configuration) and Studio Mode (a node-graph
-  canvas, model stack rail, parameter inspector, contact sheet, presets) built on Vite +
+  `hardware` / `weights` / `presets` / `plugin` / `serve`), and an initial large pytest
+  suite.
+- Frontend: Simple Mode (drop a photo, zero configuration) and Studio Mode (pipeline
+  authoring, model stack rail, parameter inspector, contact sheet, presets) built on Vite +
   React + TypeScript, themed to the "Safelight" darkroom identity in
   `docs/UI_DESIGN.md`.
 - `docs/ARCHITECTURE.md`, `docs/UI_DESIGN.md`, `docs/MODEL_STACK.md` — the fact-checked
