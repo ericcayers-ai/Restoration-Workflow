@@ -7,6 +7,11 @@ include breaking changes to the JSON pipeline shape).
 
 ## [Unreleased]
 
+### Changed
+- **README** — clearer first-viewport CTA, Simple/Studio comparison, mermaid
+  Drop → Review → Restore flow, larger screenshot presentation, and scannable
+  capability/model tables. Screenshots may still lag the latest Safelight chrome.
+
 ## [0.6.1] - 2026-07-17
 
 ### Changed
