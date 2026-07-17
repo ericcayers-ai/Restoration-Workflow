@@ -23,7 +23,7 @@ from restoration.core.types import (
     VramTier,
     WeightFile,
 )
-from restoration.core.weights import WeightManager
+from restoration.core.weights import WeightManager, sha256_of
 from restoration.nodes.ddcolor import DdColorNode
 from restoration.nodes.realesrgan import RealEsrganNode
 from restoration.nodes.scunet import ScunetNode
@@ -32,7 +32,9 @@ from restoration.service import AppServices
 
 from .conftest import ALL_FAKE_NODES
 from .test_api import upload
-from .test_weights import PAYLOAD, _manager, _url_weight
+from .test_weights import DIGEST, PAYLOAD, _manager, _url_weight
+
+import httpx
 
 # ---------------------------------------------------------------------------
 # Variant-aware weights
@@ -153,6 +155,64 @@ def test_cleanup_partials(tmp_path: Path):
     part.write_bytes(b"partial")
     assert manager.cleanup_partials("under_test") == 1
     assert not part.exists()
+
+
+def test_download_cancel_during_verify(tmp_path: Path):
+    """Cancel must be observed while hashing a just-downloaded file."""
+    path = tmp_path / "big.bin"
+    path.write_bytes(b"x" * (2 * 1024 * 1024))
+    fires = {"n": 0}
+
+    def check():
+        fires["n"] += 1
+        if fires["n"] >= 1:
+            raise JobCancelled("stop during verify")
+
+    with pytest.raises(JobCancelled):
+        sha256_of(path, check_cancel=check)
+    assert fires["n"] >= 1
+
+
+def test_hf_download_sends_authorization_header(tmp_path: Path, monkeypatch):
+    seen: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        auth = request.headers.get("Authorization")
+        if auth:
+            seen["Authorization"] = auth
+        return httpx.Response(
+            200,
+            content=PAYLOAD,
+            headers={"Content-Length": str(len(PAYLOAD))},
+        )
+
+    monkeypatch.setenv("HF_TOKEN", "hf_test_token")
+    manager = WeightManager(tmp_path, transport=httpx.MockTransport(handler))
+    node_cls = type(
+        "UnderTest",
+        (BaseRestorationNode,),
+        {
+            "id": "under_test",
+            "display_name": "Under test",
+            "vram_tier": VramTier.LOW,
+            "license": LicenseInfo(
+                spdx_id="Apache-2.0",
+                kind=LicenseKind.PERMISSIVE,
+                source_url="https://example.invalid/LICENSE",
+            ),
+            "weight_manifest": [
+                WeightFile(
+                    filename="model.bin",
+                    size_bytes=len(PAYLOAD),
+                    sha256=DIGEST,
+                    hf_repo_id="org/model",
+                    hf_filename="model.bin",
+                )
+            ],
+        },
+    )
+    manager.download(node_cls())
+    assert seen.get("Authorization") == "Bearer hf_test_token"
 
 
 # ---------------------------------------------------------------------------
@@ -433,6 +493,133 @@ def test_download_cancel_endpoint(client, monkeypatch):
             break
         time.sleep(0.02)
     assert state == "cancelled"
+
+
+def test_download_cancel_then_redownload(client, monkeypatch):
+    """After cancel, a new start must not stick to the cancelled download."""
+    test_client, services = client
+    calls = {"n": 0}
+    barrier = {"started": 0}
+
+    def controllable_download(node, on_progress=None, **kwargs):
+        calls["n"] += 1
+        barrier["started"] = calls["n"]
+        if calls["n"] == 1:
+            for i in range(50):
+                check = kwargs.get("check_cancel")
+                if check:
+                    check()
+                if on_progress:
+                    on_progress("model.bin", i, 50)
+                time.sleep(0.02)
+            return
+        # Second attempt completes quickly.
+        if on_progress:
+            on_progress("model.bin", 50, 50)
+
+    monkeypatch.setattr(services.weights, "download", controllable_download)
+    first = test_client.post("/api/weights/needs_weights/download")
+    assert first.status_code == 202
+    first_id = first.json()["id"]
+    for _ in range(100):
+        if barrier["started"] == 1:
+            break
+        time.sleep(0.01)
+    cancel = test_client.post(f"/api/weights/downloads/{first_id}/cancel")
+    assert cancel.status_code == 200
+    assert cancel.json()["cancelled"] is True
+    assert cancel.json()["cancel_requested"] is True
+    for _ in range(200):
+        state = test_client.get(f"/api/weights/downloads/{first_id}").json()["state"]
+        if state == "cancelled":
+            break
+        time.sleep(0.02)
+    assert state == "cancelled"
+
+    second = test_client.post("/api/weights/needs_weights/download")
+    assert second.status_code == 202
+    second_id = second.json()["id"]
+    assert second_id != first_id
+    for _ in range(200):
+        body = test_client.get(f"/api/weights/downloads/{second_id}").json()
+        if body["state"] in ("done", "error", "cancelled"):
+            break
+        time.sleep(0.02)
+    assert body["state"] == "done"
+
+
+def test_download_concurrent_start_is_idempotent(client, monkeypatch):
+    """Locked start returns the same running download for concurrent POSTs."""
+    import concurrent.futures
+
+    test_client, services = client
+    release = {"go": False}
+
+    def slow_download(node, on_progress=None, **kwargs):
+        while not release["go"]:
+            check = kwargs.get("check_cancel")
+            if check:
+                check()
+            time.sleep(0.01)
+        if on_progress:
+            on_progress("model.bin", 1, 1)
+
+    monkeypatch.setattr(services.weights, "download", slow_download)
+
+    def post_once():
+        return test_client.post("/api/weights/needs_weights/download")
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+        futures = [pool.submit(post_once) for _ in range(4)]
+        responses = [f.result() for f in futures]
+    release["go"] = True
+    assert all(r.status_code == 202 for r in responses)
+    ids = {r.json()["id"] for r in responses}
+    assert len(ids) == 1
+    download_id = next(iter(ids))
+    for _ in range(200):
+        state = test_client.get(f"/api/weights/downloads/{download_id}").json()["state"]
+        if state in ("done", "error", "cancelled"):
+            break
+        time.sleep(0.02)
+    assert state == "done"
+
+
+def test_download_cancel_of_finished_is_honest(client, monkeypatch):
+    test_client, services = client
+
+    def instant_download(node, on_progress=None, **kwargs):
+        if on_progress:
+            on_progress("model.bin", 1, 1)
+
+    monkeypatch.setattr(services.weights, "download", instant_download)
+    resp = test_client.post("/api/weights/needs_weights/download")
+    download_id = resp.json()["id"]
+    for _ in range(200):
+        state = test_client.get(f"/api/weights/downloads/{download_id}").json()["state"]
+        if state == "done":
+            break
+        time.sleep(0.02)
+    assert state == "done"
+    cancel = test_client.post(f"/api/weights/downloads/{download_id}/cancel")
+    assert cancel.status_code == 200
+    body = cancel.json()
+    assert body["cancelled"] is False
+    assert body["state"] == "done"
+    assert body["cancel_requested"] is False
+
+
+def test_supir_manifest_points_at_public_mirror():
+    from restoration.nodes.phase4 import SupirNode
+
+    node = SupirNode()
+    assert node._local_weight == "SUPIR-v0Q.ckpt"
+    assert len(node.weight_manifest) == 1
+    wf = node.weight_manifest[0]
+    assert wf.hf_repo_id == "camenduru/SUPIR"
+    assert wf.hf_filename == "SUPIR-v0Q.ckpt"
+    assert wf.sha256 is not None
+    assert wf.size_bytes == 5_329_810_432
 
 
 def test_grayscale_routes_to_ddcolor():

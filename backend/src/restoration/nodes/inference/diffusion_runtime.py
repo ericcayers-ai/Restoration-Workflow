@@ -87,6 +87,12 @@ def _run_tiled_pil(
     return Image.fromarray(blended)
 
 
+def _hf_token() -> str | None:
+    import os  # noqa: PLC0415
+
+    return os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")
+
+
 def _load_img2img_pipe(node_id: str, model_id: str, device: str, dtype: Any):
     from diffusers import StableDiffusionImg2ImgPipeline  # noqa: PLC0415
 
@@ -94,6 +100,7 @@ def _load_img2img_pipe(node_id: str, model_id: str, device: str, dtype: Any):
         model_id,
         torch_dtype=dtype,
         safety_checker=None,
+        token=_hf_token(),
     )
     return pipe.to(device)
 
@@ -184,7 +191,9 @@ def run_diffusion_restore(
         from diffusers import FluxFillPipeline  # noqa: PLC0415
 
         try:
-            pipe = FluxFillPipeline.from_pretrained(hf_repo, torch_dtype=dtype)
+            pipe = FluxFillPipeline.from_pretrained(
+                hf_repo, torch_dtype=dtype, token=_hf_token()
+            )
         except Exception as exc:
             raise NodeExecutionError(
                 node_id,
@@ -234,8 +243,16 @@ def run_diffusion_restore(
                 weights_dir=weights_dir,
                 filename=local_filename or local.name,
             )
-        except NodeExecutionError:
-            pass
+        except NodeExecutionError as exc:
+            # SUPIR's published ckpt is not a generic SD/img2img weight — do not
+            # fall through to from_pretrained on a non-diffusers Hub mirror.
+            if node_id == "supir":
+                raise NodeExecutionError(
+                    node_id,
+                    "Downloaded SUPIR-v0Q.ckpt is present but the full SUPIR "
+                    "architecture is not yet vendored for inference. The weight "
+                    f"file is at {local}.",
+                ) from exc
 
     model_id = hf_repo or "runwayml/stable-diffusion-v1-5"
     try:

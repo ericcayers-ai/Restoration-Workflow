@@ -376,11 +376,19 @@ export function getDownload(downloadId: string): Promise<Download> {
 
 
 
+export function listDownloads(): Promise<Download[]> {
+
+  return getJson("/api/weights/downloads");
+
+}
+
+
+
 export function cancelDownload(
 
   downloadId: string,
 
-): Promise<{ cancelled: boolean; state: string }> {
+): Promise<{ cancelled: boolean; state: string; cancel_requested: boolean }> {
 
   return postJson(`/api/weights/downloads/${encodeURIComponent(downloadId)}/cancel`);
 
