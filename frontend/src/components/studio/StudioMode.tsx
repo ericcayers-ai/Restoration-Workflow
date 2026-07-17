@@ -10,6 +10,7 @@ import {
   ApiError,
   acknowledgeLicense,
   autoOrderPipeline,
+  autoSuggest,
   buildGuidedEnsemble,
   cancelJob,
   exportWorkflowText,
@@ -40,7 +41,7 @@ import {
   stagesToPipeline,
   type Stage,
 } from "../../lib/pipelineStages";
-import type { DescribedNode, Job, PipelineJson } from "../../lib/types";
+import type { DescribedNode, Job, PipelineJson, SuggestedPreset } from "../../lib/types";
 import { useJobEvents } from "../../lib/useJobEvents";
 import { useWeightDownloads } from "../../lib/useWeightDownloads";
 import { Button } from "../common/Button";
@@ -92,6 +93,7 @@ export function StudioMode({ handoff }: { handoff: StudioHandoff | null }) {
   const [activeResult, setActiveResult] = useState<Job | null>(null);
   const [viewMode, setViewMode] = useState<"slider" | "side-by-side" | "difference">("slider");
   const [presetRefresh, setPresetRefresh] = useState(0);
+  const [suggestions, setSuggestions] = useState<SuggestedPreset[]>([]);
   const [banner, setBanner] = useState<{ tone: "error" | "success"; message: string } | null>(
     null,
   );
@@ -193,6 +195,24 @@ export function StudioMode({ handoff }: { handoff: StudioHandoff | null }) {
     setPipelineError(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handoff, describedNodes, describedByType]);
+
+  useEffect(() => {
+    if (!file) {
+      setSuggestions([]);
+      return;
+    }
+    let cancelled = false;
+    autoSuggest(file)
+      .then((result) => {
+        if (!cancelled) setSuggestions(result.suggestions);
+      })
+      .catch(() => {
+        if (!cancelled) setSuggestions([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [file]);
 
   useEffect(() => {
     if (!banner) return;
@@ -712,7 +732,18 @@ export function StudioMode({ handoff }: { handoff: StudioHandoff | null }) {
         onLoad={handleLoadPreset}
         onImport={handleImportWorkflow}
         onExport={handleExportWorkflow}
+        onLoadSuggestion={(pipeline, name) => {
+          pushHistory();
+          applyPipeline(pipeline);
+          setSelectedId(null);
+          setPipelineError(null);
+          setBanner({
+            tone: "success",
+            message: t("studio.presets.suggestedPrompt", { title: name }),
+          });
+        }}
         refreshToken={presetRefresh}
+        suggestions={suggestions}
       />
 
       <div className={styles.toolbarRow}>

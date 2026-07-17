@@ -363,6 +363,76 @@ def create_app(services: AppServices | None = None) -> FastAPI:
         save_image(result, tmp.name)
         return FileResponse(tmp.name, media_type="image/png", filename="inpaint.png")
 
+    # -- VLM Auto (Phase 4) --------------------------------------------------
+
+    @app.get("/api/vlm")
+    async def vlm_status() -> dict[str, Any]:
+        return services.vlm.status()
+
+    @app.post("/api/vlm/download", status_code=202)
+    async def vlm_download() -> dict[str, Any]:
+        download = await downloads.start("vlm")
+        return download.to_dict()
+
+    @app.delete("/api/vlm")
+    async def vlm_remove() -> dict[str, Any]:
+        return {"removed": services.vlm.remove(), "vlm": services.vlm.status()}
+
+    @app.post("/api/auto/describe")
+    async def auto_describe(
+        image: UploadFile = File(...),
+        force_heuristic: str = Form("false"),
+    ) -> dict[str, Any]:
+        array = await _read_image(image)
+        force = str(force_heuristic).lower() in ("1", "true", "yes")
+        description = await asyncio.to_thread(
+            services.describe_photo, array, force_heuristic=force
+        )
+        return {
+            "description": description.to_dict(),
+            "vlm": services.vlm.status(),
+        }
+
+    @app.post("/api/auto/plan")
+    async def auto_plan(
+        image: UploadFile = File(...),
+        goal: str = Form(""),
+        quality_tier: str = Form("balanced"),
+        fallback: str = Form("skill"),
+        force_heuristic: str = Form("false"),
+    ) -> dict[str, Any]:
+        """Skill-driven Auto plan (VLM describe when installed; rule_table on request)."""
+        array = await _read_image(image)
+        tier = _parse_quality_tier(quality_tier)
+        mode = (fallback or "skill").strip().lower()
+        if mode not in ("skill", "rule_table"):
+            raise HTTPException(400, "fallback must be 'skill' or 'rule_table'")
+        force = str(force_heuristic).lower() in ("1", "true", "yes")
+        return await asyncio.to_thread(
+            services.plan_auto,
+            array,
+            goal=_form_str(goal),
+            quality_tier=tier,
+            fallback=mode,
+            force_heuristic=force,
+        )
+
+    @app.post("/api/auto/suggest")
+    async def auto_suggest(
+        image: UploadFile = File(...),
+        goal: str = Form(""),
+        force_heuristic: str = Form("false"),
+    ) -> dict[str, Any]:
+        """Dynamic Studio preset suggestions from describe + goal."""
+        array = await _read_image(image)
+        force = str(force_heuristic).lower() in ("1", "true", "yes")
+        return await asyncio.to_thread(
+            services.suggest_auto_presets,
+            array,
+            goal=_form_str(goal),
+            force_heuristic=force,
+        )
+
     # -- jobs ----------------------------------------------------------------
 
     @app.post("/api/jobs", status_code=202)

@@ -85,7 +85,7 @@ restoration-workflow = "restoration.launcher:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-restoration = ["core/data/*.json"]
+restoration = ["core/data/*.json", "core/data/*.md"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

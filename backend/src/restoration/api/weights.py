@@ -105,6 +105,21 @@ class DownloadManager:
                 if existing.state is DownloadState.RUNNING:
                     return existing
 
+            # Vision model (Phase 4) — not a registry node; lives under weights/vlm/.
+            if node_id == "vlm":
+                status = self.services.vlm.status()
+                download = Download(
+                    id=uuid.uuid4().hex[:16],
+                    node_id="vlm",
+                    bytes_total=int(status.get("missing_size_bytes") or status["size_bytes"]),
+                )
+                self._downloads[download.id] = download
+                self._by_node["vlm"] = download.id
+                task = asyncio.create_task(self._run_vlm(download))
+                self._tasks[download.id] = task
+                task.add_done_callback(lambda _t, did=download.id: self._tasks.pop(did, None))
+                return download
+
             node = self.services.registry.create(node_id)  # raises on unknown node
             # Surface the licence gate synchronously, so the caller gets a 403 rather
             # than a background task that fails invisibly a moment later.
@@ -161,6 +176,43 @@ class DownloadManager:
             return False
         download.cancel_requested = True
         return True
+
+    async def _run_vlm(self, download: Download) -> None:
+        loop = asyncio.get_running_loop()
+
+        def on_progress(filename: str, done: int, total: int) -> None:
+            def update() -> None:
+                download.filename = filename
+                download.bytes_done = done
+                if total > 0:
+                    download.bytes_total = total
+
+            loop.call_soon_threadsafe(update)
+
+        def check_cancel() -> None:
+            if download.cancel_requested:
+                raise JobCancelled(f"download {download.id} was cancelled")
+
+        try:
+            await asyncio.to_thread(
+                self.services.vlm.download,
+                on_progress,
+                check_cancel=check_cancel,
+            )
+        except JobCancelled:
+            download.state = DownloadState.CANCELLED
+            download.error = "cancelled"
+        except RestorationError as exc:
+            download.state = DownloadState.ERROR
+            download.error = str(exc)
+        except Exception as exc:  # pragma: no cover - defensive
+            download.state = DownloadState.ERROR
+            download.error = f"unexpected {type(exc).__name__}: {exc}"
+        else:
+            download.state = DownloadState.DONE
+            download.bytes_done = download.bytes_total
+        finally:
+            download.finished_at = time.time()
 
     async def _run(
         self,
