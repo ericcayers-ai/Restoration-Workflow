@@ -28,3 +28,6 @@ weights/
 
 # Tauri updater signing key (private); pubkey is committed in updater.key.pub
 src-tauri/updater.key
+
+.worktrees/
+

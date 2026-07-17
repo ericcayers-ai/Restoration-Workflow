@@ -1,13 +1,15 @@
 """Mask and compositing nodes — pure CPU, no weights.
 
 These are the pieces that make the executor's DAG shape usable from an actual
-pipeline rather than only in principle: ``mask_from_image`` gives LaMa its second
-input, and ``blend`` merges two branches back into one. Both skip the GPU
-semaphore (``uses_gpu = False``), so they overlap with GPU work in a wave.
+pipeline rather than only in principle: ``mask_from_image`` / ``load_mask`` give
+LaMa (and PowerPaint / FLUX Fill) their second input, and ``blend`` merges two
+branches back into one. Both skip the GPU semaphore (``uses_gpu = False``), so
+they overlap with GPU work in a wave.
 """
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -23,6 +25,7 @@ from ..core.types import (
     RunContext,
     VramTier,
 )
+from ..core.weights import default_data_dir
 
 _APACHE = LicenseInfo(
     spdx_id="Apache-2.0",
@@ -31,6 +34,7 @@ _APACHE = LicenseInfo(
 )
 
 SECOND_INPUT = "image_b"
+MASK_INPUT = "mask"
 
 
 class MaskFromImageNode(BaseRestorationNode):
@@ -123,6 +127,104 @@ class MaskFromImageNode(BaseRestorationNode):
         return np.repeat(mask[..., None], 3, axis=2).astype(np.float32)
 
 
+class LoadMaskNode(BaseRestorationNode):
+    """Load a painted Mask Editor asset, or treat the input image as a mask.
+
+    Studio exports from the Mask Editor set ``mask_id`` to the uploaded asset.
+    """
+
+    id = "load_mask"
+    category = NodeCategory.MASKING
+    pipeline_stage = STAGE_MASK
+    display_name = "Load mask"
+    description = (
+        "Emit a greyscale mask from a Mask Editor asset id, or from the input "
+        "image's luminance."
+    )
+    license = _APACHE
+    vram_tier = VramTier.LOW
+    uses_gpu = False
+    weight_manifest: list = []
+
+    param_schema: dict[str, Any] = {
+        "type": "object",
+        "properties": {
+            "source": {
+                "type": "string",
+                "enum": ["asset", "input"],
+                "default": "asset",
+                "title": "Source",
+            },
+            "mask_id": {
+                "type": "string",
+                "default": "",
+                "title": "Mask asset id",
+                "description": "Id returned by POST /api/masks (Mask Editor export).",
+            },
+            "invert": {"type": "boolean", "default": False, "title": "Invert"},
+        },
+        "additionalProperties": False,
+    }
+
+    async def run(
+        self, image: ImageArray, params: dict[str, Any], ctx: RunContext
+    ) -> ImageArray:
+        source = params.get("source", "asset")
+        if source == "input":
+            rgb = image[..., :3]
+            luma = rgb @ np.asarray([0.299, 0.587, 0.114], dtype=np.float32)
+            mask = np.clip(luma, 0.0, 1.0)
+            if bool(params.get("invert", False)):
+                mask = 1.0 - mask
+            ctx.report_progress(1.0)
+            return np.repeat(mask[..., None], 3, axis=2).astype(np.float32)
+
+        mask_id = str(params.get("mask_id") or "").strip()
+        if not mask_id:
+            raise NodeExecutionError(
+                self.id,
+                "mask_id is required when source is 'asset' — export a mask from "
+                "the Mask Editor, or set source to 'input'",
+            )
+
+        masks_dir = _resolve_masks_dir(params, ctx)
+        path = masks_dir / f"{mask_id}.png"
+        if not path.is_file():
+            raise NodeExecutionError(
+                self.id,
+                f"no mask asset for mask_id={mask_id!r} under {masks_dir}",
+            )
+
+        from PIL import Image  # noqa: PLC0415
+
+        with Image.open(path) as img:
+            arr = np.asarray(img.convert("L"), dtype=np.float32) / 255.0
+
+        if arr.shape[:2] != image.shape[:2]:
+            from PIL import Image as PilImage  # noqa: PLC0415
+
+            resized = PilImage.fromarray((arr * 255).astype(np.uint8), mode="L").resize(
+                (image.shape[1], image.shape[0]),
+                resample=PilImage.Resampling.NEAREST,
+            )
+            arr = np.asarray(resized, dtype=np.float32) / 255.0
+
+        if bool(params.get("invert", False)):
+            arr = 1.0 - arr
+
+        ctx.report_progress(1.0)
+        return np.repeat(arr[..., None], 3, axis=2).astype(np.float32)
+
+
+def _resolve_masks_dir(params: dict[str, Any], ctx: RunContext) -> Path:
+    raw = params.get("masks_dir")
+    if raw:
+        return Path(str(raw))
+    if ctx.data_dir:
+        return Path(ctx.data_dir) / "masks"
+    return default_data_dir() / "masks"
+
+
 # Same technique and constants as core/analyzer.py's _defect_score() (kept as a
 # separate, self-contained copy rather than importing core.analyzer here — nodes
 # only depend on core.types/core.errors, not on the analyzer module) — a
@@ -164,12 +266,20 @@ def _dilate(mask: ImageArray, radius: int) -> ImageArray:
     return out
 
 
+def defect_mask_rgb(rgb: ImageArray) -> ImageArray:
+    """Public helper for Mask Editor scratch detect (returns HxW float)."""
+    return _defect_mask(rgb)
+
+
 class BlendNode(BaseRestorationNode):
     """Merge two branches: ``image`` and ``image_b``.
 
     This is the node Studio Mode's "run two face models on the same crop and
     blend the results" use case is built from (UI_DESIGN.md section 8), and the
     reason the executor was written as a DAG rather than a chain.
+
+    When a ``mask`` input is connected, mix is weighted per-pixel: masked
+    regions pull toward ``image_b`` by ``alpha``.
     """
 
     id = "blend"
@@ -190,7 +300,10 @@ class BlendNode(BaseRestorationNode):
                 "maximum": 1.0,
                 "default": 0.5,
                 "title": "Mix",
-                "description": "0.0 is all of 'image', 1.0 is all of 'image_b'.",
+                "description": (
+                    "0.0 is all of 'image', 1.0 is all of 'image_b'. "
+                    "With a mask connected, mix applies only inside the mask."
+                ),
             },
             "mode": {
                 "type": "string",
@@ -229,6 +342,21 @@ class BlendNode(BaseRestorationNode):
             merged = np.minimum(a, b)
         else:
             merged = a * (1.0 - alpha) + b * alpha
+
+        mask = ctx.inputs.get(MASK_INPUT)
+        if mask is not None and mode == "normal":
+            if mask.ndim == 3:
+                m = mask[..., :3].mean(axis=2) if mask.shape[2] >= 3 else mask[..., 0]
+            else:
+                m = mask
+            if m.shape[:2] != image.shape[:2]:
+                raise NodeExecutionError(
+                    self.id,
+                    f"mask is {m.shape[:2]} but the image is {image.shape[:2]}; "
+                    f"the mask must match both blend inputs",
+                )
+            w = np.clip(m.astype(np.float32), 0.0, 1.0)[..., None] * alpha
+            merged = a * (1.0 - w) + b * w
 
         ctx.report_progress(1.0)
         return merged.astype(np.float32)

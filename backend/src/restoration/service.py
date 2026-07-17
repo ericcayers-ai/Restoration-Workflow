@@ -11,8 +11,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .builtin_presets import seed_builtin_presets as _seed_builtin_presets
+from .builtin_presets import (
+    builtin_preset_names as _builtin_preset_names,
+    seed_builtin_presets as _seed_builtin_presets,
+)
 from .core.analyzer import DegradationAnalyzer, DegradationProfile
+from .core.auto_plan import AutoPlan, plan_from_description, suggest_presets
 from .core.executor import PipelineExecutor, PipelineSpec
 from .core.hardware import HardwareDetector, HardwareInfo
 from .core.ordering import auto_order_pipeline
@@ -20,6 +24,7 @@ from .core.quality import QualityTier, apply_quality_tier
 from .core.registry import NodeRegistry
 from .core.rules import RoutingDecision, RuleTable
 from .core.types import ImageArray
+from .core.vlm import PhotoDescription, VlmManager
 from .core.weights import WeightManager, default_data_dir
 from .presets import PresetStore
 
@@ -64,6 +69,9 @@ class AppServices:
         self.registry.discover_plugins(self.plugins_dir)
 
         self.weights = WeightManager(self.data_dir / "weights")
+        self.masks_dir = self.data_dir / "masks"
+        self.masks_dir.mkdir(parents=True, exist_ok=True)
+        self.vlm = VlmManager(self.data_dir / "weights" / "vlm")
         self.hardware = HardwareDetector(force_cpu=force_cpu)
         self.analyzer = DegradationAnalyzer()
         self.presets = PresetStore(self.data_dir / "presets")
@@ -81,6 +89,7 @@ class AppServices:
             self.weights,
             device=info.device_string,
             gpu_slots=self._gpu_slots(info, gpu_slots),
+            data_dir=str(self.data_dir),
         )
 
     @staticmethod
@@ -344,7 +353,133 @@ class AppServices:
         payload = preset.to_dict() if hasattr(preset, "to_dict") else dict(preset)
         gate = self.preset_licence_gate(payload["pipeline"])
         payload["licence"] = gate
+        payload["builtin"] = payload.get("name") in set(_builtin_preset_names())
         return payload
+
+    # -- VLM Auto (Phase 4) ---------------------------------------------------
+
+    def _installed_ids(self) -> set[str]:
+        return {n.id for n in self.registry.all_nodes() if self.weights.is_installed(n)}
+
+    def _acknowledged_ids(self) -> set[str]:
+        return {
+            n.id
+            for n in self.registry.all_nodes()
+            if n.license.requires_acknowledgement and self.weights.is_acknowledged(n.id)
+        }
+
+    def describe_photo(
+        self,
+        image: ImageArray,
+        *,
+        force_heuristic: bool = False,
+    ) -> PhotoDescription:
+        return self.vlm.describe_photo(image, force_heuristic=force_heuristic)
+
+    def plan_auto(
+        self,
+        image: ImageArray,
+        *,
+        goal: str | None = None,
+        quality_tier: QualityTier = QualityTier.BALANCED,
+        fallback: str = "skill",
+        force_heuristic: bool = False,
+    ) -> dict[str, Any]:
+        """VLM/heuristic describe + skill rules, or pure rule_table fallback."""
+        if fallback == "rule_table":
+            auto = self.analyze(image, quality_tier)
+            payload = auto.to_dict()
+            payload["planner"] = "rule_table"
+            payload["description"] = self.describe_photo(
+                image, force_heuristic=True
+            ).to_dict()
+            payload["suggestions"] = []
+            payload["goal"] = (goal or "").strip().lower()
+            payload["skill_path"] = None
+            payload["missing_weights"] = self.missing_weights(auto.spec)
+            payload["vlm"] = self.vlm.status()
+            return payload
+
+        description = self.describe_photo(image, force_heuristic=force_heuristic)
+        plan = plan_from_description(
+            description,
+            self.registry,
+            goal=goal,
+            quality_tier=quality_tier,
+            installed=self._installed_ids(),
+            acknowledged=self._acknowledged_ids(),
+            allow_gated=True,
+            hardware=self.hardware.detect(),
+            quality_upscale_ready=self.weights.is_installed(
+                self.registry.create("mambair")
+            ),
+            quality_face_ready=self.weights.is_installed(self.registry.create("osdface")),
+        )
+        profile = (
+            DegradationProfile.from_dict(description.profile)
+            if description.profile
+            else self.analyzer.analyze(image)
+        )
+        chain, params, extra = self._apply_companion_overlays(
+            profile, list(plan.decision.chain), dict(plan.decision.params)
+        )
+        if extra:
+            reasons = list(plan.decision.reasons) + extra
+            decision = RoutingDecision(chain=chain, params=params, reasons=reasons)
+            spec = auto_order_pipeline(chain, self.registry, params)
+            plan = AutoPlan(
+                description=plan.description,
+                decision=decision,
+                pipeline=spec.to_dict(),
+                suggestions=plan.suggestions,
+                planner=plan.planner,
+                skill_path=plan.skill_path,
+                goal=plan.goal,
+            )
+        payload = plan.to_dict()
+        from .core.executor import parse_pipeline  # noqa: PLC0415
+
+        spec = parse_pipeline(plan.pipeline, self.registry)
+        payload["missing_weights"] = self.missing_weights(spec)
+        payload["vlm"] = self.vlm.status()
+        return payload
+
+    def suggest_auto_presets(
+        self,
+        image: ImageArray,
+        *,
+        goal: str | None = None,
+        force_heuristic: bool = False,
+    ) -> dict[str, Any]:
+        description = self.describe_photo(image, force_heuristic=force_heuristic)
+        suggestions = suggest_presets(
+            description,
+            self.registry,
+            installed=self._installed_ids(),
+            acknowledged=self._acknowledged_ids(),
+            allow_gated=True,
+            hardware=self.hardware.detect(),
+            quality_upscale_ready=self.weights.is_installed(
+                self.registry.create("mambair")
+            ),
+            quality_face_ready=self.weights.is_installed(self.registry.create("osdface")),
+        )
+        if goal:
+            g = goal.strip().lower()
+            suggestions = sorted(
+                suggestions,
+                key=lambda s: 0 if s.goal == g or (not g and not s.goal) else 1,
+            )
+        return {
+            "description": description.to_dict(),
+            "suggestions": [s.to_dict() for s in suggestions],
+            "vlm": self.vlm.status(),
+            "user_presets": [
+                self.describe_preset(p)
+                for p in self.presets.list()
+                if p.name not in set(_builtin_preset_names())
+            ],
+        }
 
     def weight_download_totals(self) -> dict[str, Any]:
         """Bytes / counts for missing *default-variant* permissive vs restricted weights."""

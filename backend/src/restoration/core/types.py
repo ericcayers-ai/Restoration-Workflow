@@ -197,6 +197,7 @@ class RunContext:
     node_id: str
     device: str = "cpu"                       # "cpu" | "cuda" | "cuda:N" | "mps"
     weights_dir: str | None = None            # node's installed weights, if any
+    data_dir: str | None = None               # app data root (masks, presets, …)
     inputs: dict[str, ImageArray] = field(default_factory=dict)
     _emit: EventCallback | None = None
     _is_cancelled: Callable[[], bool] | None = None

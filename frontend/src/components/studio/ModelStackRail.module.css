@@ -17,6 +17,10 @@
   color: var(--text-secondary);
 }
 
+.searchRow:focus-within {
+  box-shadow: inset 0 0 0 1px var(--focus-ring);
+}
+
 .searchInput {
   flex: 1;
   background: none;
@@ -28,6 +32,7 @@
 
 .searchInput::placeholder {
   color: var(--text-secondary);
+  opacity: 1;
 }
 
 .groups {
@@ -65,7 +70,6 @@
   font-weight: 500;
   letter-spacing: 0.02em;
   color: var(--text-secondary);
-  opacity: 0.85;
 }
 
 .itemList {
@@ -92,8 +96,14 @@
   background: var(--surface-800);
 }
 
+.item:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 0;
+  background: var(--surface-800);
+}
+
 .item:disabled {
-  opacity: 0.4;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 

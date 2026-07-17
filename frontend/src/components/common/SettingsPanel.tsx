@@ -9,14 +9,16 @@ import {
   ApiError,
   acknowledgeLicense,
   cleanupJobs,
+  getVlmStatus,
   listNodes,
   listWeights,
+  removeVlm,
   removeWeights,
 } from "../../lib/api";
 import { downloadSizeBytes, formatBytes, licenseAbbrev, licenseBadgeHint } from "../../lib/format";
 import { useT } from "../../lib/i18n";
 import { useFocusTrap } from "../../lib/useFocusTrap";
-import type { DescribedNode } from "../../lib/types";
+import type { DescribedNode, VlmStatus } from "../../lib/types";
 import { useWeightDownloads } from "../../lib/useWeightDownloads";
 import { Button } from "./Button";
 import { DownloadRow } from "./DownloadRow";
@@ -24,7 +26,7 @@ import { Icon } from "./Icon";
 import styles from "./SettingsPanel.module.css";
 
 type Filter = "all" | "missing" | "installed" | "restricted";
-type Tab = "downloads" | "legacy";
+type Tab = "downloads" | "legacy" | "vision";
 
 export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const t = useT();
@@ -36,6 +38,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [tab, setTab] = useState<Tab>("downloads");
+  const [vlm, setVlm] = useState<VlmStatus | null>(null);
   const [totals, setTotals] = useState<{
     missing_node_ids: string[];
     permissive: { count: number; bytes: number };
@@ -56,6 +59,9 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
         setTotals(w.totals ?? null);
       })
       .catch(() => {});
+    getVlmStatus()
+      .then(setVlm)
+      .catch(() => setVlm(null));
   }
 
   useEffect(() => {
@@ -216,7 +222,29 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
   if (!open) return null;
 
   const subtitle =
-    tab === "legacy" ? t("settings.legacy.subtitle") : t("settings.downloads.subtitle");
+    tab === "legacy"
+      ? t("settings.legacy.subtitle")
+      : tab === "vision"
+        ? t("settings.vision.subtitle")
+        : t("settings.downloads.subtitle");
+
+  function onDownloadVlm() {
+    void downloads.download("vlm").then((result) => {
+      if (result.state === "done") refresh();
+      if (result.state === "error") {
+        setBanner(t("settings.downloads.failed", { error: result.error ?? "" }));
+      }
+    });
+  }
+
+  function onRemoveVlm() {
+    removeVlm()
+      .then(() => {
+        setBanner(t("settings.vision.removed"));
+        refresh();
+      })
+      .catch((err) => setBanner(err instanceof ApiError ? err.message : String(err)));
+  }
   const emptyLabel =
     tab === "legacy" ? t("settings.legacy.empty") : t("settings.downloads.empty");
   const missingCount =
@@ -245,23 +273,45 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
           </button>
         </header>
 
-        <div className={styles.tabs} role="tablist">
+        <div className={styles.tabs} role="tablist" aria-label={t("settings.title")}>
           {(
             [
               ["downloads", "settings.tab.downloads"],
+              ["vision", "settings.tab.vision"],
               ["legacy", "settings.tab.legacy"],
             ] as const
-          ).map(([value, key]) => (
+          ).map(([value, key], index, list) => (
             <button
               key={value}
               type="button"
               role="tab"
+              id={`settings-tab-${value}`}
               aria-selected={tab === value}
+              aria-controls={`settings-panel-${value}`}
+              tabIndex={tab === value ? 0 : -1}
               className={tab === value ? styles.tabActive : styles.tab}
               onClick={() => {
                 setTab(value);
                 setQuery("");
                 setFilter("all");
+              }}
+              onKeyDown={(e) => {
+                const dir =
+                  e.key === "ArrowRight" || e.key === "ArrowDown"
+                    ? 1
+                    : e.key === "ArrowLeft" || e.key === "ArrowUp"
+                      ? -1
+                      : 0;
+                if (!dir) return;
+                e.preventDefault();
+                const next = list[(index + dir + list.length) % list.length];
+                if (!next) return;
+                setTab(next[0]);
+                setQuery("");
+                setFilter("all");
+                requestAnimationFrame(() => {
+                  document.getElementById(`settings-tab-${next[0]}`)?.focus();
+                });
               }}
             >
               {t(key)}
@@ -269,10 +319,62 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
           ))}
         </div>
 
-        <div className={styles.body}>
+        <div
+          className={styles.body}
+          role="tabpanel"
+          id={`settings-panel-${tab}`}
+          aria-labelledby={`settings-tab-${tab}`}
+        >
           <p className={styles.subtitle}>{subtitle}</p>
-          {cacheDir && (
+          {cacheDir && tab !== "vision" && (
             <p className={styles.cacheDir}>{t("settings.downloads.cacheDir", { path: cacheDir })}</p>
+          )}
+          {tab === "vision" && vlm && <p className={styles.cacheDir}>{vlm.path}</p>}
+
+          {tab === "vision" && vlm && (
+            <div className={styles.visionBlock}>
+              {banner && <p className={styles.banner} role="status">{banner}</p>}
+              <div className={styles.rowHeader}>
+                <span className={styles.name}>{vlm.display_name}</span>
+                <span className={styles.meta}>
+                  <span className="mono">{vlm.license_spdx}</span>
+                  <span className="mono">
+                    {formatBytes(vlm.installed ? vlm.size_on_disk : vlm.size_bytes)}
+                  </span>
+                </span>
+              </div>
+              {downloads.tracker.vlm &&
+              (downloads.tracker.vlm.state === "running" ||
+                downloads.tracker.vlm.state === "error" ||
+                downloads.tracker.vlm.state === "cancelled") ? (
+                <DownloadRow
+                  nodeId="vlm"
+                  displayName={vlm.display_name}
+                  download={downloads.tracker.vlm}
+                  onCancel={() => void downloads.cancel("vlm")}
+                />
+              ) : vlm.installed ? (
+                <div className={styles.installedRow}>
+                  <span className={styles.installedLabel}>
+                    <Icon name="check" size={12} />
+                    {t("settings.vision.installed", {
+                      size: formatBytes(vlm.size_on_disk || vlm.size_bytes),
+                    })}
+                  </span>
+                  <Button variant="ghost" size="small" icon="trash" onClick={onRemoveVlm}>
+                    {t("settings.vision.remove")}
+                  </Button>
+                </div>
+              ) : (
+                <div className={styles.downloadActions}>
+                  <Button variant="secondary" size="small" icon="tray" onClick={onDownloadVlm}>
+                    {t("settings.vision.download", {
+                      size: formatBytes(vlm.missing_size_bytes || vlm.size_bytes),
+                    })}
+                  </Button>
+                </div>
+              )}
+            </div>
           )}
 
           {tab === "downloads" && (
@@ -338,6 +440,8 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
             </div>
           )}
 
+          {tab !== "vision" && (
+            <>
           <div className={styles.filterRow}>
             <label className={styles.searchField}>
               <span className="visually-hidden">{t("settings.downloads.search")}</span>
@@ -444,6 +548,8 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
               );
             })}
           </ul>
+            </>
+          )}
         </div>
       </div>
     </div>

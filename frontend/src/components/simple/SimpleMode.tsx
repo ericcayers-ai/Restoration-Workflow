@@ -11,18 +11,19 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ApiError,
   acknowledgeLicense,
-  analyzeImage,
+  autoPlan,
   autoOrderPipeline,
   cancelJob,
   getJob,
   getPreset,
   jobResultUrl,
   listNodes,
+  getVlmStatus,
   listPresets,
   submitJob,
 } from "../../lib/api";
 import { useRegisterCommands } from "../../lib/commands";
-import { formatConfidence } from "../../lib/format";
+import { formatBytes, formatConfidence } from "../../lib/format";
 import { useT } from "../../lib/i18n";
 import {
   createStage,
@@ -38,6 +39,7 @@ import type {
   PipelineJson,
   Preset,
   QualityTier,
+  VlmStatus,
 } from "../../lib/types";
 import { useJobEvents } from "../../lib/useJobEvents";
 import { useWeightDownloads } from "../../lib/useWeightDownloads";
@@ -85,8 +87,10 @@ type ViewMode = "slider" | "side-by-side" | "difference";
 
 export function SimpleMode({
   onOpenInStudio,
+  maskHandoff = null,
 }: {
   onOpenInStudio: (pipeline: PipelineJson, file: File) => void;
+  maskHandoff?: { pipeline: PipelineJson; file: File; token: number } | null;
 }) {
   const t = useT();
   const [status, setStatus] = useState<Status>("idle");
@@ -104,11 +108,14 @@ export function SimpleMode({
   const [batchIndex, setBatchIndex] = useState(0);
   const [batchTotal, setBatchTotal] = useState(0);
   const batchCancelRef = useRef(false);
+  const lastMaskToken = useRef(0);
   const [presets, setPresets] = useState<Preset[]>([]);
   const [presetChoice, setPresetChoice] = useState("");
   const [qualityTier, setQualityTier] = useState<QualityTier>("balanced");
   const [showGatedPresets, setShowGatedPresets] = useState(false);
   const [liveMessage, setLiveMessage] = useState("");
+  const [vlm, setVlm] = useState<VlmStatus | null>(null);
+  const [vlmBusy, setVlmBusy] = useState(false);
 
   const downloads = useWeightDownloads();
   const jobEvents = useJobEvents(job?.id ?? null);
@@ -138,7 +145,68 @@ export function SimpleMode({
     listPresets({ includeGated: true })
       .then(setPresets)
       .catch(() => setPresets([]));
+    getVlmStatus()
+      .then(setVlm)
+      .catch(() => setVlm(null));
   }, []);
+
+  async function onDownloadVision() {
+    setVlmBusy(true);
+    try {
+      await downloads.download("vlm");
+      setVlm(await getVlmStatus());
+    } catch (err) {
+      setErrorMessage(err instanceof ApiError ? err.message : String(err));
+    } finally {
+      setVlmBusy(false);
+      getVlmStatus().then(setVlm).catch(() => {});
+    }
+  }
+
+  useEffect(() => {
+    if (!maskHandoff || maskHandoff.token === lastMaskToken.current) return;
+    if (Object.keys(describedByType).length === 0) return;
+    lastMaskToken.current = maskHandoff.token;
+    setFile(maskHandoff.file);
+    setBeforeUrl(URL.createObjectURL(maskHandoff.file));
+    setJob(null);
+    setErrorMessage(null);
+    setFallback(null);
+    const stages = pipelineToStages(maskHandoff.pipeline, describedByType);
+    setReviewStages(stages);
+    setReviewSelectedId(stages[0]?.id ?? null);
+    setReviewError(null);
+    setAuto({
+      profile: {
+        width: 0,
+        height: 0,
+        min_dimension: 0,
+        blur_score: 0,
+        noise_score: 0,
+        jpeg_blockiness: 0,
+        mean_luma: 0.5,
+        dark_fraction: 0,
+        bright_fraction: 0,
+        face_count: null,
+        low_light: false,
+        blown_highlights: false,
+      },
+      routing: {
+        chain: stages.map((s) => s.nodeType),
+        params: {},
+        reasons: [
+          {
+            node: "load_mask",
+            reason: t("mask.simpleHandoffReason"),
+          },
+        ],
+      },
+      pipeline: maskHandoff.pipeline,
+      missing_weights: [],
+    });
+    setStatus("review");
+    setLiveMessage(t("mask.simpleHandoffReady"));
+  }, [maskHandoff, describedByType, t]);
 
   useEffect(() => {
     return () => {
@@ -262,7 +330,7 @@ export function SimpleMode({
         setReviewStages(stages);
         setStatus("review");
       } else {
-        const result = await analyzeImage(selected, qualityTier);
+        const result = await autoPlan(selected, { qualityTier });
         setAuto(result);
         setReviewStages(pipelineToStages(result.pipeline, describedByType));
         setStatus("review");
@@ -378,7 +446,7 @@ export function SimpleMode({
     // those missing, and re-check per image as we go.
     try {
       const first = files[0]!;
-      const probe = await analyzeImage(first, qualityTier);
+      const probe = await autoPlan(first, { qualityTier });
       const probeMissing = missingWeightsFor(probe.pipeline, describedByType);
       if (probeMissing.length > 0) {
         setStatus("downloading");
@@ -415,7 +483,7 @@ export function SimpleMode({
       setErrorMessage(null);
       setStatus("analyzing");
       try {
-        const result = await analyzeImage(selected, qualityTier);
+        const result = await autoPlan(selected, { qualityTier });
         setAuto(result);
         const stages = pipelineToStages(result.pipeline, describedByType);
         setReviewStages(stages);
@@ -631,6 +699,32 @@ export function SimpleMode({
               ))}
             </div>
           </div>
+          {vlm && !vlm.installed && (
+            <div className={styles.visionOffer} role="note">
+              <p>{t("simple.vision.offer")}</p>
+              <Button
+                variant="secondary"
+                size="small"
+                icon="tray"
+                disabled={vlmBusy || downloads.tracker.vlm?.state === "running"}
+                onClick={() => void onDownloadVision()}
+              >
+                {t("simple.vision.download", {
+                  size: formatBytes(vlm.missing_size_bytes || vlm.size_bytes),
+                })}
+              </Button>
+              {downloads.tracker.vlm &&
+                (downloads.tracker.vlm.state === "running" ||
+                  downloads.tracker.vlm.state === "error") && (
+                  <DownloadRow
+                    nodeId="vlm"
+                    displayName={vlm.display_name}
+                    download={downloads.tracker.vlm}
+                    onCancel={() => void downloads.cancel("vlm")}
+                  />
+                )}
+            </div>
+          )}
           {presets.length > 0 && (
             <details className={styles.presetDetails}>
               <summary>{t("simple.presets.title")}</summary>

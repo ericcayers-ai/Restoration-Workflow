@@ -7,6 +7,12 @@ include breaking changes to the JSON pipeline shape).
 
 ## [Unreleased]
 
+### Added
+- **Phase 5 harvest QA notes** — `docs/screenshots/qa/` includes Scan_12 source, scratch mask overlays, JSON report, and `HARVEST_QA.md` covering DPI advice, Auto plan (heuristic), Mask Editor scratch path, and known GPU/VLM gaps.
+
+### Changed
+- **UI polish (Mask / Model Stack / Legacy / Vision)** — Distilled copy for Mask Editor, Settings Vision/Legacy tabs, Simple vision offer, and Model Stack category labels. Focus rings and keyboard: Mask shortcuts (B/E/I/[ ]/Esc), Settings tab arrow keys, rail/search focus-within. Fixed PresetBar contrast (`--text-tertiary` → `--text-secondary`). Settings Vision/Legacy panel fragment fix for valid JSX.
+
 ## [0.6.1] - 2026-07-17
 
 ### Added

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import uuid
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -41,10 +42,11 @@ from ..core.errors import (
     WeightsNotInstalledError,
 )
 from ..core.executor import parse_pipeline
-from ..core.images import load_image_bytes
+from ..core.images import encode_png, load_image_bytes
 from ..core.ordering import auto_order_pipeline
 from ..core.quality import QualityTier
 from ..core.workflow_text import parse_workflow, serialize_workflow
+from ..nodes.masks import defect_mask_rgb
 from ..presets import Preset, PresetStore
 from ..service import AppServices
 from .frontend import mount_frontend
@@ -210,6 +212,226 @@ def create_app(services: AppServices | None = None) -> FastAPI:
         payload = auto.to_dict()
         payload["missing_weights"] = services.missing_weights(auto.spec)
         return payload
+
+    # -- masks (Mask Editor) -------------------------------------------------
+
+    def _save_mask_array(mask_hw: Any) -> dict[str, Any]:
+        import numpy as np  # noqa: PLC0415
+        from PIL import Image  # noqa: PLC0415
+
+        services.masks_dir.mkdir(parents=True, exist_ok=True)
+        mask_id = uuid.uuid4().hex
+        path = services.masks_dir / f"{mask_id}.png"
+        arr = np.clip(mask_hw, 0.0, 1.0)
+        if arr.ndim == 3:
+            arr = arr.mean(axis=2)
+        Image.fromarray((arr * 255).astype(np.uint8), mode="L").save(path)
+        return {"id": mask_id, "url": f"/api/masks/{mask_id}"}
+
+    @app.post("/api/masks")
+    async def upload_mask(mask: UploadFile = File(...)) -> dict[str, Any]:
+        data = await mask.read()
+        if not data:
+            raise HTTPException(400, "empty mask upload")
+        try:
+            array = load_image_bytes(data)
+        except Exception as exc:
+            raise HTTPException(400, f"unreadable mask: {exc}") from exc
+        import numpy as np  # noqa: PLC0415
+
+        if array.ndim == 3:
+            gray = array[..., :3].mean(axis=2)
+        else:
+            gray = array
+        return _save_mask_array(np.asarray(gray, dtype=np.float32))
+
+    @app.get("/api/masks/{mask_id}")
+    async def get_mask(mask_id: str) -> FileResponse:
+        path = services.masks_dir / f"{mask_id}.png"
+        if not path.is_file():
+            raise HTTPException(404, f"no mask {mask_id!r}")
+        return FileResponse(path, media_type="image/png")
+
+    @app.post("/api/masks/scratch")
+    async def mask_scratch(image: UploadFile = File(...)) -> FileResponse:
+        """Classical scratch/dust detect → greyscale mask PNG (not saved)."""
+        array = await _read_image(image)
+        mask = await asyncio.to_thread(defect_mask_rgb, array[..., :3])
+        import tempfile  # noqa: PLC0415
+
+        from PIL import Image  # noqa: PLC0415
+
+        tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+        tmp.close()
+        Image.fromarray((mask * 255).astype("uint8"), mode="L").save(tmp.name)
+        return FileResponse(tmp.name, media_type="image/png", filename="scratch_mask.png")
+
+    @app.post("/api/masks/segment")
+    async def mask_segment(image: UploadFile = File(...)) -> dict[str, Any]:
+        """Run RMBG-2.0 (when installed) and return a saved mask of the subject.
+
+        Falls back to a luminance threshold when RMBG weights are missing so the
+        Mask Editor stays usable offline.
+        """
+        import numpy as np  # noqa: PLC0415
+
+        array = await _read_image(image)
+        rgb = array[..., :3]
+        try:
+            node = services.registry.create("rmbg2")
+            if services.weights.is_installed(node) and (
+                not node.license.requires_acknowledgement
+                or services.weights.is_acknowledged(node.id)
+            ):
+                ctx_inputs: dict[str, Any] = {}
+                from ..core.types import RunContext  # noqa: PLC0415
+
+                ctx = RunContext(
+                    job_id="mask-segment",
+                    node_id="rmbg2",
+                    device=services.executor.device,
+                    weights_dir=str(services.weights.node_dir("rmbg2")),
+                    data_dir=str(services.data_dir),
+                    inputs=ctx_inputs,
+                )
+                rgba = await node.run(array, node.default_params(), ctx)
+                if rgba.ndim == 3 and rgba.shape[2] >= 4:
+                    gray = np.asarray(rgba[..., 3], dtype=np.float32)
+                else:
+                    gray = np.asarray(rgba[..., :3].mean(axis=2), dtype=np.float32)
+                return _save_mask_array(gray)
+        except Exception:
+            pass
+        luma = rgb @ np.asarray([0.299, 0.587, 0.114], dtype=np.float32)
+        return _save_mask_array((luma < 0.92).astype(np.float32))
+
+    @app.post("/api/masks/inpaint")
+    async def mask_inpaint(
+        image: UploadFile = File(...),
+        mask: UploadFile = File(...),
+        engine: str = Form("lama"),
+        prompt: str = Form("clean photograph"),
+    ) -> FileResponse:
+        """Run an inpaint node inside the Mask Editor (image + mask → result)."""
+        import numpy as np  # noqa: PLC0415
+        import tempfile  # noqa: PLC0415
+
+        from ..core.images import save_image  # noqa: PLC0415
+        from ..core.types import RunContext  # noqa: PLC0415
+
+        if engine not in {"lama", "powerpaint", "flux_fill"}:
+            raise HTTPException(400, "engine must be lama, powerpaint, or flux_fill")
+        array = await _read_image(image)
+        mask_data = await mask.read()
+        if not mask_data:
+            raise HTTPException(400, "empty mask upload")
+        try:
+            mask_arr = load_image_bytes(mask_data)
+        except Exception as exc:
+            raise HTTPException(400, f"unreadable mask: {exc}") from exc
+        if mask_arr.ndim == 3:
+            mask_gray = np.repeat(mask_arr[..., :3].mean(axis=2)[..., None], 3, axis=2)
+        else:
+            mask_gray = np.repeat(mask_arr[..., None], 3, axis=2)
+
+        node = services.registry.create(engine)
+        if node.weight_manifest and not services.weights.is_installed(node):
+            raise WeightsNotInstalledError(engine)
+        tiny = parse_pipeline(
+            {"version": 1, "nodes": [{"id": "n", "type": engine, "params": {}}], "edges": []},
+            services.registry,
+        )
+        gated = services.unacknowledged_nodes(tiny)
+        if gated:
+            raise LicenseNotAcknowledgedError(",".join(gated), "restricted")
+
+        weights_dir = None
+        if node.weight_manifest:
+            weights_dir = str(services.weights.ensure_installed(node))
+        ctx = RunContext(
+            job_id="mask-inpaint",
+            node_id=engine,
+            device=services.executor.device,
+            weights_dir=weights_dir,
+            data_dir=str(services.data_dir),
+            inputs={"image": array, "mask": mask_gray.astype(np.float32)},
+        )
+        params = {**node.default_params(), "prompt": prompt}
+        result = await node.run(array, params, ctx)
+        tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+        tmp.close()
+        save_image(result, tmp.name)
+        return FileResponse(tmp.name, media_type="image/png", filename="inpaint.png")
+
+    # -- VLM Auto (Phase 4) --------------------------------------------------
+
+    @app.get("/api/vlm")
+    async def vlm_status() -> dict[str, Any]:
+        return services.vlm.status()
+
+    @app.post("/api/vlm/download", status_code=202)
+    async def vlm_download() -> dict[str, Any]:
+        download = await downloads.start("vlm")
+        return download.to_dict()
+
+    @app.delete("/api/vlm")
+    async def vlm_remove() -> dict[str, Any]:
+        return {"removed": services.vlm.remove(), "vlm": services.vlm.status()}
+
+    @app.post("/api/auto/describe")
+    async def auto_describe(
+        image: UploadFile = File(...),
+        force_heuristic: str = Form("false"),
+    ) -> dict[str, Any]:
+        array = await _read_image(image)
+        force = str(force_heuristic).lower() in ("1", "true", "yes")
+        description = await asyncio.to_thread(
+            services.describe_photo, array, force_heuristic=force
+        )
+        return {
+            "description": description.to_dict(),
+            "vlm": services.vlm.status(),
+        }
+
+    @app.post("/api/auto/plan")
+    async def auto_plan(
+        image: UploadFile = File(...),
+        goal: str = Form(""),
+        quality_tier: str = Form("balanced"),
+        fallback: str = Form("skill"),
+        force_heuristic: str = Form("false"),
+    ) -> dict[str, Any]:
+        """Skill-driven Auto plan (VLM describe when installed; rule_table on request)."""
+        array = await _read_image(image)
+        tier = _parse_quality_tier(quality_tier)
+        mode = (fallback or "skill").strip().lower()
+        if mode not in ("skill", "rule_table"):
+            raise HTTPException(400, "fallback must be 'skill' or 'rule_table'")
+        force = str(force_heuristic).lower() in ("1", "true", "yes")
+        return await asyncio.to_thread(
+            services.plan_auto,
+            array,
+            goal=_form_str(goal),
+            quality_tier=tier,
+            fallback=mode,
+            force_heuristic=force,
+        )
+
+    @app.post("/api/auto/suggest")
+    async def auto_suggest(
+        image: UploadFile = File(...),
+        goal: str = Form(""),
+        force_heuristic: str = Form("false"),
+    ) -> dict[str, Any]:
+        """Dynamic Studio preset suggestions from describe + goal."""
+        array = await _read_image(image)
+        force = str(force_heuristic).lower() in ("1", "true", "yes")
+        return await asyncio.to_thread(
+            services.suggest_auto_presets,
+            array,
+            goal=_form_str(goal),
+            force_heuristic=force,
+        )
 
     # -- jobs ----------------------------------------------------------------
 
