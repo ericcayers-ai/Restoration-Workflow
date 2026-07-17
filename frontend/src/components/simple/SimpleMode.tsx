@@ -85,8 +85,10 @@ type ViewMode = "slider" | "side-by-side" | "difference";
 
 export function SimpleMode({
   onOpenInStudio,
+  maskHandoff = null,
 }: {
   onOpenInStudio: (pipeline: PipelineJson, file: File) => void;
+  maskHandoff?: { pipeline: PipelineJson; file: File; token: number } | null;
 }) {
   const t = useT();
   const [status, setStatus] = useState<Status>("idle");
@@ -104,6 +106,7 @@ export function SimpleMode({
   const [batchIndex, setBatchIndex] = useState(0);
   const [batchTotal, setBatchTotal] = useState(0);
   const batchCancelRef = useRef(false);
+  const lastMaskToken = useRef(0);
   const [presets, setPresets] = useState<Preset[]>([]);
   const [presetChoice, setPresetChoice] = useState("");
   const [qualityTier, setQualityTier] = useState<QualityTier>("balanced");
@@ -139,6 +142,51 @@ export function SimpleMode({
       .then(setPresets)
       .catch(() => setPresets([]));
   }, []);
+
+  useEffect(() => {
+    if (!maskHandoff || maskHandoff.token === lastMaskToken.current) return;
+    if (Object.keys(describedByType).length === 0) return;
+    lastMaskToken.current = maskHandoff.token;
+    setFile(maskHandoff.file);
+    setBeforeUrl(URL.createObjectURL(maskHandoff.file));
+    setJob(null);
+    setErrorMessage(null);
+    setFallback(null);
+    const stages = pipelineToStages(maskHandoff.pipeline, describedByType);
+    setReviewStages(stages);
+    setReviewSelectedId(stages[0]?.id ?? null);
+    setReviewError(null);
+    setAuto({
+      profile: {
+        width: 0,
+        height: 0,
+        min_dimension: 0,
+        blur_score: 0,
+        noise_score: 0,
+        jpeg_blockiness: 0,
+        mean_luma: 0.5,
+        dark_fraction: 0,
+        bright_fraction: 0,
+        face_count: null,
+        low_light: false,
+        blown_highlights: false,
+      },
+      routing: {
+        chain: stages.map((s) => s.nodeType),
+        params: {},
+        reasons: [
+          {
+            node: "load_mask",
+            reason: t("mask.simpleHandoffReason"),
+          },
+        ],
+      },
+      pipeline: maskHandoff.pipeline,
+      missing_weights: [],
+    });
+    setStatus("review");
+    setLiveMessage(t("mask.simpleHandoffReady"));
+  }, [maskHandoff, describedByType, t]);
 
   useEffect(() => {
     return () => {

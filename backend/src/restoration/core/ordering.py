@@ -69,7 +69,8 @@ def auto_order(nodes: list[BaseRestorationNode]) -> list[BaseRestorationNode]:
 # In-box nodes with a required non-primary mask input. Selecting one without a
 # mask source auto-inserts the box's mask generator right before it.
 _MASK_CONSUMERS = frozenset({"lama", "powerpaint", "flux_fill"})
-_MASK_PROVIDER = "mask_from_image"
+_MASK_PROVIDERS = frozenset({"mask_from_image", "load_mask"})
+_MASK_PROVIDER = "mask_from_image"  # default auto-insert (legacy classical detector)
 _MASK_INPUT = "mask"
 
 
@@ -88,7 +89,9 @@ def auto_order_pipeline(
     instances = [(t, registry.create(t)) for t in node_types]
     ordered = [t for t, _ in sorted(instances, key=lambda pair: stage_rank(pair[1]))]
 
-    if any(c in ordered for c in _MASK_CONSUMERS) and _MASK_PROVIDER not in ordered:
+    if any(c in ordered for c in _MASK_CONSUMERS) and not any(
+        p in ordered for p in _MASK_PROVIDERS
+    ):
         # Insert provider just before the first mask consumer.
         insert_at = min(ordered.index(c) for c in _MASK_CONSUMERS if c in ordered)
         ordered.insert(insert_at, _MASK_PROVIDER)
@@ -101,7 +104,7 @@ def auto_order_pipeline(
         nid = f"n{i}_{node_type}"
         nodes.append(NodeSpec(id=nid, type=node_type, params=params.get(node_type, {})))
 
-        if node_type == _MASK_PROVIDER:
+        if node_type in _MASK_PROVIDERS:
             mask_provider_id = nid
             continue  # feeds a consumer's named input, not the main chain
 

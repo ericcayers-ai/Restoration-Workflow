@@ -1,4 +1,4 @@
-"""Diffusion-tier restoration via diffusers (PowerPaint, DiffBIR, SUPIR, FLUX Fill)."""
+"""Diffusion-tier restoration via diffusers (PowerPaint, SUPIR, FLUX Fill)."""
 
 from __future__ import annotations
 
@@ -22,6 +22,7 @@ from .._torch import (
 
 _TILE_THRESHOLD = 768
 _TILE_OVERLAP = 64
+_MASK_INPUT = "mask"
 
 
 def _require_diffusers(node_id: str) -> Any:
@@ -55,17 +56,64 @@ def _local_weight_path(weights_dir: Path, filename: str | None) -> Path | None:
     return path if path.is_file() else None
 
 
+def resolve_inpaint_mask(
+    node_id: str,
+    image: ImageArray,
+    ctx: RunContext,
+    *,
+    require_nonzero: bool = False,
+) -> ImageArray:
+    """Return a single-channel HxW float mask from ``ctx.inputs['mask']``.
+
+    PowerPaint / FLUX Fill previously synthesised an all-zero mask, which made
+    the inpaint path a no-op. Callers must wire a real mask edge.
+    """
+    mask = ctx.inputs.get(_MASK_INPUT)
+    if mask is None:
+        raise NodeExecutionError(
+            node_id,
+            "no mask input is connected — inpainting fills the region a mask marks, "
+            "so connect a mask-producing node (e.g. 'load_mask' or 'mask_from_image') "
+            f"to its '{_MASK_INPUT}' input",
+        )
+    if mask.ndim == 3:
+        mask = mask[..., :3].mean(axis=2) if mask.shape[2] >= 3 else mask[..., 0]
+    shape = image.shape[:2]
+    if mask.shape[:2] != shape:
+        raise NodeExecutionError(
+            node_id,
+            f"mask is {mask.shape[:2]} but the image is {shape}; the mask must be "
+            f"produced from the same image",
+        )
+    out = np.clip(mask.astype(np.float32), 0.0, 1.0)
+    if require_nonzero and not bool(out.any()):
+        raise NodeExecutionError(
+            node_id,
+            "mask is empty (all zeros) — paint or generate a region to inpaint before running",
+        )
+    return out
+
+
+def _mask_to_pil(mask: ImageArray):
+    """Greyscale PIL mask; white = fill region for diffusers inpaint."""
+    from PIL import Image  # noqa: PLC0415
+
+    arr = (np.clip(mask, 0, 1) * 255).astype(np.uint8)
+    return Image.fromarray(arr, mode="L")
+
+
 def _run_tiled_pil(
     pil,
     runner,
     *,
     tile: int,
     overlap: int = _TILE_OVERLAP,
+    mask_pil=None,
 ):
     """Run a PIL→PIL callable over overlapping tiles for large images."""
     w, h = pil.size
     if max(w, h) <= tile:
-        return runner(pil)
+        return runner(pil, mask_pil.resize(pil.size) if mask_pil is not None else None)
 
     from PIL import Image  # noqa: PLC0415
 
@@ -78,7 +126,8 @@ def _run_tiled_pil(
             x1, y1 = min(x + tile, w), min(y + tile, h)
             x0, y0 = max(0, x1 - tile), max(0, y1 - tile)
             crop = pil.crop((x0, y0, x1, y1))
-            restored = runner(crop)
+            crop_mask = mask_pil.crop((x0, y0, x1, y1)) if mask_pil is not None else None
+            restored = runner(crop, crop_mask)
             arr = np.asarray(restored, dtype=np.float32)
             accum[y0:y1, x0:x1] += arr
             counts[y0:y1, x0:x1] += 1.0
@@ -108,6 +157,7 @@ def _load_img2img_pipe(node_id: str, model_id: str, device: str, dtype: Any):
 def _run_powerpaint_inpaint(
     node_id: str,
     pil,
+    mask_pil,
     params: dict[str, Any],
     *,
     device: str,
@@ -153,9 +203,6 @@ def _run_powerpaint_inpaint(
         )
         pipe = pipe.to(device)
 
-    w, h = pil.size
-    mask = np.zeros((h, w), dtype=np.uint8)
-    mask_pil = _pil_from_array(np.stack([mask] * 3, axis=-1))
     return pipe(
         prompt=params.get("prompt", "clean photograph"),
         image=pil,
@@ -201,26 +248,33 @@ def run_diffusion_restore(
                 "(set HF_TOKEN) and the [diffusion] extra.",
             ) from exc
         pipe = pipe.to(device)
+        mask = resolve_inpaint_mask(node_id, image, ctx, require_nonzero=True)
+        mask_pil = _mask_to_pil(mask)
         h, w = image.shape[:2]
-        mask = np.zeros((h, w), dtype=np.float32)
-        mask_pil = _pil_from_array(np.stack([mask] * 3, axis=-1))
 
-        def _fill(crop):
+        def _fill(crop, crop_mask):
             return pipe(
                 prompt=params.get("prompt", "high quality photograph"),
                 image=crop,
-                mask_image=mask_pil.resize(crop.size),
+                mask_image=crop_mask if crop_mask is not None else mask_pil.resize(crop.size),
                 num_inference_steps=steps,
                 guidance_scale=float(params.get("guidance", 3.5)),
             ).images[0]
 
-        result = _run_tiled_pil(pil, _fill, tile=tile) if max(w, h) > tile else _fill(pil)
+        result = (
+            _run_tiled_pil(pil, _fill, tile=tile, mask_pil=mask_pil)
+            if max(w, h) > tile
+            else _fill(pil, mask_pil)
+        )
         return _array_from_pil(result)
 
     if mode == "inpaint":
+        mask = resolve_inpaint_mask(node_id, image, ctx, require_nonzero=True)
+        mask_pil = _mask_to_pil(mask)
         result = _run_powerpaint_inpaint(
             node_id,
             pil,
+            mask_pil,
             params,
             device=device,
             dtype=dtype,
@@ -267,7 +321,7 @@ def run_diffusion_restore(
     prompt = params.get("prompt", "high quality sharp photograph, detailed")
     eff_strength = min(0.55, strength)
 
-    def _restore(crop):
+    def _restore(crop, _crop_mask=None):
         return pipe(
             prompt=prompt,
             image=crop,
