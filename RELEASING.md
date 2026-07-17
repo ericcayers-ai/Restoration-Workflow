@@ -2,7 +2,7 @@
 
 How to cut a Restoration Workflow release. Versioning follows SemVer for the
 `0.x` line (minor bumps may include breaking pipeline-JSON changes). Current line:
-**0.6.0**.
+**0.6.1**.
 
 ## Supported artefacts
 
@@ -16,7 +16,7 @@ How to cut a Restoration Workflow release. Versioning follows SemVer for the
 ## Pre-flight checklist
 
 1. Version strings agree: `backend/pyproject.toml`, `backend/src/restoration/__init__.py`,
-   `frontend/package.json`, and (if present) `src-tauri` metadata — keep **0.6.0** until
+   `frontend/package.json`, and (if present) `src-tauri` metadata — keep **0.6.1** until
    you intentionally bump.
 2. [`CHANGELOG.md`](CHANGELOG.md) has a dated section for the release; encoding is clean.
 3. Backend: `pip install -e ".[dev]"` then `pytest -q` and `ruff check src/ tests/`.
@@ -32,8 +32,8 @@ How to cut a Restoration Workflow release. Versioning follows SemVer for the
 Releases are driven by **git tags** matching `v*`:
 
 ```bash
-git tag -a v0.6.0 -m "Release v0.6.0"
-git push origin v0.6.0
+git tag -a v0.6.1 -m "Release v0.6.1"
+git push origin v0.6.1
 ```
 
 The Release workflow:

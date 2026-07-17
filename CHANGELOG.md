@@ -7,6 +7,8 @@ include breaking changes to the JSON pipeline shape).
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-07-17
+
 ### Changed
 - **Frontend UI QOL** — clearer app shell (brand mark, command palette entry,
   grouped utilities), Simple Mode step rail with progressive options, primary

@@ -369,10 +369,10 @@ def test_instructir_declares_text_encoder_weights():
 # v0.6 API contracts + overlays + cleanup
 # ---------------------------------------------------------------------------
 
-def test_health_reports_v060_and_api_version(client):
+def test_health_reports_v061_and_api_version(client):
     test_client, _ = client
     body = test_client.get("/api/health").json()
-    assert body["version"] == "0.6.0"
+    assert body["version"] == "0.6.1"
     assert body["api_version"] == "1.0.0"
 
 

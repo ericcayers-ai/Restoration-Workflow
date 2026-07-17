@@ -34,7 +34,7 @@ npm run build
 # optional: npm run dev    # Vite against a running `restore serve`
 ```
 
-**Version:** keep package / app metadata at **0.6.0** unless a release explicitly
+**Version:** keep package / app metadata at **0.6.1** unless a release explicitly
 bumps it (`backend/pyproject.toml`, `frontend/package.json`,
 `backend/src/restoration/__init__.py`).
 

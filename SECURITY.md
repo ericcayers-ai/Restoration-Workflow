@@ -19,7 +19,7 @@ credited in the fix.
 
 The `main` branch and the latest tagged release receive fixes. Older releases are not
 patched individually; upgrade to the latest release to pick up a fix. Current line:
-**0.6.0**.
+**0.6.1**.
 
 ## What this app already does about it
 

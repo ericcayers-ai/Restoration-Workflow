@@ -5,7 +5,7 @@ hardware detection, the degradation analyzer, a FastAPI REST/WebSocket surface, 
 `restore` CLI. No UI. Everything here is exercisable from a terminal — see
 [`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md).
 
-**Package version:** `0.6.0` (`pyproject.toml` / `restoration.__version__`).
+**Package version:** `0.6.1` (`pyproject.toml` / `restoration.__version__`).
 
 ## Install
 

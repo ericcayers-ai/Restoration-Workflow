@@ -59,7 +59,7 @@ def main() -> int:
         from restoration.core.instruction import list_prompt_presets
         from restoration.nodes.instructir import InstructIrNode
 
-        if __version__ != "0.6.0":
+        if __version__ != "0.6.1":
             errors.append(f"unexpected package version {__version__!r}")
         if not API_VERSION:
             errors.append("API_VERSION empty")

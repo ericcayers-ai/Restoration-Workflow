@@ -175,7 +175,7 @@ async function installApiMocks(page) {
       return json({ backend: "cpu", devices: [], recommended_quality_tier: "balanced" });
     }
     if (pathOnly === "/api/health" && method === "GET") {
-      return json({ status: "ok", version: "0.6.0", api_version: "1.0.0", plugin_errors: [] });
+      return json({ status: "ok", version: "0.6.1", api_version: "1.0.0", plugin_errors: [] });
     }
     if (pathOnly === "/api/instructir/prompts" && method === "GET") return json(MOCK_PROMPTS);
     if (pathOnly === "/api/analyze" && method === "POST") {

@@ -4,7 +4,7 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Latest release](https://img.shields.io/github/v/release/ericcayers-ai/Restoration-Workflow?include_prereleases)](https://github.com/ericcayers-ai/Restoration-Workflow/releases)
 
-**Version 0.6.0** — local-first photo restoration. Drop a photo and restore it with
+**Version 0.6.1** — local-first photo restoration. Drop a photo and restore it with
 almost no setup (Simple Mode), or author a pipeline in Studio Mode. Both UIs drive
 the same FastAPI engine and DAG executor. No cloud account, no subscription; photos
 stay on your machine unless you send them elsewhere.
@@ -22,7 +22,7 @@ stay on your machine unless you send them elsewhere.
 </details>
 
 > Screenshots may lag the latest Safelight UI polish. Intended shipped behaviour for
-> 0.6.0 is described below; if a screenshot disagrees with the running app, trust the
+> 0.6.1 is described below; if a screenshot disagrees with the running app, trust the
 > app and [`CHANGELOG.md`](CHANGELOG.md).
 
 ## What you get
