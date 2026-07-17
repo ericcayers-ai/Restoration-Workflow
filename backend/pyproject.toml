@@ -60,7 +60,7 @@ stretch = [
     "mamba-ssm>=2.0",
     "einops>=0.7",
 ]
-# Windows desktop PyInstaller bundle (`python packaging/build_exe.py`).
+# Desktop PyInstaller bundles + installers (see packaging/ and RELEASING.md).
 packaging = [
     "pyinstaller>=6.0",
 ]

@@ -33,10 +33,11 @@ flowchart LR
     Executor --> GPU[(Local GPU / CPU)]
 ```
 
-**As shipped (0.6.x):** the supported desktop artefact is a **Windows PyInstaller portable
-zip** (`Run.bat` launches the local FastAPI process and opens a browser). `restore serve`
-is the same stack without the wrapper. An experimental `src-tauri/` tree may exist; it is
-**not** a shipping multi-OS updater shell — see [`RELEASING.md`](../RELEASING.md).
+**As shipped (0.6.1+):** supported desktop artefacts are **PyInstaller onedir** wraps —
+Windows Inno Setup installer, macOS DMG (unsigned `.app`), and Linux AppImage — each
+launching the local FastAPI process and opening a browser. `restore serve` is the same
+stack without the wrapper. An experimental `src-tauri/` tree may exist; it is **not** a
+shipping multi-OS updater shell — see [`RELEASING.md`](../RELEASING.md).
 
 ---
 
@@ -44,8 +45,8 @@ is the same stack without the wrapper. An experimental `src-tauri/` tree may exi
 
 Three logical pieces:
 
-1. **Desktop / browser shell (as shipped: browser + PyInstaller launcher on Windows)** —
-   the Windows zip’s `Run.bat` / `RestorationWorkflow.exe` starts the backend and opens a
+1. **Desktop / browser shell (as shipped: installer + browser)** —
+   Windows Setup / macOS `.app` / Linux AppImage start the backend and open a
    browser tab. There is no required native WebView shell for day-one use. An optional
    Tauri scaffold under `src-tauri/` is experimental only — not a product updater path.
 2. **Backend (Python / FastAPI)** — bound to `127.0.0.1` only (fixed default port `8765` in
@@ -239,15 +240,21 @@ gigabytes without hunting through the filesystem manually.
 
 ## 8. Desktop packaging
 
-**Supported path (0.5.4+):** Windows **PyInstaller `--onedir`** bundle zip
-(`RestorationWorkflow-windows.zip`) produced by `.github/workflows/release.yml` via
-`backend/packaging/build_exe.py`. Users extract, run `Run.bat`, and get a local server +
-browser UI. CPU wheels are enough to start; CUDA accelerates when present. Model **weights
-are not** in the zip — they download on demand through the Weight Manager.
+**Supported path (0.6.1+):** PyInstaller `--onedir` bundles wrapped as platform
+installers by `.github/workflows/release.yml`:
+
+- Windows: Inno Setup (`RestorationWorkflow-Setup-*-windows-x64.exe`) via
+  `backend/packaging/build_exe.py`
+- macOS: unsigned `.app` in a DMG via `backend/packaging/make_macos_dmg.py`
+- Linux: AppImage via `backend/packaging/make_linux_appimage.py`
+
+Each starts a local server + browser UI. CPU wheels are enough to start; CUDA
+accelerates when present. Model **weights are not** in the installer — they download
+on demand through the Weight Manager. Builds are not code-signed.
 
 **Not supported as a product:** Tauri / Electron auto-updater narratives. A `src-tauri/`
 scaffold may remain for experiments; do not document or market it as a shipping multi-OS
-updater. Prefer documenting Releases + `Run.bat` or `restore serve` from source/Docker.
+updater. Prefer documenting Releases installers or `restore serve` from source/Docker.
 
 **Licence bundle:** ship `LICENSE`, `NOTICE`, and `THIRD_PARTY_NOTICES.md` with binary
 artefacts when packaging includes them; keep downloadable-weight terms in

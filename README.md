@@ -74,17 +74,32 @@ bundled code/fonts vs downloadable weights: [`THIRD_PARTY_NOTICES.md`](THIRD_PAR
 
 ## Install
 
-### Windows: portable app (supported desktop build)
+### Desktop installers (supported)
 
-Download **`RestorationWorkflow-windows.zip`** from
-[Releases](https://github.com/ericcayers-ai/Restoration-Workflow/releases), extract
-anywhere, and double-click **`Run.bat`**. That starts the local PyInstaller-bundled
-server and opens the UI in your browser. No separate Python install required. A GPU
-is optional. Nothing downloads until you ask for a model.
+Download the installer for your OS from
+[Releases](https://github.com/ericcayers-ai/Restoration-Workflow/releases/tag/v0.6.1)
+(current: **v0.6.1**):
 
-> **Desktop packaging note:** the supported double-click experience is this Windows
-> portable zip. A `src-tauri/` scaffold may exist for experiments; it is **not** a
-> shipping multi-OS updater product. Prefer Releases + `Run.bat` (or run from source).
+| Platform | Asset |
+|----------|--------|
+| Windows | `RestorationWorkflow-Setup-0.6.1-windows-x64.exe` |
+| macOS (Apple Silicon) | `RestorationWorkflow-0.6.1-macos-arm64.dmg` |
+| Linux | `RestorationWorkflow-0.6.1-linux-x86_64.AppImage` |
+
+Each build starts a local PyInstaller-bundled server and opens the UI in your
+browser. No separate Python install required. A GPU is optional. Nothing
+downloads until you ask for a model.
+
+**Windows:** run the Setup `.exe`, then launch from the Start Menu.
+
+**macOS (unsigned):** open the `.dmg`, drag to Applications, then right-click →
+**Open** on first launch (or `xattr -cr "/Applications/Restoration Workflow.app"`).
+
+**Linux:** `chmod +x` the AppImage, then run it.
+
+> Builds are **not code-signed** yet — Windows SmartScreen / macOS Gatekeeper may
+> warn on first run. A `src-tauri/` scaffold may exist for experiments; it is
+> **not** a shipping multi-OS updater product.
 
 ### From source
 

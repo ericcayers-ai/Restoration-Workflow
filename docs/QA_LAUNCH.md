@@ -16,8 +16,9 @@ Run the full corpus on every release candidate before tagging. See also
 ## Beta feedback loop
 
 1. Recruit 3–5 testers (mix of non-technical Simple Mode and power-user Studio Mode).
-2. Provide the portable **Windows zip** (`Run.bat`) or `restore serve` + frontend build.
-   Do not ask testers to rely on an unfinished Tauri updater.
+2. Provide a desktop installer (Windows Setup / macOS DMG / Linux AppImage) or
+   `restore serve` + frontend build. Do not ask testers to rely on an unfinished
+   Tauri updater.
 3. Collect: first-drop success, cancel responsiveness, OOM at declared VRAM tier, preset usefulness.
 4. File issues for regressions; block release on critical data-loss or silent wrong-license downloads.
 
