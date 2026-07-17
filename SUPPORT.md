@@ -20,9 +20,9 @@ use the channels below so questions stay searchable and security stays private.
    `GET /api/health`) — current line is **0.6.1**.
 2. Skim [`README.md`](README.md) install notes and [`docs/MODEL_STACK.md`](docs/MODEL_STACK.md)
    if the problem is a missing or gated weight.
-3. For Windows portable builds, say whether you used `Run.bat` / the zip from GitHub
-   Releases (supported path). A Tauri / native-updater shell is not the supported
-   product surface.
+3. For desktop installs, say whether you used the Windows Setup `.exe`, macOS `.dmg`,
+   Linux AppImage, or ran from source. A Tauri / native-updater shell is not the
+   supported product surface.
 
 ## Commercial / SLA support
 

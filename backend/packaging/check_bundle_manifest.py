@@ -1,7 +1,7 @@
 """Packaging preflight used by CI — no PyInstaller run required.
 
-Validates that build_exe.py declares InstructIR deps, legal notices exist for
-the Windows zip, and v0.6 packaged JSON data is importable.
+Validates that bundle_common declares InstructIR deps, legal notices exist,
+and v0.6 packaged JSON data is importable.
 """
 
 from __future__ import annotations
@@ -39,19 +39,33 @@ def main() -> int:
         if not (data / name).is_file():
             errors.append(f"missing packaged data {name}")
 
-    build_src = (PACKAGING_DIR / "build_exe.py").read_text(encoding="utf-8")
-    tree = ast.parse(build_src)
-    try:
-        collect = set(_literal_list(tree, "COLLECT_ALL"))
-    except (KeyError, TypeError, ValueError) as exc:
-        errors.append(f"could not parse COLLECT_ALL: {exc}")
-        collect = set()
+    bundle_src_path = PACKAGING_DIR / "bundle_common.py"
+    if not bundle_src_path.is_file():
+        errors.append("missing bundle_common.py")
+        collect: set[str] = set()
+    else:
+        bundle_src = bundle_src_path.read_text(encoding="utf-8")
+        tree = ast.parse(bundle_src)
+        try:
+            collect = set(_literal_list(tree, "COLLECT_ALL"))
+        except (KeyError, TypeError, ValueError) as exc:
+            errors.append(f"could not parse COLLECT_ALL: {exc}")
+            collect = set()
+        if "LICENSE_BUNDLE" not in bundle_src or "THIRD_PARTY_NOTICES.md" not in bundle_src:
+            errors.append("bundle_common.py does not stage LICENSE_BUNDLE / THIRD_PARTY_NOTICES.md")
+
     for pkg in ("transformers", "tokenizers", "torch", "safetensors"):
         if pkg not in collect:
             errors.append(f"COLLECT_ALL missing {pkg!r}")
 
-    if "THIRD_PARTY_NOTICES.md" not in build_src or "LICENSE_BUNDLE" not in build_src:
-        errors.append("build_exe.py does not stage LICENSE_BUNDLE / THIRD_PARTY_NOTICES.md")
+    for script in (
+        "build_exe.py",
+        "make_windows_installer.py",
+        "make_macos_dmg.py",
+        "make_linux_appimage.py",
+    ):
+        if not (PACKAGING_DIR / script).is_file():
+            errors.append(f"missing packaging script {script}")
 
     sys.path.insert(0, str(BACKEND_DIR / "src"))
     try:

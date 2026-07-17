@@ -12,7 +12,7 @@ echo.
 
 if not exist "%~dp0RestorationWorkflow.exe" (
   echo  ERROR: RestorationWorkflow.exe was not found next to this file.
-  echo  Extract the entire zip folder, then double-click Run.bat again.
+  echo  Re-run the Windows Setup installer, then try again.
   echo.
   pause
   exit /b 1

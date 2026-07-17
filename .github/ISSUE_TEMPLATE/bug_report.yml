@@ -20,7 +20,9 @@ body:
     attributes:
       label: How are you running it?
       options:
-        - Windows portable zip (Run.bat / RestorationWorkflow.exe)
+        - Windows Setup installer (.exe)
+        - macOS DMG (.app)
+        - Linux AppImage
         - From source (pip install -e + npm run build / restore serve)
         - CLI only (restore run / analyze / …)
         - Docker

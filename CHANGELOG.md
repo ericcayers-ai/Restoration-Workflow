@@ -9,6 +9,14 @@ include breaking changes to the JSON pipeline shape).
 
 ## [0.6.1] - 2026-07-17
 
+### Added
+- **Desktop installers** — Release CI ships Windows Inno Setup
+  (`RestorationWorkflow-Setup-0.6.1-windows-x64.exe`), macOS DMG
+  (`RestorationWorkflow-0.6.1-macos-arm64.dmg`, unsigned), and Linux AppImage
+  (`RestorationWorkflow-0.6.1-linux-x86_64.AppImage`). Replaces the portable
+  Windows zip + `Run.bat` as the primary download path. Builds are not
+  code-signed; SmartScreen / Gatekeeper may warn on first run.
+
 ### Changed
 - **Frontend UI QOL** — clearer app shell (brand mark, command palette entry,
   grouped utilities), Simple Mode step rail with progressive options, primary

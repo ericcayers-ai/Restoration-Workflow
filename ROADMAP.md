@@ -413,15 +413,15 @@ assistance.
 
 ---
 
-## Phase 8 — Packaging & Distribution — *Windows zip + Docker supported; Tauri updater de-scoped*
+## Phase 8 — Packaging & Distribution — *Win/macOS/Linux installers + Docker; Tauri updater de-scoped*
 
 **Goal:** the "double-click and it works" experience from Phase 2, finished properly.
 
 Tasks:
-- **Supported:** PyInstaller Windows portable zip (`RestorationWorkflow-windows.zip` +
-  `Run.bat`) on GitHub Releases — *0.5.4*; keep packing `LICENSE` / notices with the artefact.
-- Per-OS CI in `.github/workflows/release.yml` — Windows publishes the zip; macOS/Linux run
-  build+test (Linux also Docker) — *0.5.0+*.
+- **Supported:** PyInstaller onedir wrapped as Windows Inno Setup, macOS DMG, and Linux
+  AppImage on GitHub Releases — *0.6.1*; keep packing `LICENSE` / notices with each artefact.
+- Per-OS CI in `.github/workflows/release.yml` — all three OSes publish installers; Linux
+  also builds Docker — *0.6.1*.
 - Package `restore serve` as a headless/server-mode option (Docker image) for remote GPU boxes.
 - Licence-compliance bundle: `NOTICE` + `THIRD_PARTY_NOTICES.md` for bundled code/fonts;
   downloadable-weight tiers stay in `docs/MODEL_STACK.md`.
@@ -430,9 +430,10 @@ Tasks:
   experiment; do not wire release marketing or CI around `latest.json` updater artefacts
   until that path is deliberately rebuilt and verified.
 
-**Acceptance criteria:** a clean Windows machine with no pre-existing Python reaches a
-working Simple Mode first-drop from the zip in a reasonable, clearly-communicated amount of
-time — the user should never be staring at a frozen window wondering if it's broken.
+**Acceptance criteria:** a clean machine with no pre-existing Python reaches a working
+Simple Mode first-drop from a desktop installer in a reasonable, clearly-communicated
+amount of time — the user should never be staring at a frozen window wondering if it's
+broken.
 
 ---
 
@@ -513,7 +514,9 @@ The project is launch-ready when all of the following are true at once, not indi
   reskin — this is a judgment call, but it's a real one: hold a finished screen next to the
   "explicitly avoid" list in `docs/UI_DESIGN.md` §1 and confirm none of it snuck back in.
 - Automated and manual accessibility checks pass (Phase 7).
-- Install-to-first-result works on a clean Windows machine from the portable zip (Phase 8 supported desktop artefact); macOS/Linux are source/`restore serve` / Docker paths, not a second native installer product.
+- Install-to-first-result works on a clean machine from a desktop installer (Phase 8:
+  Windows Setup / macOS DMG / Linux AppImage); source/`restore serve` / Docker remain
+  supported contributor and server paths.
 - The graphify knowledge graph is current, and its own analysis (god nodes, surprising
   connections) doesn't surface an unresolved architectural surprise (Phase 9,
   `docs/GRAPHIFY_WORKFLOW.md`).

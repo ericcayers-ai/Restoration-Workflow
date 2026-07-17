@@ -3,9 +3,18 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to attach installer assets to (no version bump)
+        required: true
+        default: v0.6.1
 
 permissions:
   contents: write
+
+env:
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
 
 jobs:
   build-windows:
@@ -23,46 +32,28 @@ jobs:
       - name: Build frontend
         working-directory: frontend
         run: npm ci && npm run build
-      - name: Build Python package
+      - name: Backend tests
         working-directory: backend
         run: pip install -e ".[dev]" && pytest -q
-      # PyInstaller is not in [dev]; install packaging (+ inference packages that
-      # build_exe.py --collect-all's) before bundling the Windows desktop exe.
       - name: Install packaging deps
         working-directory: backend
         run: |
           pip install torch --index-url https://download.pytorch.org/whl/cpu
           pip install -e ".[inference,packaging]"
-      - name: PyInstaller bundle + zip
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+      - name: PyInstaller bundle + Windows installer
         working-directory: backend
         run: python packaging/build_exe.py
-      - name: Smoke frozen Windows zip
+      - name: Smoke Windows installer
         working-directory: backend
-        run: python packaging/smoke_windows_zip.py
-      - name: Upload Windows zip artifact
+        run: python packaging/smoke_windows_installer.py
+      - name: Upload Windows installer artifact
         uses: actions/upload-artifact@v4
         with:
-          name: RestorationWorkflow-windows
-          path: backend/dist/RestorationWorkflow-windows.zip
+          name: installer-windows
+          path: backend/dist/RestorationWorkflow-Setup-*-windows-x64.exe
           if-no-files-found: error
-      - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: backend/dist/RestorationWorkflow-windows.zip
-          generate_release_notes: true
-          body: |
-            ## Windows portable package
-
-            1. Download **RestorationWorkflow-windows.zip**
-            2. Extract the folder anywhere
-            3. Double-click **Run.bat**
-
-            The app starts a local server and opens your browser. No Python install required.
-            A GPU is optional (CPU works, just slower). Model weights download on first use.
-
-            Advanced: you can also run `RestorationWorkflow.exe` directly from the extracted folder.
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-macos:
     runs-on: macos-latest
@@ -74,15 +65,31 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
       - name: Build frontend
         working-directory: frontend
         run: npm ci && npm run build
       - name: Backend tests
         working-directory: backend
         run: pip install -e ".[dev]" && pytest -q
+      - name: Install packaging deps
+        working-directory: backend
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -e ".[inference,packaging]"
       - name: Packaging / v0.6 import smoke
         working-directory: backend
         run: python packaging/check_bundle_manifest.py
+      - name: PyInstaller bundle + macOS DMG
+        working-directory: backend
+        run: python packaging/make_macos_dmg.py
+      - name: Upload macOS DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-macos
+          path: backend/dist/RestorationWorkflow-*-macos-*.dmg
+          if-no-files-found: error
 
   build-linux:
     runs-on: ubuntu-latest
@@ -94,20 +101,34 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
       - name: Build frontend
         working-directory: frontend
         run: npm ci && npm run build
       - name: Backend tests
         working-directory: backend
         run: pip install -e ".[dev]" && pytest -q
+      - name: Install packaging deps
+        working-directory: backend
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -e ".[inference,packaging]"
       - name: Packaging / v0.6 import smoke
         working-directory: backend
         run: python packaging/check_bundle_manifest.py
+      - name: Install AppImage tools deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfuse2
+      - name: PyInstaller bundle + Linux AppImage
+        working-directory: backend
+        run: python packaging/make_linux_appimage.py
       - name: Docker headless image
-        run: docker build -t restoration-workflow:${{ github.ref_name }} .
+        run: docker build -t restoration-workflow:${{ env.RELEASE_TAG }} .
       - name: Docker inference smoke
         run: |
-          docker run --rm -d --name rw-smoke -p 8765:8765 restoration-workflow:${{ github.ref_name }}
+          docker run --rm -d --name rw-smoke -p 8765:8765 restoration-workflow:${{ env.RELEASE_TAG }}
           for i in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:8765/api/health | grep -q '"status":"ok"'; then
               curl -fsS http://127.0.0.1:8765/api/health
@@ -119,3 +140,81 @@ jobs:
           docker logs rw-smoke || true
           docker stop rw-smoke || true
           exit 1
+      - name: Upload Linux AppImage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-linux
+          path: backend/dist/RestorationWorkflow-*-linux-*.AppImage
+          if-no-files-found: error
+
+  publish:
+    needs: [build-windows, build-macos, build-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download installer artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: installer-*
+          path: release-assets
+          merge-multiple: true
+      - name: List assets
+        run: find release-assets -type f -printf '%p %s\n'
+      - name: Remove prior desktop assets from release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ env.RELEASE_TAG }}"
+          # Release may not exist yet on first tag push — ignore failures.
+          mapfile -t NAMES < <(gh release view "$TAG" --json assets -q '.assets[].name' 2>/dev/null || true)
+          for name in "${NAMES[@]}"; do
+            case "$name" in
+              RestorationWorkflow-windows.zip|\
+              RestorationWorkflow-Setup-*-windows-x64.exe|\
+              RestorationWorkflow-*-macos-*.dmg|\
+              RestorationWorkflow-*-linux-*.AppImage)
+                echo "Deleting prior asset: $name"
+                gh release delete-asset "$TAG" "$name" --yes || true
+                ;;
+            esac
+          done
+      - name: Publish GitHub Release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          files: release-assets/*
+          generate_release_notes: ${{ github.event_name == 'push' }}
+          body: |
+            ## Desktop installers (v0.6.1)
+
+            Download the installer for your OS — **no zip + Run.bat** required.
+
+            | Platform | Asset |
+            |----------|--------|
+            | **Windows** | `RestorationWorkflow-Setup-0.6.1-windows-x64.exe` (Inno Setup) |
+            | **macOS** | `RestorationWorkflow-0.6.1-macos-arm64.dmg` (unsigned `.app` in DMG) |
+            | **Linux** | `RestorationWorkflow-0.6.1-linux-x86_64.AppImage` |
+
+            ### Windows
+            1. Run the Setup `.exe` and follow the wizard.
+            2. Launch **Restoration Workflow** from the Start Menu.
+
+            ### macOS (unsigned)
+            1. Open the `.dmg` and drag the app to Applications.
+            2. First launch: right-click → **Open**, or run
+               `xattr -cr "/Applications/Restoration Workflow.app"`.
+
+            ### Linux
+            1. `chmod +x RestorationWorkflow-0.6.1-linux-x86_64.AppImage`
+            2. Run the AppImage.
+
+            The app starts a local server and opens your browser. No Python install
+            required. A GPU is optional (CPU works, just slower). Model weights
+            download on first use.
+
+            > Code signing certificates are not configured for this project yet.
+            > Windows SmartScreen / macOS Gatekeeper may warn on first run.
+
+            **Full Changelog**: https://github.com/ericcayers-ai/Restoration-Workflow/blob/main/CHANGELOG.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
