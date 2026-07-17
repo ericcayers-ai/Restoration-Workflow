@@ -41,7 +41,7 @@ export function DropZone({
 
   return (
     <label
-      className={styles.zone}
+      className={`${styles.zone} grain-surface`}
       data-active={active}
       aria-label={t("simple.dropzone.ariaLabel")}
       onDragOver={(e) => {
@@ -56,7 +56,7 @@ export function DropZone({
       }}
     >
       <div className={styles.iconWrap}>
-        <Icon name="upload" size={40} />
+        <Icon name="upload" size={36} />
       </div>
       <p className={styles.title}>{t("simple.dropTitle")}</p>
       <p className={styles.subtitle}>{t("simple.dropSubtitle")}</p>

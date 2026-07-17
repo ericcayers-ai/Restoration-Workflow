@@ -42,6 +42,7 @@ export function StageRow({
       data-status={stage.runStatus ?? "idle"}
       style={{ "--category-color": `var(--category-${stage.category})` } as CSSProperties}
     >
+      <span className={styles.categorySwatch} aria-hidden />
       <span className={styles.step}>{index + 1}</span>
 
       <button
@@ -63,7 +64,9 @@ export function StageRow({
           <div className={styles.progressTrack}>
             <div
               className={styles.progressFill}
-              style={{ width: `${Math.round((stage.runProgress ?? 0) * 100)}%` }}
+              style={{
+                transform: `scaleX(${Math.max(0, Math.min(1, stage.runProgress ?? 0))})`,
+              }}
             />
           </div>
         )}

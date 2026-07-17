@@ -7,16 +7,33 @@
 .topBar {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-3);
   padding: var(--space-2) var(--space-4);
   border-bottom: 1px solid var(--border-hairline);
+  background: var(--surface-900);
+  flex-shrink: 0;
+  min-height: calc(var(--control-height-lg) + var(--space-3));
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  color: var(--text-primary);
+}
+
+.brandIcon {
+  color: var(--accent-amber);
   flex-shrink: 0;
 }
 
 .title {
   font-family: var(--font-mono);
   font-size: 0.8125rem;
-  color: var(--text-secondary);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--text-primary);
 }
 
 .modeSwitch {
@@ -24,17 +41,24 @@
   border: 1px solid var(--border-hairline);
   border-radius: var(--radius-sm);
   overflow: hidden;
+  background: var(--surface-950);
 }
 
 .modeTab,
 .modeActive {
-  padding: var(--space-1) var(--space-4);
+  min-height: var(--control-height);
+  padding: 0 var(--space-4);
   font-size: 0.8125rem;
+  font-weight: 500;
   color: var(--text-secondary);
+  transition:
+    background-color var(--motion-fast),
+    color var(--motion-fast);
 }
 
 .modeTab:hover {
   background: var(--surface-800);
+  color: var(--text-primary);
 }
 
 .modeActive {
@@ -44,15 +68,50 @@
 
 .spacer {
   flex: 1;
+  min-width: var(--space-2);
 }
 
-.settingsButton {
+.utilities {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.divider {
+  width: 1px;
+  height: 1.25rem;
+  background: var(--border-hairline);
+  margin: 0 var(--space-1);
+}
+
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-width: var(--control-height);
+  min-height: var(--control-height);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-hairline);
   color: var(--text-secondary);
-  padding: var(--space-1);
+  background: transparent;
+  transition:
+    background-color var(--motion-fast),
+    color var(--motion-fast),
+    border-color var(--motion-fast);
 }
 
-.settingsButton:hover {
+.iconButton:hover {
   color: var(--text-primary);
+  background: var(--surface-800);
+}
+
+.commandHint {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  color: var(--text-secondary);
 }
 
 .main {
@@ -66,4 +125,24 @@
   inset: 0;
   display: flex;
   flex-direction: column;
+}
+
+@media (max-width: 720px) {
+  .topBar {
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .title {
+    font-size: 0.75rem;
+  }
+
+  .commandHint {
+    display: none;
+  }
+
+  .utilities {
+    margin-left: auto;
+  }
 }

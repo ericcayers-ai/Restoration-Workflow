@@ -9,9 +9,10 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: var(--space-3);
+  gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   border-bottom: 1px solid var(--border-hairline);
+  background: var(--surface-950);
 }
 
 .photoChip {
@@ -20,6 +21,8 @@
   gap: var(--space-2);
   font-size: 0.75rem;
   color: var(--text-secondary);
+  max-width: min(280px, 40vw);
+  min-height: var(--control-height);
 }
 
 .photoChip img {
@@ -28,6 +31,20 @@
   object-fit: cover;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-hairline);
+  flex-shrink: 0;
+}
+
+.photoChip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toolbarGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
 }
 
 .spacer {
@@ -40,13 +57,15 @@
   border: 1px solid var(--border-hairline);
   border-radius: var(--radius-sm);
   overflow: hidden;
+  background: var(--surface-900);
 }
 
 .modeTab,
 .modeActive {
   font: inherit;
   font-size: 0.75rem;
-  padding: var(--space-1) var(--space-2);
+  min-height: var(--control-height);
+  padding: 0 var(--space-3);
   background: transparent;
   border: none;
   color: var(--text-secondary);
@@ -56,6 +75,7 @@
 .modeActive {
   background: var(--surface-800);
   color: var(--accent-amber);
+  font-weight: 500;
 }
 
 .easelToggles {
@@ -66,7 +86,8 @@
 .easelBtn {
   font: inherit;
   font-size: 0.6875rem;
-  padding: var(--space-1) var(--space-2);
+  min-height: var(--control-height);
+  padding: 0 var(--space-2);
   border: 1px solid var(--border-hairline);
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
@@ -119,16 +140,18 @@
 
 .banner {
   font-size: 0.8125rem;
-  padding: 2px var(--space-2);
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
 }
 
 .bannerError {
   color: var(--accent-brick);
+  background: color-mix(in srgb, var(--accent-brick) 12%, transparent);
 }
 
 .bannerSuccess {
   color: var(--accent-teal);
+  background: color-mix(in srgb, var(--accent-teal) 12%, transparent);
 }
 
 /* Medium: collapsible easels shown via toolbar toggles */
@@ -162,7 +185,7 @@
   .toolbarRow {
     position: sticky;
     top: 0;
-    z-index: 5;
+    z-index: var(--z-sticky);
     background: var(--surface-950);
   }
 
@@ -174,5 +197,8 @@
   .resultPane {
     max-height: none;
   }
+
+  .photoChip {
+    max-width: 100%;
+  }
 }
-

@@ -67,7 +67,7 @@ export function ModelStackRail({
           <section key={cat}>
             <h3
               className={styles.categoryTitle}
-              style={{ borderLeftColor: `var(--category-${cat})` }}
+              style={{ ["--category-swatch" as string]: `var(--category-${cat})` }}
             >
               {t(`studio.rail.category.${cat}`)}
             </h3>

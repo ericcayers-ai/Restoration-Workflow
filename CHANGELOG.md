@@ -5,6 +5,14 @@ All notable changes to this project are documented here. Format follows
 [Semantic Versioning](https://semver.org/) once past 0.x (pre-1.0, minor bumps may
 include breaking changes to the JSON pipeline shape).
 
+## [Unreleased]
+
+### Changed
+- **Frontend UI QOL** — clearer app shell (brand mark, command palette entry,
+  grouped utilities), Simple Mode step rail with progressive options, primary
+  Save action hierarchy, denser Studio toolbar, and category swatches instead of
+  thick side-tab accents. Stays on Safelight tokens from `docs/UI_DESIGN.md`.
+
 ## [0.6.0] - 2026-07-14
 
 ### Added

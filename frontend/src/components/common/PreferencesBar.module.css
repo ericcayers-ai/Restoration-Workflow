@@ -12,9 +12,14 @@
 }
 
 .segment {
-  padding: var(--space-1) var(--space-2);
+  min-height: var(--control-height);
+  min-width: 2rem;
+  padding: 0 var(--space-2);
   color: var(--text-secondary);
   border-right: 1px solid var(--border-hairline);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .segment:last-child {
@@ -42,8 +47,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
+  width: var(--control-height);
+  height: var(--control-height);
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
   border: 1px solid var(--border-hairline);

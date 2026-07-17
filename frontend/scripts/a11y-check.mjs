@@ -295,7 +295,7 @@ try {
     input.dispatchEvent(new Event("change", { bubbles: true }));
   });
   await page.waitForFunction(
-    () => document.body.innerText.includes("Review the workflow"),
+    () => document.body.innerText.includes("Review workflow"),
     { timeout: 15_000 },
   );
   ok = (await analyzeAxe(page, "simple-review")) && ok;

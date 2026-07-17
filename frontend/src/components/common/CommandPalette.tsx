@@ -41,8 +41,15 @@ export function CommandPalette() {
         setOpen((prev) => !prev);
       }
     }
+    function onOpenRequest() {
+      setOpen(true);
+    }
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener("rw:open-commands", onOpenRequest);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("rw:open-commands", onOpenRequest);
+    };
   }, []);
 
   useEffect(() => {
