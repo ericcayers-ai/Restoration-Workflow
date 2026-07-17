@@ -6,6 +6,7 @@ import { App } from "./App";
 import { PreferencesProvider } from "./lib/preferences";
 import { I18nProvider } from "./lib/i18n";
 import { CommandsProvider } from "./lib/commands";
+import { WeightDownloadsProvider } from "./lib/useWeightDownloads";
 
 const container = document.getElementById("root");
 if (!container) throw new Error("#root element is missing from index.html");
@@ -15,7 +16,9 @@ createRoot(container).render(
     <PreferencesProvider>
       <I18nProvider>
         <CommandsProvider>
-          <App />
+          <WeightDownloadsProvider>
+            <App />
+          </WeightDownloadsProvider>
         </CommandsProvider>
       </I18nProvider>
     </PreferencesProvider>

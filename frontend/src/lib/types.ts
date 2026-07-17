@@ -468,6 +468,8 @@ export interface Download {
 
   all_variants?: boolean;
 
+  cancel_requested?: boolean;
+
 }
 
 

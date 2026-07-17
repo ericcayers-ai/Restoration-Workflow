@@ -67,6 +67,7 @@ class Download:
             "finished_at": self.finished_at,
             "params": self.params,
             "all_variants": self.all_variants,
+            "cancel_requested": self.cancel_requested,
         }
 
 
@@ -76,6 +77,7 @@ class DownloadManager:
         self._downloads: dict[str, Download] = {}
         self._by_node: dict[str, str] = {}
         self._tasks: dict[str, asyncio.Task] = {}
+        self._start_lock = asyncio.Lock()
 
     def get(self, download_id: str) -> Download | None:
         return self._downloads.get(download_id)
@@ -83,7 +85,7 @@ class DownloadManager:
     def list(self) -> list[Download]:
         return sorted(self._downloads.values(), key=lambda d: d.started_at, reverse=True)
 
-    def start(
+    async def start(
         self,
         node_id: str,
         *,
@@ -91,59 +93,69 @@ class DownloadManager:
         all_variants: bool = False,
         filenames: list[str] | None = None,
     ) -> Download:
-        """Idempotent per node: asking twice returns the download already running."""
-        existing_id = self._by_node.get(node_id)
-        if existing_id is not None:
-            existing = self._downloads[existing_id]
-            if existing.state is DownloadState.RUNNING:
-                return existing
+        """Idempotent per node: asking twice returns the download already running.
 
-        node = self.services.registry.create(node_id)  # raises on unknown node
-        # Surface the licence gate synchronously, so the caller gets a 403 rather
-        # than a background task that fails invisibly a moment later.
-        if node.license.requires_acknowledgement and not self.services.weights.is_acknowledged(
-            node_id
-        ):
-            from ..core.errors import LicenseNotAcknowledgedError  # noqa: PLC0415
+        An asyncio lock serializes bookkeeping so concurrent POSTs for the same
+        (or different) nodes cannot race two tasks into the same cache files.
+        """
+        async with self._start_lock:
+            existing_id = self._by_node.get(node_id)
+            if existing_id is not None:
+                existing = self._downloads[existing_id]
+                if existing.state is DownloadState.RUNNING:
+                    return existing
 
-            raise LicenseNotAcknowledgedError(node_id, node.license.spdx_id)
+            node = self.services.registry.create(node_id)  # raises on unknown node
+            # Surface the licence gate synchronously, so the caller gets a 403 rather
+            # than a background task that fails invisibly a moment later.
+            if node.license.requires_acknowledgement and not self.services.weights.is_acknowledged(
+                node_id
+            ):
+                from ..core.errors import LicenseNotAcknowledgedError  # noqa: PLC0415
 
-        resolved_params = {**node.default_params(), **(params or {})}
-        if filenames is not None:
-            by_name = {wf.filename: wf for wf in node.weight_manifest}
-            wanted = [by_name[n] for n in filenames if n in by_name]
-        elif all_variants:
-            wanted = list(node.weight_manifest)
-        else:
-            wanted = self.services.weights.required_files(node, resolved_params)
-        missing = [
-            wf for wf in wanted
-            if not self.services.weights.file_path(node.id, wf).exists()
-        ]
-        bytes_total = (
-            sum(wf.size_bytes for wf in missing)
-            if missing
-            else sum(wf.size_bytes for wf in wanted)
-        )
+                raise LicenseNotAcknowledgedError(node_id, node.license.spdx_id)
 
-        download = Download(
-            id=uuid.uuid4().hex[:16],
-            node_id=node_id,
-            bytes_total=bytes_total,
-            params=resolved_params,
-            all_variants=all_variants,
-        )
-        self._downloads[download.id] = download
-        self._by_node[node_id] = download.id
+            resolved_params = {**node.default_params(), **(params or {})}
+            if filenames is not None:
+                by_name = {wf.filename: wf for wf in node.weight_manifest}
+                wanted = [by_name[n] for n in filenames if n in by_name]
+            elif all_variants:
+                wanted = list(node.weight_manifest)
+            else:
+                wanted = self.services.weights.required_files(node, resolved_params)
+            missing = [
+                wf for wf in wanted
+                if not self.services.weights.file_path(node.id, wf).exists()
+            ]
+            bytes_total = (
+                sum(wf.size_bytes for wf in missing)
+                if missing
+                else sum(wf.size_bytes for wf in wanted)
+            )
 
-        task = asyncio.create_task(
-            self._run(download, node, resolved_params, all_variants, filenames)
-        )
-        self._tasks[download.id] = task
-        task.add_done_callback(lambda _t, did=download.id: self._tasks.pop(did, None))
-        return download
+            download = Download(
+                id=uuid.uuid4().hex[:16],
+                node_id=node_id,
+                bytes_total=bytes_total,
+                params=resolved_params,
+                all_variants=all_variants,
+            )
+            self._downloads[download.id] = download
+            self._by_node[node_id] = download.id
+
+            task = asyncio.create_task(
+                self._run(download, node, resolved_params, all_variants, filenames)
+            )
+            self._tasks[download.id] = task
+            task.add_done_callback(lambda _t, did=download.id: self._tasks.pop(did, None))
+            return download
 
     def cancel(self, download_id: str) -> bool:
+        """Request cooperative cancel. Returns True only if the download was running.
+
+        State stays ``running`` until the worker observes ``cancel_requested``;
+        pollers should read ``cancel_requested`` for an honest in-flight signal.
+        """
         download = self._downloads.get(download_id)
         if download is None or download.state is not DownloadState.RUNNING:
             return False

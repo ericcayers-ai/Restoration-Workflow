@@ -191,17 +191,25 @@ class DiffusionNode(BaseRestorationNode):
     ) -> ImageArray:
         weights_dir = Path(ctx.weights_dir)
         if self._local_weight:
-            try:
-                return run_spandrel_checkpoint(
-                    self.id,
-                    image,
-                    params,
-                    ctx,
-                    weights_dir=weights_dir,
-                    filename=self._local_weight,
-                )
-            except NodeExecutionError:
-                pass
+            local_path = weights_dir / self._local_weight
+            if local_path.is_file():
+                try:
+                    return run_spandrel_checkpoint(
+                        self.id,
+                        image,
+                        params,
+                        ctx,
+                        weights_dir=weights_dir,
+                        filename=self._local_weight,
+                    )
+                except NodeExecutionError as exc:
+                    if self.id == "supir":
+                        raise NodeExecutionError(
+                            self.id,
+                            "Downloaded SUPIR-v0Q.ckpt is present but the full SUPIR "
+                            "architecture is not yet vendored for inference. The weight "
+                            f"file is at {local_path}.",
+                        ) from exc
         return run_diffusion_restore(
             self.id,
             image,
@@ -275,7 +283,11 @@ class SupirNode(DiffusionNode):
     category = NodeCategory.GENERATIVE
     pipeline_stage = STAGE_UPSCALE
     display_name = "SUPIR"
-    description = "Best-in-class generative upscale/restoration (non-commercial)."
+    description = (
+        "Best-in-class generative upscale/restoration (non-commercial). "
+        "Downloads the official SUPIR-v0Q checkpoint mirror; full vendor "
+        "pipeline beyond the local ckpt is still a stretch path."
+    )
     license = LicenseInfo(
         spdx_id="SUPIR-NC",
         kind=LicenseKind.NON_COMMERCIAL,
@@ -283,14 +295,17 @@ class SupirNode(DiffusionNode):
     )
     vram_tier = VramTier.VERY_HIGH
     _mode = "restore"
-    _hf_repo = "Fanghua-Yu/SUPIR"
+    # Official weights are Drive/Baidu-hosted; camenduru mirrors the published
+    # SUPIR-v0Q.ckpt on the Hub. Fanghua-Yu/SUPIR is not a public file repo.
+    _hf_repo = "camenduru/SUPIR"
+    _local_weight = "SUPIR-v0Q.ckpt"
 
     weight_manifest = [
         WeightFile(
             filename="SUPIR-v0Q.ckpt",
-            size_bytes=5_000_000_000,
-            sha256=None,
-            hf_repo_id="Fanghua-Yu/SUPIR",
+            size_bytes=5_329_810_432,
+            sha256="d7f418398bb024d0d3c779c4ee4e9f171eb072306093f5bcfb2bf096aa2738f8",
+            hf_repo_id="camenduru/SUPIR",
             hf_filename="SUPIR-v0Q.ckpt",
         ),
     ]

@@ -391,12 +391,13 @@ def create_app(services: AppServices | None = None) -> FastAPI:
         raw = await request.body()
         if raw:
             opts = DownloadBody.model_validate(json.loads(raw))
-        return downloads.start(
+        download = await downloads.start(
             node_id,
             params=opts.params,
             all_variants=opts.all_variants,
             filenames=opts.filenames,
-        ).to_dict()
+        )
+        return download.to_dict()
 
     @app.get("/api/weights/downloads")
     async def list_downloads() -> list[dict[str, Any]]:
@@ -414,7 +415,15 @@ def create_app(services: AppServices | None = None) -> FastAPI:
         state = downloads.get(download_id)
         if state is None:
             raise HTTPException(404, f"no download {download_id!r}")
-        return {"cancelled": downloads.cancel(download_id), "state": state.state.value}
+        accepted = downloads.cancel(download_id)
+        # Re-read so the response reflects cancel_requested without pretending
+        # the worker has already reached the terminal cancelled state.
+        current = downloads.get(download_id) or state
+        return {
+            "cancelled": accepted,
+            "state": current.state.value,
+            "cancel_requested": current.cancel_requested,
+        }
 
     @app.delete("/api/weights/{node_id}")
     async def remove_weights(node_id: str) -> dict[str, Any]:
