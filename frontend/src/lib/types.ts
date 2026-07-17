@@ -358,7 +358,64 @@ export interface AutoPipeline {
 
 }
 
+export interface PhotoDescription {
+  content_type: string;
+  is_grayscale: boolean;
+  is_bw_intended: boolean;
+  has_faces: boolean;
+  face_count: number;
+  degradations: string[];
+  severity: Record<string, number>;
+  highlights_blown: boolean;
+  scratches_likely: boolean;
+  grain_or_noise: boolean;
+  width: number;
+  height: number;
+  recommended_print_dpi: number | null;
+  downscale_advice: string | null;
+  summary: string;
+  source: "vlm" | "heuristic" | string;
+  confidence: number;
+  profile: Record<string, unknown>;
+}
 
+export interface VlmStatus {
+  id: string;
+  model_id: string;
+  display_name: string;
+  license_spdx: string;
+  installed: boolean;
+  path: string;
+  size_bytes: number;
+  size_on_disk: number;
+  missing_size_bytes: number;
+  inference_available: boolean;
+}
+
+export interface SuggestedPreset {
+  name: string;
+  description: string;
+  pipeline: PipelineJson;
+  reasons: { node: string; reason: string }[];
+  goal: string;
+  suggested?: boolean;
+}
+
+export interface AutoPlanResult extends AutoPipeline {
+  description: PhotoDescription;
+  suggestions: SuggestedPreset[];
+  planner: "skill" | "rule_table" | string;
+  skill_path?: string | null;
+  goal?: string;
+  vlm?: VlmStatus;
+}
+
+export interface AutoSuggestResult {
+  description: PhotoDescription;
+  suggestions: SuggestedPreset[];
+  vlm: VlmStatus;
+  user_presets: Preset[];
+}
 
 export type JobState = "queued" | "running" | "done" | "error" | "cancelled";
 
@@ -439,6 +496,8 @@ export interface Preset {
   pipeline: PipelineJson;
 
   licence?: PresetLicence;
+
+  builtin?: boolean;
 
 }
 

@@ -36,3 +36,19 @@
 .spacer {
   flex: 1;
 }
+
+.suggestions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+  max-width: min(520px, 50vw);
+}
+
+.suggestLabel {
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-right: var(--space-1);
+}
