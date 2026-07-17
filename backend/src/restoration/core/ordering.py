@@ -44,6 +44,8 @@ _STAGE_BY_CATEGORY = {
     NodeCategory.MASKING: STAGE_MASK,
     NodeCategory.INSTRUCT: STAGE_INSTRUCT,
     NodeCategory.ORCHESTRATION: STAGE_COMPOSE,
+    # Legacy nodes must declare pipeline_stage explicitly; fall back to upscale.
+    NodeCategory.LEGACY: STAGE_UPSCALE,
 }
 
 

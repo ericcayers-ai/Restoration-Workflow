@@ -41,27 +41,27 @@ class EnsemblePlan:
         }
 
 
-# Hint → candidate specialist nodes (filtered by profile + availability).
+# Hint → candidate specialist nodes (active stack only; Legacy excluded).
 _HINT_STAGES: dict[str, list[str]] = {
-    "deblock_denoise": ["fbcnn", "scunet", "realesrgan"],
-    "heavy_denoise": ["scunet", "swinir_denoise", "realesrgan"],
-    "face_quality": ["scunet", "swinir", "gfpgan", "restoreformer"],
-    "low_light": ["exposure_correct", "darkir", "scunet", "realesrgan"],
-    "highlight_regen": ["exposure_correct", "instructir", "diffbir", "scunet"],
+    "deblock_denoise": ["fbcnn", "realesrgan"],
+    "heavy_denoise": ["fbcnn", "realesrgan"],
+    "face_quality": ["realesrgan", "osdface"],
+    "low_light": ["exposure_correct", "darkir", "realesrgan"],
+    "highlight_regen": ["exposure_correct", "instructir", "realesrgan"],
     "defect_inpaint": [
-        "exposure_correct", "fbcnn", "scunet", "mask_from_image", "lama", "realesrgan",
+        "exposure_correct", "fbcnn", "lama", "realesrgan",
     ],
-    "vhs": ["fbcnn", "scunet", "realesrgan", "gfpgan"],
-    "film_scan": ["exposure_correct", "scunet", "swinir", "gfpgan", "restoreformer"],
-    "bw_no_color": ["exposure_correct", "scunet", "swinir", "gfpgan"],
-    "colorize": ["ddcolor", "scunet", "realesrgan"],
-    "archival": ["exposure_correct", "fbcnn", "scunet", "old_photos_scratch", "swinir"],
-    "generative_polish": ["scunet", "diffbir", "realesrgan"],
-    "fidelity": ["fbcnn", "scunet", "realesrgan"],
-    "animation": ["fbcnn", "scunet", "realesrgan", "gfpgan"],
+    "vhs": ["fbcnn", "realesrgan"],
+    "film_scan": ["exposure_correct", "mambair", "osdface"],
+    "bw_no_color": ["exposure_correct", "realesrgan"],
+    "colorize": ["ddcolor", "realesrgan"],
+    "archival": ["exposure_correct", "fbcnn", "realesrgan"],
+    "generative_polish": ["realesrgan", "supir"],
+    "fidelity": ["fbcnn", "realesrgan"],
+    "animation": ["fbcnn", "realesrgan"],
     "instruct_only": ["instructir"],
-    "inpaint": ["mask_from_image", "powerpaint", "lama"],
-    "quality_upscale": ["scunet", "mambair", "swinir"],
+    "inpaint": ["powerpaint", "lama"],
+    "quality_upscale": ["mambair", "realesrgan"],
 }
 
 
@@ -176,7 +176,8 @@ def build_guided_ensemble(
             if not _weight_ready(node_id, registry, installed, acknowledged):
                 # Skip gated/unavailable ML companions; keep classical fallbacks.
                 if cls.license.requires_acknowledgement or node_id in {
-                    "diffbir", "supir", "darkir", "mambair", "powerpaint", "instantir",
+                    "supir", "darkir", "mambair", "powerpaint", "instantir",
+                    "osdface", "rmbg2", "flux_fill",
                 }:
                     return
         chain.append(node_id)
@@ -206,18 +207,16 @@ def build_guided_ensemble(
                             "mask_highlights": True,
                         },
                     )
-                elif _weight_ready("diffbir", registry, installed, acknowledged):
-                    add("diffbir", "profile: DiffBIR highlight companion")
+                elif _weight_ready("supir", registry, installed, acknowledged):
+                    add("supir", "profile: SUPIR highlight companion")
         if metrics.get("jpeg_blockiness", 0) >= 0.10:
             add("fbcnn", "profile: JPEG blockiness")
-        if metrics.get("noise_score", 0) >= 0.007:
-            add("scunet", "profile: noise")
         if metrics.get("is_grayscale") and hint != "bw_no_color":
             add("ddcolor", "profile: grayscale colourize")
         if metrics.get("face_count") and metrics["face_count"] >= 1:
-            add("gfpgan", "profile: faces")
+            if _weight_ready("osdface", registry, installed, acknowledged):
+                add("osdface", "profile: faces (OSDFace)")
         if metrics.get("defect_score", 0) >= 0.01:
-            add("mask_from_image", "profile: defects", {"source": "defect", "dilate": 2})
             add("lama", "profile: defect inpaint")
 
     for node_id in candidates:
@@ -226,8 +225,8 @@ def build_guided_ensemble(
     append = mode in ("finish_only", "guide_and_finish") and "instructir" not in chain
 
     if not chain:
-        chain = ["scunet", "realesrgan"]
-        reasons.append({"node": "scunet", "reason": "fallback specialist chain"})
+        chain = ["fbcnn", "realesrgan"]
+        reasons.append({"node": "fbcnn", "reason": "fallback specialist chain"})
 
     if not (append and _available("instructir", registry)):
         append = False

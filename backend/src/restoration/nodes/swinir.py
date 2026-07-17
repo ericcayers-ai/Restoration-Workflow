@@ -63,7 +63,7 @@ def _swinir_weights(state_dict: dict) -> dict:
 
 class SwinIrSrNode(SpandrelNode):
     id = "swinir"
-    category = NodeCategory.REGRESSION
+    category = NodeCategory.LEGACY
     pipeline_stage = STAGE_UPSCALE
     display_name = "SwinIR"
     description = (
@@ -133,7 +133,7 @@ class SwinIrSrNode(SpandrelNode):
 
 class SwinIrDenoiseNode(SpandrelNode):
     id = "swinir_denoise"
-    category = NodeCategory.REGRESSION
+    category = NodeCategory.LEGACY
     pipeline_stage = STAGE_DENOISE
     display_name = "SwinIR Denoise"
     description = "Transformer colour denoising at a fixed noise level."
@@ -173,7 +173,7 @@ class SwinIrDenoiseNode(SpandrelNode):
 
 class SwinIrJpegNode(SpandrelNode):
     id = "swinir_jpeg"
-    category = NodeCategory.REGRESSION
+    category = NodeCategory.LEGACY
     pipeline_stage = STAGE_ARTIFACT
     display_name = "SwinIR JPEG"
     description = "Transformer JPEG-artifact reduction (alternative to FBCNN)."

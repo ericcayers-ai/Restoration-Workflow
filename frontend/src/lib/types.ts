@@ -28,7 +28,9 @@ export type NodeCategory =
 
   | "orchestration"
 
-  | "instruct";
+  | "instruct"
+
+  | "legacy";
 
 
 
@@ -161,6 +163,10 @@ export interface DescribedNode {
   supports_tiling: boolean;
 
   uses_gpu: boolean;
+
+  /** Secondary rail grouping (e.g. prompt_edit, generative_upscale, jpeg). */
+
+  tags?: string[];
 
   availability: Availability;
 

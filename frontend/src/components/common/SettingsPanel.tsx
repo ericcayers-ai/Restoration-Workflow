@@ -1,6 +1,7 @@
 /*
- * App settings, reached from the top bar. Manage Downloads lists every model
- * with install state, licence gates, totals, cancel controls, and Download all.
+ * App settings, reached from the top bar. Manage Downloads lists every active
+ * model with install state, licence gates, totals, cancel controls, and
+ * Download all. Legacy lists Settings-only models hidden from Studio / Auto.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -23,6 +24,7 @@ import { Icon } from "./Icon";
 import styles from "./SettingsPanel.module.css";
 
 type Filter = "all" | "missing" | "installed" | "restricted";
+type Tab = "downloads" | "legacy";
 
 export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const t = useT();
@@ -33,6 +35,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
   const [bulkBusy, setBulkBusy] = useState(false);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+  const [tab, setTab] = useState<Tab>("downloads");
   const [totals, setTotals] = useState<{
     missing_node_ids: string[];
     permissive: { count: number; bytes: number };
@@ -59,6 +62,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
     if (open) {
       setQuery("");
       setFilter("all");
+      setTab("downloads");
       refresh();
     }
   }, [open]);
@@ -69,16 +73,36 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
     return () => clearTimeout(timer);
   }, [banner]);
 
-  const installable = useMemo(() => nodes.filter((n) => n.weight_manifest.length > 0), [nodes]);
+  const activeInstallable = useMemo(
+    () => nodes.filter((n) => n.weight_manifest.length > 0 && n.category !== "legacy"),
+    [nodes],
+  );
+  const legacyInstallable = useMemo(
+    () =>
+      nodes.filter(
+        (n) => n.category === "legacy" && (n.weight_manifest.length > 0 || n.id === "mask_from_image"),
+      ),
+    [nodes],
+  );
+  // Weightless legacy (mask_from_image, old_photos_scratch) still listed for discoverability.
+  const legacyListed = useMemo(
+    () => nodes.filter((n) => n.category === "legacy"),
+    [nodes],
+  );
+
+  const installable = tab === "legacy" ? legacyListed : activeInstallable;
 
   const computedTotals = useMemo(() => {
-    if (totals) return totals;
+    const pool = activeInstallable;
+    if (totals && tab === "downloads") {
+      // Backend totals include all nodes; recompute for active-only display.
+    }
     let permissiveBytes = 0;
     let restrictedBytes = 0;
     let permissiveN = 0;
     let restrictedN = 0;
     const missing: string[] = [];
-    for (const node of installable) {
+    for (const node of pool) {
       if (node.weights.installed) continue;
       missing.push(node.id);
       const size = downloadSizeBytes(node.weights);
@@ -96,7 +120,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
       restricted: { count: restrictedN, bytes: restrictedBytes },
       grand: { count: permissiveN + restrictedN, bytes: permissiveBytes + restrictedBytes },
     };
-  }, [totals, installable]);
+  }, [totals, activeInstallable, tab]);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -105,6 +129,10 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
         const hay = `${node.display_name} ${node.id}`.toLowerCase();
         if (!hay.includes(needle)) return false;
       }
+      if (node.weight_manifest.length === 0) {
+        // Weightless legacy nodes only show under "all" / search.
+        return filter === "all";
+      }
       if (filter === "missing") return !node.weights.installed;
       if (filter === "installed") return node.weights.installed;
       if (filter === "restricted") return node.license.requires_acknowledgement;
@@ -112,17 +140,15 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
     });
   }, [installable, query, filter]);
 
-  const onAcknowledge = useCallback(
-    (node: DescribedNode) => {
-      acknowledgeLicense(node.id)
-        .then(() => refresh())
-        .catch((err) => setBanner(err instanceof ApiError ? err.message : String(err)));
-    },
-    [],
-  );
+  const onAcknowledge = useCallback((node: DescribedNode) => {
+    acknowledgeLicense(node.id)
+      .then(() => refresh())
+      .catch((err) => setBanner(err instanceof ApiError ? err.message : String(err)));
+  }, []);
 
   async function onAckAllRestricted() {
-    const pending = installable.filter(
+    const pool = tab === "legacy" ? legacyInstallable : activeInstallable;
+    const pending = pool.filter(
       (n) => n.license.requires_acknowledgement && !n.weights.acknowledged,
     );
     for (const node of pending) {
@@ -146,7 +172,8 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
   }
 
   async function onDownloadAll() {
-    const needAck = installable.filter(
+    const pool = tab === "legacy" ? legacyInstallable : activeInstallable;
+    const needAck = pool.filter(
       (n) =>
         !n.weights.installed &&
         n.license.requires_acknowledgement &&
@@ -155,9 +182,10 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
     if (needAck.length) {
       await onAckAllRestricted();
     }
-    const missing = computedTotals.missing_node_ids.length
-      ? computedTotals.missing_node_ids
-      : installable.filter((n) => !n.weights.installed).map((n) => n.id);
+    const missing =
+      tab === "downloads" && computedTotals.missing_node_ids.length
+        ? computedTotals.missing_node_ids
+        : pool.filter((n) => n.weight_manifest.length > 0 && !n.weights.installed).map((n) => n.id);
     if (!missing.length) return;
     setBulkBusy(true);
     setBanner(t("settings.downloads.downloadingAll"));
@@ -187,6 +215,15 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
 
   if (!open) return null;
 
+  const subtitle =
+    tab === "legacy" ? t("settings.legacy.subtitle") : t("settings.downloads.subtitle");
+  const emptyLabel =
+    tab === "legacy" ? t("settings.legacy.empty") : t("settings.downloads.empty");
+  const missingCount =
+    tab === "legacy"
+      ? legacyInstallable.filter((n) => !n.weights.installed).length
+      : computedTotals.grand.count;
+
   return (
     <div
       className={styles.overlay}
@@ -208,56 +245,98 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
           </button>
         </header>
 
-        <div className={styles.tabs}>
-          <span className={styles.tabActive}>{t("settings.tab.downloads")}</span>
+        <div className={styles.tabs} role="tablist">
+          {(
+            [
+              ["downloads", "settings.tab.downloads"],
+              ["legacy", "settings.tab.legacy"],
+            ] as const
+          ).map(([value, key]) => (
+            <button
+              key={value}
+              type="button"
+              role="tab"
+              aria-selected={tab === value}
+              className={tab === value ? styles.tabActive : styles.tab}
+              onClick={() => {
+                setTab(value);
+                setQuery("");
+                setFilter("all");
+              }}
+            >
+              {t(key)}
+            </button>
+          ))}
         </div>
 
         <div className={styles.body}>
-          <p className={styles.subtitle}>{t("settings.downloads.subtitle")}</p>
+          <p className={styles.subtitle}>{subtitle}</p>
           {cacheDir && (
             <p className={styles.cacheDir}>{t("settings.downloads.cacheDir", { path: cacheDir })}</p>
           )}
 
-          <div className={styles.bulkRow}>
-            <p className={styles.totals}>
-              {t("settings.downloads.totals", {
-                permissive: `${computedTotals.permissive.count} (${formatBytes(computedTotals.permissive.bytes)})`,
-                restricted: `${computedTotals.restricted.count} (${formatBytes(computedTotals.restricted.bytes)})`,
-                grand: `${computedTotals.grand.count} (${formatBytes(computedTotals.grand.bytes)})`,
-              })}
-            </p>
-            <div className={styles.bulkActions}>
-              <Button
-                variant="ghost"
-                size="small"
-                onClick={() => void onAckAllRestricted()}
-                disabled={bulkBusy}
-              >
-                {t("settings.downloads.ackAll")}
-              </Button>
-              <Button
-                variant="secondary"
-                size="small"
-                icon="tray"
-                onClick={() => void onDownloadAll()}
-                disabled={bulkBusy || computedTotals.grand.count === 0}
-              >
-                {t("settings.downloads.downloadAll")}
-              </Button>
-              {bulkBusy && (
+          {tab === "downloads" && (
+            <div className={styles.bulkRow}>
+              <p className={styles.totals}>
+                {t("settings.downloads.totals", {
+                  permissive: `${computedTotals.permissive.count} (${formatBytes(computedTotals.permissive.bytes)})`,
+                  restricted: `${computedTotals.restricted.count} (${formatBytes(computedTotals.restricted.bytes)})`,
+                  grand: `${computedTotals.grand.count} (${formatBytes(computedTotals.grand.bytes)})`,
+                })}
+              </p>
+              <div className={styles.bulkActions}>
                 <Button
                   variant="ghost"
                   size="small"
-                  onClick={() => void downloads.cancel()}
+                  onClick={() => void onAckAllRestricted()}
+                  disabled={bulkBusy}
                 >
-                  {t("settings.downloads.cancelAll")}
+                  {t("settings.downloads.ackAll")}
                 </Button>
-              )}
-              <Button variant="ghost" size="small" onClick={() => void onCleanupJobs()}>
-                {t("settings.jobs.cleanup")}
-              </Button>
+                <Button
+                  variant="secondary"
+                  size="small"
+                  icon="tray"
+                  onClick={() => void onDownloadAll()}
+                  disabled={bulkBusy || missingCount === 0}
+                >
+                  {t("settings.downloads.downloadAll")}
+                </Button>
+                {bulkBusy && (
+                  <Button variant="ghost" size="small" onClick={() => void downloads.cancel()}>
+                    {t("settings.downloads.cancelAll")}
+                  </Button>
+                )}
+                <Button variant="ghost" size="small" onClick={() => void onCleanupJobs()}>
+                  {t("settings.jobs.cleanup")}
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
+
+          {tab === "legacy" && (
+            <div className={styles.bulkRow}>
+              <div className={styles.bulkActions}>
+                <Button
+                  variant="ghost"
+                  size="small"
+                  onClick={() => void onAckAllRestricted()}
+                  disabled={bulkBusy}
+                >
+                  {t("settings.downloads.ackAll")}
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="small"
+                  icon="tray"
+                  onClick={() => void onDownloadAll()}
+                  disabled={bulkBusy || missingCount === 0}
+                >
+                  {t("settings.downloads.downloadAll")}
+                </Button>
+              </div>
+            </div>
+          )}
 
           <div className={styles.filterRow}>
             <label className={styles.searchField}>
@@ -296,14 +375,13 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
           {banner && <p className={styles.banner} role="status">{banner}</p>}
 
           <ul className={styles.list}>
-            {filtered.length === 0 && (
-              <li className={styles.empty}>{t("settings.downloads.empty")}</li>
-            )}
+            {filtered.length === 0 && <li className={styles.empty}>{emptyLabel}</li>}
             {filtered.map((node) => {
               const download = downloads.tracker[node.id];
               const needsAck = node.license.requires_acknowledgement && !node.weights.acknowledged;
               const installed = node.weights.installed;
               const size = downloadSizeBytes(node.weights);
+              const hasWeights = node.weight_manifest.length > 0;
               return (
                 <li key={node.id} className={styles.row}>
                   <div className={styles.rowHeader}>
@@ -317,18 +395,23 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
                           {licenseAbbrev(node.license.kind)}
                         </span>
                       )}
-                      <span className="mono">{formatBytes(size)}</span>
+                      {hasWeights && <span className="mono">{formatBytes(size)}</span>}
                     </span>
                   </div>
 
-                  {needsAck ? (
+                  {!hasWeights ? (
+                    <p className={styles.weightless}>{node.description}</p>
+                  ) : needsAck ? (
                     <div className={styles.gate}>
                       <p>{t("studio.inspector.licenseGate.body")}</p>
                       <Button variant="danger" size="small" onClick={() => onAcknowledge(node)}>
                         {t("studio.inspector.licenseGate.accept")}
                       </Button>
                     </div>
-                  ) : download && (download.state === "running" || download.state === "error" || download.state === "cancelled") ? (
+                  ) : download &&
+                    (download.state === "running" ||
+                      download.state === "error" ||
+                      download.state === "cancelled") ? (
                     <DownloadRow
                       nodeId={node.id}
                       displayName={node.display_name}
@@ -352,11 +435,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
                       <Button variant="secondary" size="small" icon="tray" onClick={() => onDownload(node)}>
                         {t("settings.downloads.download", { size: formatBytes(size) })}
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="small"
-                        onClick={() => onDownload(node, true)}
-                      >
+                      <Button variant="ghost" size="small" onClick={() => onDownload(node, true)}>
                         {t("settings.downloads.downloadAllVariants")}
                       </Button>
                     </div>
@@ -370,4 +449,3 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
     </div>
   );
 }
-

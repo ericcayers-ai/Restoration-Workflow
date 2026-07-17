@@ -13,6 +13,7 @@ from typing import Any
 import numpy as np
 
 from ..core.errors import NodeExecutionError
+from ..core.ordering import STAGE_MASK
 from ..core.types import (
     BaseRestorationNode,
     ImageArray,
@@ -42,7 +43,8 @@ class MaskFromImageNode(BaseRestorationNode):
     """
 
     id = "mask_from_image"
-    category = NodeCategory.MASKING
+    category = NodeCategory.LEGACY
+    pipeline_stage = STAGE_MASK
     display_name = "Mask from image"
     description = (
         "Build an inpainting mask from an alpha channel, a luminance threshold, "

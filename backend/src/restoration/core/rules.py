@@ -114,9 +114,16 @@ class RuleTable:
         return cls(json.loads(Path(path).read_text(encoding="utf-8")))
 
     def validate(self, registry: NodeRegistry) -> None:
-        """Every referenced node must exist and be permissively licensed."""
+        """Every referenced node must exist, be permissive, and not Legacy."""
+        from .types import NodeCategory  # noqa: PLC0415 (avoid import cycle at module load)
+
         for node_id in {s.node for s in self.stages} | set(self.fallback_chain):
             node_cls = registry.get_class(node_id)  # raises on unknown
+            if node_cls.category is NodeCategory.LEGACY:
+                raise PipelineValidationError(
+                    f"rule table references legacy node '{node_id}' — Simple Mode "
+                    f"Auto must not route to Settings → Legacy models"
+                )
             if node_cls.license.requires_acknowledgement:
                 raise PipelineValidationError(
                     f"rule table references '{node_id}' whose license "

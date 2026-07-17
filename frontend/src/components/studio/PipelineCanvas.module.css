@@ -54,6 +54,7 @@
 .cat_masking { background: var(--category-masking); }
 .cat_orchestration { background: var(--category-orchestration); }
 .cat_instruct { background: var(--category-instruct); }
+.cat_legacy { background: var(--category-legacy); }
 
 .nodeName {
   font-size: 12px;

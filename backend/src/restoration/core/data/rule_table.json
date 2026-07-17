@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "comment": "Hand-authored degradation-profile -> node-chain routing for Simple Mode Auto. Every node must be permissively licensed (RuleTable.validate). Thresholds calibrated against analyzer v2 fixtures: blur_score multi-scale Laplacian (< ~90 soft); noise_score flat-region MAD (> ~0.007 noisy); jpeg_blockiness (> ~0.10 blocky); defect_score (> ~0.01 scratches); is_grayscale triggers DDColor; low_light/blown_highlights route to exposure_correct. Gated companions (DarkIR, InstructIR, DiffBIR, SUPIR) are applied as service overlays when installed+acked — never listed here.",
+  "comment": "Hand-authored degradation-profile -> node-chain routing for Simple Mode Auto. Active (non-Legacy) permissive nodes only. Thresholds calibrated against analyzer v2 fixtures. Gated companions (DarkIR, InstructIR, SUPIR, OSDFace) are applied as service overlays when installed+acked — never listed here. DiffBIR/HAT removed permanently; SCUNet/SwinIR/GFPGAN/mask_from_image live under Settings → Legacy. Defect inpaint is deferred to Mask Editor (no Auto mask_from_image).",
   "fallback_chain": ["realesrgan"],
   "stages": [
     {
@@ -22,52 +22,22 @@
       "reason": "visible JPEG block artifacts — remove compression artifacts first so later stages don't amplify them"
     },
     {
-      "node": "scunet",
-      "when": { "noise_score": { "gte": 0.007 } },
-      "params": { "variant": "gan" },
-      "reason": "visible noise in flat regions — blind real-world denoising at native resolution before any upscale"
-    },
-    {
       "node": "ddcolor",
       "when": { "is_grayscale": { "is": true } },
       "params": { "variant": "modelscope" },
       "reason": "grayscale / near-mono image — colourize with DDColor before upscale"
     },
     {
-      "node": "swinir",
+      "node": "realesrgan",
       "when": { "min_dimension": { "lt": 800 } },
       "params": { "scale": 4 },
-      "reason": "small image — SwinIR transformer super-resolution for the highest-quality 4x upscale"
+      "reason": "small image — RealESRGAN 4x super-resolution (MambaIR may swap in via High quality tier when installed)"
     },
     {
       "node": "realesrgan",
       "when": { "min_dimension": { "gte": 800, "lt": 1600 } },
       "params": { "scale": 4 },
       "reason": "moderate resolution — fast general-purpose 4x super-resolution"
-    },
-    {
-      "node": "gfpgan",
-      "when": { "face_count": { "gte": 1 } },
-      "params": {},
-      "reason": "faces detected — fast face restoration baseline"
-    },
-    {
-      "node": "restoreformer",
-      "when": { "face_count": { "gte": 1 }, "blur_score": { "lt": 90 } },
-      "params": {},
-      "reason": "soft/blurred faces — follow up with the quality face node"
-    },
-    {
-      "node": "mask_from_image",
-      "when": { "defect_score": { "gte": 0.01 } },
-      "params": { "source": "defect", "dilate": 2 },
-      "reason": "physical defects detected — build an inpainting mask for scratches/dust"
-    },
-    {
-      "node": "lama",
-      "when": { "defect_score": { "gte": 0.01 } },
-      "params": {},
-      "reason": "scratches/dust — inpaint over detected defects"
     }
   ]
 }
