@@ -43,6 +43,7 @@ import { useJobEvents } from "../../lib/useJobEvents";
 import { useWeightDownloads } from "../../lib/useWeightDownloads";
 import { Button } from "../common/Button";
 import { DownloadRow } from "../common/DownloadRow";
+import { FlowSteps, type FlowStepId } from "../common/FlowSteps";
 import { StatusLine } from "../common/StatusLine";
 import { Inspector } from "../studio/Inspector";
 import { ModelStackRail } from "../studio/ModelStackRail";
@@ -52,6 +53,8 @@ import { DropZone } from "./DropZone";
 import { JobLogPanel } from "./JobLogPanel";
 import { LightTable } from "./LightTable";
 import styles from "./SimpleMode.module.css";
+
+const FLOW_STEPS: FlowStepId[] = ["drop", "review", "restore"];
 
 type Status =
   | "idle"
@@ -513,6 +516,22 @@ export function SimpleMode({
     });
   }, [auto, describedByType]);
 
+  const flowLabels = useMemo(
+    () => ({
+      drop: t("simple.flow.drop"),
+      review: t("simple.flow.review"),
+      restore: t("simple.flow.restore"),
+    }),
+    [t],
+  );
+
+  const flowCurrent: FlowStepId =
+    status === "idle"
+      ? "drop"
+      : status === "review"
+        ? "review"
+        : "restore";
+
   const commands = useMemo(
     () => [
       ...(status === "done" || status === "error"
@@ -587,51 +606,62 @@ export function SimpleMode({
     return (
       <div className={styles.screen}>
         {liveRegion}
+        <FlowSteps steps={FLOW_STEPS} current={flowCurrent} labels={flowLabels} ariaLabel={t("simple.flow.progress")} />
         <DropZone onFile={handleFile} onFiles={(files) => void handleBatch(files)} />
-        <div className={styles.presetPicker}>
-          <label>
-            <span>{t("simple.quality.label")}</span>
-            <select
-              value={qualityTier}
-              onChange={(e) => setQualityTier(e.target.value as QualityTier)}
-              aria-label={t("simple.quality.label")}
+        <div className={styles.optionsBar}>
+          <div className={styles.qualityField}>
+            <span id="simple-quality-label">{t("simple.quality.label")}</span>
+            <div
+              className={styles.qualitySegmented}
+              role="radiogroup"
+              aria-labelledby="simple-quality-label"
               title={t("simple.quality.hint")}
             >
-              <option value="draft">{t("simple.quality.draft")}</option>
-              <option value="balanced">{t("simple.quality.balanced")}</option>
-              <option value="high">{t("simple.quality.high")}</option>
-            </select>
-          </label>
-        </div>
-        {presets.length > 0 && (
-          <div className={styles.presetPicker}>
-            <label>
-              <span>{t("simple.presets.title")}</span>
-              <select
-                value={presetChoice}
-                onChange={(e) => setPresetChoice(e.target.value)}
-                aria-label={t("simple.presets.load")}
-              >
-                <option value="">{t("simple.presets.none")}</option>
-                {visiblePresets.map((p) => (
-                  <option key={p.name} value={p.name}>
-                    {p.licence && !p.licence.ready
-                      ? t("simple.presets.gated", { name: p.name })
-                      : p.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className={styles.gatedToggle}>
-              <input
-                type="checkbox"
-                checked={showGatedPresets}
-                onChange={(e) => setShowGatedPresets(e.target.checked)}
-              />
-              <span>{t("simple.presets.showGated")}</span>
-            </label>
+              {(["draft", "balanced", "high"] as QualityTier[]).map((tier) => (
+                <button
+                  key={tier}
+                  type="button"
+                  role="radio"
+                  aria-checked={qualityTier === tier}
+                  className={qualityTier === tier ? styles.qualityActive : styles.qualityTab}
+                  onClick={() => setQualityTier(tier)}
+                >
+                  {t(`simple.quality.${tier}`)}
+                </button>
+              ))}
+            </div>
           </div>
-        )}
+          {presets.length > 0 && (
+            <details className={styles.presetDetails}>
+              <summary>{t("simple.presets.title")}</summary>
+              <label className={styles.presetField}>
+                <span className="visually-hidden">{t("simple.presets.load")}</span>
+                <select
+                  value={presetChoice}
+                  onChange={(e) => setPresetChoice(e.target.value)}
+                  aria-label={t("simple.presets.load")}
+                >
+                  <option value="">{t("simple.presets.none")}</option>
+                  {visiblePresets.map((p) => (
+                    <option key={p.name} value={p.name}>
+                      {p.licence && !p.licence.ready
+                        ? t("simple.presets.gated", { name: p.name })
+                        : p.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className={styles.gatedToggle}>
+                <input
+                  type="checkbox"
+                  checked={showGatedPresets}
+                  onChange={(e) => setShowGatedPresets(e.target.checked)}
+                />
+                <span>{t("simple.presets.showGated")}</span>
+              </label>
+            </details>
+          )}
+        </div>
       </div>
     );
   }
@@ -640,6 +670,7 @@ export function SimpleMode({
     return (
       <div className={styles.reviewScreen}>
         {liveRegion}
+        <FlowSteps steps={FLOW_STEPS} current={flowCurrent} labels={flowLabels} ariaLabel={t("simple.flow.progress")} />
         <header className={styles.reviewHeader}>
           <h2>{t("simple.review.title")}</h2>
           <p>{t("simple.review.subtitle")}</p>
@@ -726,6 +757,7 @@ export function SimpleMode({
     return (
       <div className={styles.resultScreen}>
         {liveRegion}
+        <FlowSteps steps={FLOW_STEPS} current="restore" labels={flowLabels} complete ariaLabel={t("simple.flow.progress")} />
         {reasonLines.length > 0 && (
           <details className={styles.reasons}>
             <summary>{t("simple.reasonsTitle")}</summary>
@@ -765,6 +797,7 @@ export function SimpleMode({
     return (
       <div className={styles.working}>
         {liveRegion}
+        <FlowSteps steps={FLOW_STEPS} current={flowCurrent} labels={flowLabels} ariaLabel={t("simple.flow.progress")} />
         {beforeUrl && (
           <img className={styles.previewImg} src={beforeUrl} alt="" />
         )}
@@ -796,73 +829,76 @@ export function SimpleMode({
   return (
     <div className={styles.working}>
       {liveRegion}
+      <FlowSteps steps={FLOW_STEPS} current={flowCurrent} labels={flowLabels} ariaLabel={t("simple.flow.progress")} />
       {beforeUrl && (
         <img className={styles.previewImg} src={beforeUrl} alt="" />
       )}
 
-      {status === "analyzing" && <StatusLine message={t("simple.analyzing")} tone="active" busy />}
+      <div className={styles.progressMeta}>
+        {status === "analyzing" && <StatusLine message={t("simple.analyzing")} tone="active" busy />}
 
-      {status === "downloading" && (
-        <>
-          <StatusLine
-            message={t("simple.missingWeights", {
-              nodes: downloadingIds
-                .map((id) => describedByType[id]?.display_name ?? id)
-                .join(", "),
-            })}
-            tone="active"
-            busy
-          />
-          <div className={styles.downloads}>
-            {downloadingIds.map((nodeId) => (
-              <DownloadRow
-                key={nodeId}
-                nodeId={nodeId}
-                displayName={describedByType[nodeId]?.display_name}
-                download={downloads.tracker[nodeId]}
-                onCancel={() => void downloads.cancel(nodeId)}
-              />
-            ))}
-          </div>
-          <Button variant="ghost" size="small" onClick={() => void downloads.cancel()}>
-            {t("settings.downloads.cancelAll")}
-          </Button>
-        </>
-      )}
-
-      {status === "submitting" && <StatusLine message={t("common.loading")} tone="active" busy />}
-
-      {status === "processing" && stageInfo && (
-        <>
-          <StatusLine
-            message={`${stageInfo.message} — ${stageInfo.step}/${stageInfo.total}`}
-            tone="active"
-            busy
-          />
-          {job?.events_truncated && (
-            <StatusLine message={t("studio.eventsTruncated")} />
-          )}
-          <JobLogPanel events={jobEvents.byNode} open />
-          {batchTotal > 0 && (
+        {status === "downloading" && (
+          <>
             <StatusLine
-              message={t("simple.batch.progress", { current: batchIndex, total: batchTotal })}
+              message={t("simple.missingWeights", {
+                nodes: downloadingIds
+                  .map((id) => describedByType[id]?.display_name ?? id)
+                  .join(", "),
+              })}
               tone="active"
+              busy
             />
-          )}
-          {job && (
-            <Button
-              variant="ghost"
-              size="small"
-              onClick={() => {
-                batchCancelRef.current = true;
-                void cancelJob(job.id);
-              }}
-            >
-              {t("common.cancel")}
+            <div className={styles.downloads}>
+              {downloadingIds.map((nodeId) => (
+                <DownloadRow
+                  key={nodeId}
+                  nodeId={nodeId}
+                  displayName={describedByType[nodeId]?.display_name}
+                  download={downloads.tracker[nodeId]}
+                  onCancel={() => void downloads.cancel(nodeId)}
+                />
+              ))}
+            </div>
+            <Button variant="ghost" size="small" onClick={() => void downloads.cancel()}>
+              {t("settings.downloads.cancelAll")}
             </Button>
-          )}
-        </>
-      )}
+          </>
+        )}
+
+        {status === "submitting" && <StatusLine message={t("common.loading")} tone="active" busy />}
+
+        {status === "processing" && stageInfo && (
+          <>
+            <StatusLine
+              message={`${stageInfo.message} — ${stageInfo.step}/${stageInfo.total}`}
+              tone="active"
+              busy
+            />
+            {job?.events_truncated && (
+              <StatusLine message={t("studio.eventsTruncated")} />
+            )}
+            <JobLogPanel events={jobEvents.byNode} open />
+            {batchTotal > 0 && (
+              <StatusLine
+                message={t("simple.batch.progress", { current: batchIndex, total: batchTotal })}
+                tone="active"
+              />
+            )}
+            {job && (
+              <Button
+                variant="ghost"
+                size="small"
+                onClick={() => {
+                  batchCancelRef.current = true;
+                  void cancelJob(job.id);
+                }}
+              >
+                {t("common.cancel")}
+              </Button>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }

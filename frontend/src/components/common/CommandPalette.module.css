@@ -6,7 +6,7 @@
   align-items: flex-start;
   justify-content: center;
   padding-top: 14vh;
-  z-index: 100;
+  z-index: var(--z-overlay);
 }
 
 .panel {
@@ -54,6 +54,7 @@
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
+  min-height: var(--control-height-lg);
   border-radius: var(--radius-sm);
   color: var(--text-primary);
   cursor: pointer;

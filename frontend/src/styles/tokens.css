@@ -51,6 +51,17 @@
   --space-6: 32px;
   --space-7: 48px;
 
+  /* Control chrome — comfortable hit targets without pill/over-rounding. */
+  --control-height: 2rem;
+  --control-height-lg: 2.25rem;
+  --touch-min: 2.75rem;
+
+  /* Semantic stacking (dropdown → sticky → overlay → toast). */
+  --z-sticky: 5;
+  --z-dropdown: 20;
+  --z-overlay: 100;
+  --z-toast: 110;
+
   /* Model Stack category colors (UI_DESIGN.md section 2) — distinct from the
      two accents, always paired with an icon shape so color is never the only
      signal (section 6). */

@@ -716,138 +716,142 @@ export function StudioMode({ handoff }: { handoff: StudioHandoff | null }) {
       />
 
       <div className={styles.toolbarRow}>
-        {file ? (
-          <div className={styles.photoChip}>
-            {imageUrl && <img src={imageUrl} alt="" />}
-            <span>{file.name}</span>
-            <Button variant="ghost" size="small" onClick={() => filePickerRef.current?.click()}>
-              {t("studio.changePhoto")}
+        <div className={styles.toolbarGroup}>
+          {file ? (
+            <div className={styles.photoChip}>
+              {imageUrl && <img src={imageUrl} alt="" />}
+              <span title={file.name}>{file.name}</span>
+              <Button variant="ghost" size="small" onClick={() => filePickerRef.current?.click()}>
+                {t("studio.changePhoto")}
+              </Button>
+            </div>
+          ) : (
+            <Button variant="secondary" icon="image" onClick={() => filePickerRef.current?.click()}>
+              {t("studio.attachPhoto")}
             </Button>
-          </div>
-        ) : (
-          <Button variant="secondary" icon="image" onClick={() => filePickerRef.current?.click()}>
-            {t("studio.attachPhoto")}
+          )}
+          <input
+            ref={filePickerRef}
+            type="file"
+            accept=".jpg,.jpeg,.png,.webp,.bmp,.tif,.tiff"
+            className="visually-hidden"
+            aria-label={t("studio.attachPhoto")}
+            onChange={(e) => {
+              const selected = e.target.files?.[0];
+              if (selected) pickPhoto(selected);
+              e.target.value = "";
+            }}
+          />
+          <Button variant="ghost" size="small" onClick={() => folderPickerRef.current?.click()}>
+            {t("studio.batch.folder")}
           </Button>
-        )}
-        <input
-          ref={filePickerRef}
-          type="file"
-          accept=".jpg,.jpeg,.png,.webp,.bmp,.tif,.tiff"
-          className="visually-hidden"
-          aria-label={t("studio.attachPhoto")}
-          onChange={(e) => {
-            const selected = e.target.files?.[0];
-            if (selected) pickPhoto(selected);
-            e.target.value = "";
-          }}
-        />
-        <Button variant="secondary" onClick={() => folderPickerRef.current?.click()}>
-          {t("studio.batch.folder")}
-        </Button>
-        <input
-          ref={folderPickerRef}
-          type="file"
-          accept=".jpg,.jpeg,.png,.webp,.bmp,.tif,.tiff"
-          className="visually-hidden"
-          aria-label={t("studio.batch.folder")}
-          multiple
-          // @ts-expect-error webkitdirectory is non-standard but widely supported
-          webkitdirectory=""
-          onChange={(e) => {
-            const files = Array.from(e.target.files ?? []).filter((f) =>
-              /\.(jpe?g|png|webp|bmp|tiff?)$/i.test(f.name),
-            );
-            if (files.length > 0) {
-              setBatchFiles(files);
-              pickPhoto(files[0]!);
-            }
-            e.target.value = "";
-          }}
-        />
-        <div className={styles.spacer} />
-        <div className={styles.easelToggles} role="toolbar" aria-label={t("studio.editor.mode")}>
-          <button
-            type="button"
-            className={styles.easelBtn}
-            aria-pressed={!collapsed.rail}
-            onClick={() => toggleEasel("rail")}
-          >
-            {collapsed.rail ? t("studio.rail.expand") : t("studio.rail.collapse")}
-          </button>
-          <button
-            type="button"
-            className={styles.easelBtn}
-            aria-pressed={!collapsed.workflow}
-            onClick={() => toggleEasel("workflow")}
-          >
-            {collapsed.workflow ? t("studio.workflow.expand") : t("studio.workflow.collapse")}
-          </button>
-          <button
-            type="button"
-            className={styles.easelBtn}
-            aria-pressed={!collapsed.inspector}
-            onClick={() => toggleEasel("inspector")}
-          >
-            {collapsed.inspector ? t("studio.inspector.expand") : t("studio.inspector.collapse")}
-          </button>
+          <input
+            ref={folderPickerRef}
+            type="file"
+            accept=".jpg,.jpeg,.png,.webp,.bmp,.tif,.tiff"
+            className="visually-hidden"
+            aria-label={t("studio.batch.folder")}
+            multiple
+            // @ts-expect-error webkitdirectory is non-standard but widely supported
+            webkitdirectory=""
+            onChange={(e) => {
+              const files = Array.from(e.target.files ?? []).filter((f) =>
+                /\.(jpe?g|png|webp|bmp|tiff?)$/i.test(f.name),
+              );
+              if (files.length > 0) {
+                setBatchFiles(files);
+                pickPhoto(files[0]!);
+              }
+              e.target.value = "";
+            }}
+          />
         </div>
-        <div className={styles.editorToggle} role="tablist" aria-label={t("studio.editor.mode")}>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={editorMode === "list"}
-            className={editorMode === "list" ? styles.modeActive : styles.modeTab}
-            onClick={() => switchEditorMode("list")}
-          >
-            {t("studio.editor.list")}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={editorMode === "dag"}
-            className={editorMode === "dag" ? styles.modeActive : styles.modeTab}
-            onClick={() => switchEditorMode("dag")}
-          >
-            {t("studio.editor.dag")}
-          </button>
-        </div>
-        <Button
-          variant="ghost"
-          size="small"
-          onClick={() => {
-            const tpl = dualFaceBlendTemplate(describedByType);
-            if (!tpl) return;
-            pushHistory();
-            setEditorMode("dag");
-            setDagNodes(tpl.nodes);
-            setDagEdges(tpl.edges);
-          }}
-        >
-          {t("studio.editor.dualFace")}
-        </Button>
         <div className={styles.spacer} />
-        <Button
-          variant="primary"
-          icon="play"
-          className={styles.stickyRun}
-          onClick={() => void handleRun()}
-          disabled={(!file && batchFiles.length === 0) || running}
-          aria-label={t("a11y.stickyRun")}
-        >
-          {running ? t("studio.canvas.running") : t("studio.canvas.run")}
-        </Button>
-        {running && job && (
+        <div className={styles.toolbarGroup}>
+          <div className={styles.easelToggles} role="toolbar" aria-label={t("studio.editor.mode")}>
+            <button
+              type="button"
+              className={styles.easelBtn}
+              aria-pressed={!collapsed.rail}
+              onClick={() => toggleEasel("rail")}
+            >
+              {collapsed.rail ? t("studio.rail.expand") : t("studio.rail.collapse")}
+            </button>
+            <button
+              type="button"
+              className={styles.easelBtn}
+              aria-pressed={!collapsed.workflow}
+              onClick={() => toggleEasel("workflow")}
+            >
+              {collapsed.workflow ? t("studio.workflow.expand") : t("studio.workflow.collapse")}
+            </button>
+            <button
+              type="button"
+              className={styles.easelBtn}
+              aria-pressed={!collapsed.inspector}
+              onClick={() => toggleEasel("inspector")}
+            >
+              {collapsed.inspector ? t("studio.inspector.expand") : t("studio.inspector.collapse")}
+            </button>
+          </div>
+          <div className={styles.editorToggle} role="tablist" aria-label={t("studio.editor.mode")}>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={editorMode === "list"}
+              className={editorMode === "list" ? styles.modeActive : styles.modeTab}
+              onClick={() => switchEditorMode("list")}
+            >
+              {t("studio.editor.list")}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={editorMode === "dag"}
+              className={editorMode === "dag" ? styles.modeActive : styles.modeTab}
+              onClick={() => switchEditorMode("dag")}
+            >
+              {t("studio.editor.dag")}
+            </button>
+          </div>
           <Button
             variant="ghost"
             size="small"
+            title={t("studio.editor.dualFace")}
             onClick={() => {
-              batchCancelRef.current = true;
-              void cancelJob(job.id);
+              const tpl = dualFaceBlendTemplate(describedByType);
+              if (!tpl) return;
+              pushHistory();
+              setEditorMode("dag");
+              setDagNodes(tpl.nodes);
+              setDagEdges(tpl.edges);
             }}
           >
-            {t("studio.cancelRun")}
+            {t("studio.editor.dualFace")}
           </Button>
-        )}
+          <Button
+            variant="primary"
+            icon="play"
+            className={styles.stickyRun}
+            onClick={() => void handleRun()}
+            disabled={(!file && batchFiles.length === 0) || running}
+            aria-label={t("a11y.stickyRun")}
+          >
+            {running ? t("studio.canvas.running") : t("studio.canvas.run")}
+          </Button>
+          {running && job && (
+            <Button
+              variant="ghost"
+              size="small"
+              onClick={() => {
+                batchCancelRef.current = true;
+                void cancelJob(job.id);
+              }}
+            >
+              {t("studio.cancelRun")}
+            </Button>
+          )}
+        </div>
         {batchTotal > 0 && (
           <StatusLine
             message={t("studio.batch.progress", { current: batchIndex, total: batchTotal })}

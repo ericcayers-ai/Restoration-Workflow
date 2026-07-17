@@ -4,24 +4,33 @@
   gap: var(--space-2);
   background: var(--surface-800);
   border-radius: var(--radius-sm);
-  border-left: 3px solid var(--category-color, var(--text-secondary));
+  border: 1px solid var(--border-hairline);
   overflow: hidden;
 }
 
 .row[data-status="running"] {
-  box-shadow: 0 0 0 1px var(--accent-amber) inset;
+  border-color: var(--accent-amber);
 }
 
 .row[data-status="done"] {
-  box-shadow: 0 0 0 1px var(--accent-teal) inset;
+  border-color: var(--accent-teal);
 }
 
 .row[data-status="error"] {
-  box-shadow: 0 0 0 1px var(--accent-brick) inset;
+  border-color: var(--accent-brick);
 }
 
 .rowSelected {
-  box-shadow: 0 0 0 1px var(--accent-amber) inset;
+  border-color: var(--accent-amber);
+  background: var(--surface-700);
+}
+
+.categorySwatch {
+  flex-shrink: 0;
+  width: 0.5rem;
+  align-self: stretch;
+  background: var(--category-color, var(--text-secondary));
+  opacity: 0.85;
 }
 
 .step {
@@ -44,6 +53,7 @@
   padding: var(--space-2) var(--space-2);
   text-align: left;
   position: relative;
+  min-height: var(--control-height-lg);
 }
 
 .thumb {
@@ -92,12 +102,16 @@
   height: 2px;
   width: 100%;
   background: var(--surface-700);
+  overflow: hidden;
 }
 
 .progressFill {
   height: 100%;
+  width: 100%;
   background: var(--accent-amber);
-  transition: width var(--motion-fast);
+  transform-origin: left center;
+  transition: transform var(--motion-fast);
+  will-change: transform;
 }
 
 .controls {
@@ -112,6 +126,11 @@
 .iconButton {
   color: var(--text-secondary);
   padding: 2px;
+  min-width: 1.5rem;
+  min-height: 1.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .iconButton:hover:not(:disabled) {

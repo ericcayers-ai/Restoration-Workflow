@@ -21,12 +21,20 @@ import styles from "./App.module.css";
 
 type Mode = "simple" | "studio";
 
+const OPEN_COMMANDS_EVENT = "rw:open-commands";
+
+function modKeyLabel(): string {
+  if (typeof navigator === "undefined") return "Ctrl";
+  return /Mac|iPhone|iPad|iPod/i.test(navigator.platform) ? "⌘" : "Ctrl";
+}
+
 export function App() {
   const t = useT();
   const [mode, setMode] = useState<Mode>("simple");
   const [handoff, setHandoff] = useState<StudioHandoff | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const handoffCounter = useRef(0);
+  const shortcut = `${modKeyLabel()}+K`;
 
   function openInStudio(pipeline: PipelineJson, file: File) {
     handoffCounter.current += 1;
@@ -65,7 +73,10 @@ export function App() {
   return (
     <div className={styles.app}>
       <header className={styles.topBar}>
-        <span className={styles.title}>{t("app.title")}</span>
+        <div className={styles.brand}>
+          <Icon name="aperture" size={16} className={styles.brandIcon} aria-hidden />
+          <span className={styles.title}>{t("app.title")}</span>
+        </div>
         <div className={styles.modeSwitch} role="tablist" aria-label={t("app.modeSwitch")}>
           <button
             type="button"
@@ -87,17 +98,30 @@ export function App() {
           </button>
         </div>
         <div className={styles.spacer} />
-        <ThemeToggle />
-        <ScaleControl />
-        <button
-          type="button"
-          className={styles.settingsButton}
-          onClick={() => setSettingsOpen(true)}
-          aria-label={t("settings.open")}
-          title={t("settings.open")}
-        >
-          <Icon name="settings" size={16} />
-        </button>
+        <div className={styles.utilities}>
+          <button
+            type="button"
+            className={styles.iconButton}
+            onClick={() => window.dispatchEvent(new Event(OPEN_COMMANDS_EVENT))}
+            aria-label={t("commandPalette.title")}
+            title={`${t("commandPalette.title")} (${shortcut})`}
+          >
+            <Icon name="command" size={14} />
+            <kbd className={styles.commandHint}>{shortcut}</kbd>
+          </button>
+          <span className={styles.divider} aria-hidden />
+          <ThemeToggle />
+          <ScaleControl />
+          <button
+            type="button"
+            className={styles.iconButton}
+            onClick={() => setSettingsOpen(true)}
+            aria-label={t("settings.open")}
+            title={t("settings.open")}
+          >
+            <Icon name="settings" size={16} />
+          </button>
+        </div>
       </header>
 
       <main className={styles.main}>

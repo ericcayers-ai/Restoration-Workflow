@@ -21,8 +21,11 @@
 
 .fill {
   height: 100%;
+  width: 100%;
   background: var(--accent-amber);
-  transition: width var(--motion-base);
+  transform-origin: left center;
+  transition: transform var(--motion-base);
+  will-change: transform;
 }
 
 .fillError {

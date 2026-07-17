@@ -1,6 +1,42 @@
 .bar {
   display: flex;
   justify-content: center;
+  align-items: center;
   gap: var(--space-3);
   flex-wrap: wrap;
+  padding: var(--space-2) 0;
+}
+
+.primaryGroup,
+.secondaryGroup {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.divider {
+  width: 1px;
+  height: 1.5rem;
+  background: var(--border-hairline);
+}
+
+@media (max-width: 560px) {
+  .divider {
+    display: none;
+  }
+
+  .bar {
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .primaryGroup,
+  .secondaryGroup {
+    width: 100%;
+  }
+
+  .primaryGroup > * {
+    flex: 1;
+  }
 }

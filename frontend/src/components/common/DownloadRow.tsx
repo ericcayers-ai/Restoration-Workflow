@@ -43,7 +43,7 @@ export function DownloadRow({
       <div className={styles.track}>
         <div
           className={`${styles.fill} ${fillClass}`}
-          style={{ width: `${percent}%` }}
+          style={{ transform: `scaleX(${Math.max(0, Math.min(1, percent / 100))})` }}
           role="progressbar"
           aria-valuenow={percent}
           aria-valuemin={0}
