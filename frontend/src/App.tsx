@@ -107,7 +107,9 @@ export function App() {
             title={`${t("commandPalette.title")} (${shortcut})`}
           >
             <Icon name="command" size={14} />
-            <kbd className={styles.commandHint}>{shortcut}</kbd>
+            <kbd className={styles.commandHint} aria-hidden>
+              {shortcut}
+            </kbd>
           </button>
           <span className={styles.divider} aria-hidden />
           <ThemeToggle />

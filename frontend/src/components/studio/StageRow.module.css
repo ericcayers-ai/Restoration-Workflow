@@ -83,7 +83,7 @@
 }
 
 .summary {
-  color: var(--text-secondary);
+  color: var(--text-primary);
   font-family: var(--font-mono);
   font-size: 0.6875rem;
   overflow: hidden;
