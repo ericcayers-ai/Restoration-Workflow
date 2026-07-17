@@ -273,24 +273,45 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
           </button>
         </header>
 
-        <div className={styles.tabs} role="tablist">
+        <div className={styles.tabs} role="tablist" aria-label={t("settings.title")}>
           {(
             [
               ["downloads", "settings.tab.downloads"],
               ["vision", "settings.tab.vision"],
               ["legacy", "settings.tab.legacy"],
             ] as const
-          ).map(([value, key]) => (
+          ).map(([value, key], index, list) => (
             <button
               key={value}
               type="button"
               role="tab"
+              id={`settings-tab-${value}`}
               aria-selected={tab === value}
+              aria-controls={`settings-panel-${value}`}
+              tabIndex={tab === value ? 0 : -1}
               className={tab === value ? styles.tabActive : styles.tab}
               onClick={() => {
                 setTab(value);
                 setQuery("");
                 setFilter("all");
+              }}
+              onKeyDown={(e) => {
+                const dir =
+                  e.key === "ArrowRight" || e.key === "ArrowDown"
+                    ? 1
+                    : e.key === "ArrowLeft" || e.key === "ArrowUp"
+                      ? -1
+                      : 0;
+                if (!dir) return;
+                e.preventDefault();
+                const next = list[(index + dir + list.length) % list.length];
+                if (!next) return;
+                setTab(next[0]);
+                setQuery("");
+                setFilter("all");
+                requestAnimationFrame(() => {
+                  document.getElementById(`settings-tab-${next[0]}`)?.focus();
+                });
               }}
             >
               {t(key)}
@@ -298,7 +319,12 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
           ))}
         </div>
 
-        <div className={styles.body}>
+        <div
+          className={styles.body}
+          role="tabpanel"
+          id={`settings-panel-${tab}`}
+          aria-labelledby={`settings-tab-${tab}`}
+        >
           <p className={styles.subtitle}>{subtitle}</p>
           {cacheDir && tab !== "vision" && (
             <p className={styles.cacheDir}>{t("settings.downloads.cacheDir", { path: cacheDir })}</p>
@@ -415,6 +441,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
           )}
 
           {tab !== "vision" && (
+            <>
           <div className={styles.filterRow}>
             <label className={styles.searchField}>
               <span className="visually-hidden">{t("settings.downloads.search")}</span>
@@ -521,6 +548,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
               );
             })}
           </ul>
+            </>
           )}
         </div>
       </div>

@@ -66,6 +66,14 @@
   color: var(--text-primary);
 }
 
+.tool:focus-visible,
+.toolActive:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+  z-index: 1;
+  position: relative;
+}
+
 .toolActive {
   background: var(--surface-800);
   color: var(--category-masking);
@@ -81,6 +89,23 @@
 
 .slider input {
   width: 7rem;
+  accent-color: var(--accent-amber);
+}
+
+.sliderValue {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--text-primary);
+  min-width: 2.5rem;
+}
+
+.shortcuts {
+  margin: 0;
+  padding: var(--space-1) var(--space-4) var(--space-2);
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-hairline);
+  background: var(--surface-900);
 }
 
 .spacer {
@@ -151,6 +176,11 @@
   margin-top: 0;
 }
 
+.side :global(button) {
+  width: 100%;
+  justify-content: center;
+}
+
 .preview {
   margin-top: var(--space-3);
   display: flex;
@@ -166,6 +196,7 @@
 .preview img {
   width: 100%;
   border: 1px solid var(--border-hairline);
+  background: var(--surface-950);
 }
 
 @media (max-width: 720px) {

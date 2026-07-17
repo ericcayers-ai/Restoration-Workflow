@@ -700,7 +700,7 @@ export function SimpleMode({
             </div>
           </div>
           {vlm && !vlm.installed && (
-            <div className={styles.visionOffer}>
+            <div className={styles.visionOffer} role="note">
               <p>{t("simple.vision.offer")}</p>
               <Button
                 variant="secondary"

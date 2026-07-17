@@ -57,29 +57,37 @@
 .tabActive {
   font-size: 0.8125rem;
   color: var(--text-primary);
-  padding: var(--space-2) 0 var(--space-2);
+  padding: var(--space-2) var(--space-1);
   border-bottom: 2px solid var(--accent-amber);
   background: none;
   border-top: none;
   border-left: none;
   border-right: none;
   cursor: pointer;
+  min-height: var(--control-height);
 }
 
 .tab {
   font-size: 0.8125rem;
   color: var(--text-secondary);
-  padding: var(--space-2) 0 var(--space-2);
+  padding: var(--space-2) var(--space-1);
   border-bottom: 2px solid transparent;
   background: none;
   border-top: none;
   border-left: none;
   border-right: none;
   cursor: pointer;
+  min-height: var(--control-height);
 }
 
 .tab:hover {
   color: var(--text-primary);
+}
+
+.tab:focus-visible,
+.tabActive:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 .weightless {
@@ -165,6 +173,10 @@
   background: var(--surface-950);
 }
 
+.visionBlock .name {
+  color: var(--text-primary);
+}
+
 .name {
   font-family: var(--font-mono);
   font-weight: 500;
@@ -226,6 +238,11 @@
   color: var(--text-secondary);
 }
 
+.searchField:focus-within {
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 1px var(--focus-ring);
+}
+
 .searchField input {
   flex: 1;
   background: none;
@@ -233,6 +250,11 @@
   outline: none;
   color: var(--text-primary);
   font-size: 0.8125rem;
+}
+
+.searchField input::placeholder {
+  color: var(--text-secondary);
+  opacity: 1;
 }
 
 .filterChips {

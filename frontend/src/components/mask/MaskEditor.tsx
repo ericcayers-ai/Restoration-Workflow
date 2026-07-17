@@ -143,6 +143,35 @@ export function MaskEditor({
     if (file) void initCanvases(file);
   }, [file, initCanvases]);
 
+  useEffect(() => {
+    if (!file) return;
+    function onKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) {
+        return;
+      }
+      const key = e.key.toLowerCase();
+      if (key === "b") {
+        setTool("brush");
+      } else if (key === "e") {
+        setTool("erase");
+      } else if (key === "i" && !e.metaKey && !e.ctrlKey) {
+        invertMask();
+      } else if (key === "escape") {
+        clearMask();
+      } else if (e.key === "[") {
+        setBrushSize((s) => Math.max(4, s - 4));
+      } else if (e.key === "]") {
+        setBrushSize((s) => Math.min(120, s + 4));
+      } else {
+        return;
+      }
+      e.preventDefault();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [file]);
+
   function canvasPoint(e: React.PointerEvent<HTMLCanvasElement>) {
     const canvas = overlayRef.current;
     if (!canvas) return null;
@@ -287,11 +316,12 @@ export function MaskEditor({
   return (
     <div className={styles.root}>
       <div className={styles.toolbar} role="toolbar" aria-label={t("mask.toolbar")}>
-        <div className={styles.toolGroup}>
+        <div className={styles.toolGroup} role="group" aria-label={t("mask.toolbar")}>
           <button
             type="button"
             className={tool === "brush" ? styles.toolActive : styles.tool}
             aria-pressed={tool === "brush"}
+            aria-keyshortcuts="B"
             onClick={() => setTool("brush")}
           >
             {t("mask.tool.brush")}
@@ -300,14 +330,25 @@ export function MaskEditor({
             type="button"
             className={tool === "erase" ? styles.toolActive : styles.tool}
             aria-pressed={tool === "erase"}
+            aria-keyshortcuts="E"
             onClick={() => setTool("erase")}
           >
             {t("mask.tool.erase")}
           </button>
-          <button type="button" className={styles.tool} onClick={invertMask}>
+          <button
+            type="button"
+            className={styles.tool}
+            aria-keyshortcuts="I"
+            onClick={invertMask}
+          >
             {t("mask.tool.invert")}
           </button>
-          <button type="button" className={styles.tool} onClick={clearMask}>
+          <button
+            type="button"
+            className={styles.tool}
+            aria-keyshortcuts="Escape"
+            onClick={clearMask}
+          >
             {t("mask.tool.clear")}
           </button>
         </div>
@@ -318,8 +359,12 @@ export function MaskEditor({
             min={4}
             max={120}
             value={brushSize}
+            aria-valuetext={t("mask.brushSizeValue", { value: String(brushSize) })}
             onChange={(e) => setBrushSize(Number(e.target.value))}
           />
+          <span className={styles.sliderValue} aria-hidden>
+            {brushSize}
+          </span>
         </label>
         <label className={styles.slider}>
           <span>{t("mask.feather")}</span>
@@ -328,14 +373,19 @@ export function MaskEditor({
             min={0}
             max={24}
             value={feather}
+            aria-valuetext={t("mask.featherValue", { value: String(feather) })}
             onChange={(e) => setFeather(Number(e.target.value))}
           />
+          <span className={styles.sliderValue} aria-hidden>
+            {feather}
+          </span>
         </label>
         <div className={styles.spacer} />
         <Button variant="ghost" size="small" onClick={() => setFile(null)}>
           {t("mask.newPhoto")}
         </Button>
       </div>
+      <p className={styles.shortcuts}>{t("mask.shortcuts")}</p>
 
       <div className={styles.workspace}>
         <div className={styles.stage}>
@@ -343,6 +393,8 @@ export function MaskEditor({
           <canvas
             ref={overlayRef}
             className={styles.overlay}
+            tabIndex={0}
+            role="img"
             aria-label={t("mask.canvasLabel")}
             onPointerDown={(e) => {
               const pt = canvasPoint(e);
