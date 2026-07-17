@@ -82,6 +82,26 @@ def _find_iscc() -> Path | None:
     return None
 
 
+def _prune_deep_license_trees(app_dir: Path) -> None:
+    """Remove ultra-deep vendored licence trees that trip Windows MAX_PATH in Inno.
+
+    Runtime does not need torch's nested third_party licence copies; the app
+    already ships LICENSE / NOTICE / THIRD_PARTY_NOTICES.md at the top level.
+    """
+    for licences in app_dir.glob("_internal/torch-*.dist-info/licenses/third_party"):
+        if licences.is_dir():
+            print(f"Pruning deep licence tree: {licences}")
+            shutil.rmtree(licences, ignore_errors=True)
+
+
+def _subst_assign(letter: str, path: Path) -> None:
+    subprocess.run(["subst", f"{letter}:", str(path.resolve())], check=True)
+
+
+def _subst_remove(letter: str) -> None:
+    subprocess.run(["subst", f"{letter}:", "/D"], check=False, capture_output=True)
+
+
 def build_windows_installer(app_dir: Path, dist_dir: Path) -> Path:
     """Compile an Inno Setup installer from the onedir at ``app_dir``."""
     exe = app_dir / "RestorationWorkflow.exe"
@@ -112,23 +132,37 @@ def build_windows_installer(app_dir: Path, dist_dir: Path) -> Path:
             encoding="utf-8",
         )
 
-    # Inno accepts forward slashes; avoids escape issues in #define strings.
-    source_dir = str(app_dir.resolve()).replace("\\", "/")
-    output_dir = str(dist_dir.resolve()).replace("\\", "/")
-    iss_text = ISS_TEMPLATE.format(
-        version=version,
-        source_dir=source_dir,
-        output_dir=output_dir,
-        output_base=output_base,
-    )
+    _prune_deep_license_trees(app_dir)
 
-    dist_dir.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="rw-inno-") as tmp:
-        iss_path = Path(tmp) / "installer.iss"
-        iss_path.write_text(iss_text, encoding="utf-8")
-        cmd = [str(iscc), str(iss_path)]
-        print("Running Inno Setup:\n  " + " ".join(cmd))
-        subprocess.run(cmd, check=True)
+    # Map short drive letters so Inno's compiler stays under MAX_PATH while
+    # walking the torch onedir (CI checkout paths are very deep).
+    src_letter, out_letter = "R", "S"
+    _subst_remove(src_letter)
+    _subst_remove(out_letter)
+    try:
+        _subst_assign(src_letter, app_dir)
+        dist_dir.mkdir(parents=True, exist_ok=True)
+        _subst_assign(out_letter, dist_dir)
+
+        source_dir = f"{src_letter}:/"
+        output_dir = f"{out_letter}:/"
+        iss_text = ISS_TEMPLATE.format(
+            version=version,
+            source_dir=source_dir,
+            output_dir=output_dir,
+            output_base=output_base,
+        )
+
+        with tempfile.TemporaryDirectory(prefix="rw-inno-") as tmp:
+            iss_path = Path(tmp) / "installer.iss"
+            iss_path.write_text(iss_text, encoding="utf-8")
+            cmd = [str(iscc), str(iss_path)]
+            print("Running Inno Setup:\n  " + " ".join(cmd))
+            print(f"  SourceDir={source_dir}  OutputDir={output_dir}")
+            subprocess.run(cmd, check=True)
+    finally:
+        _subst_remove(src_letter)
+        _subst_remove(out_letter)
 
     if not out_path.is_file():
         raise FileNotFoundError(f"Inno Setup did not produce {out_path}")
