@@ -16,6 +16,10 @@ import type {
 
   AutoPipeline,
 
+  AutoPlanResult,
+
+  AutoSuggestResult,
+
   DescribedNode,
 
   Download,
@@ -24,9 +28,13 @@ import type {
 
   Job,
 
+  PhotoDescription,
+
   PipelineJson,
 
   Preset,
+
+  VlmStatus,
 
   WeightsOverview,
 
@@ -220,7 +228,56 @@ export function analyzeImage(
   return postForm("/api/analyze", form);
 }
 
+export function autoPlan(
+  file: File | Blob,
+  options: {
+    goal?: string;
+    qualityTier?: "draft" | "balanced" | "high";
+    fallback?: "skill" | "rule_table";
+    forceHeuristic?: boolean;
+  } = {},
+): Promise<AutoPlanResult> {
+  const form = new FormData();
+  form.append("image", file);
+  if (options.goal) form.append("goal", options.goal);
+  form.append("quality_tier", options.qualityTier ?? "balanced");
+  form.append("fallback", options.fallback ?? "skill");
+  if (options.forceHeuristic) form.append("force_heuristic", "true");
+  return postForm("/api/auto/plan", form);
+}
 
+export function autoDescribe(
+  file: File | Blob,
+  options: { forceHeuristic?: boolean } = {},
+): Promise<{ description: PhotoDescription; vlm: VlmStatus }> {
+  const form = new FormData();
+  form.append("image", file);
+  if (options.forceHeuristic) form.append("force_heuristic", "true");
+  return postForm("/api/auto/describe", form);
+}
+
+export function autoSuggest(
+  file: File | Blob,
+  options: { goal?: string; forceHeuristic?: boolean } = {},
+): Promise<AutoSuggestResult> {
+  const form = new FormData();
+  form.append("image", file);
+  if (options.goal) form.append("goal", options.goal);
+  if (options.forceHeuristic) form.append("force_heuristic", "true");
+  return postForm("/api/auto/suggest", form);
+}
+
+export function getVlmStatus(): Promise<VlmStatus> {
+  return getJson("/api/vlm");
+}
+
+export function downloadVlm(): Promise<Download> {
+  return postJson("/api/vlm/download", {});
+}
+
+export function removeVlm(): Promise<{ removed: boolean; vlm: VlmStatus }> {
+  return deleteJson("/api/vlm");
+}
 
 export interface SubmitJobOptions {
 
