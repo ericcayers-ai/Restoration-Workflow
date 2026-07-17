@@ -64,6 +64,8 @@ class AppServices:
         self.registry.discover_plugins(self.plugins_dir)
 
         self.weights = WeightManager(self.data_dir / "weights")
+        self.masks_dir = self.data_dir / "masks"
+        self.masks_dir.mkdir(parents=True, exist_ok=True)
         self.hardware = HardwareDetector(force_cpu=force_cpu)
         self.analyzer = DegradationAnalyzer()
         self.presets = PresetStore(self.data_dir / "presets")
@@ -81,6 +83,7 @@ class AppServices:
             self.weights,
             device=info.device_string,
             gpu_slots=self._gpu_slots(info, gpu_slots),
+            data_dir=str(self.data_dir),
         )
 
     @staticmethod

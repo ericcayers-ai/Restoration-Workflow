@@ -26,7 +26,7 @@ from .face_nodes import GfpganNode, RestoreFormerNode
 from .fbcnn import FbcnnNode
 from .instructir import InstructIrNode
 from .lama import LamaNode
-from .masks import BlendNode, MaskFromImageNode
+from .masks import BlendNode, LoadMaskNode, MaskFromImageNode
 from .old_photos import OldPhotosScratchNode
 from .phase4 import (
     FluxFillNode,
@@ -60,6 +60,7 @@ BUILTIN_NODES: list[type[BaseRestorationNode]] = [
     Rmbg2Node,
     PowerPaintNode,
     LamaNode,
+    LoadMaskNode,
     BlendNode,
     SupirNode,
     FluxFillNode,
@@ -96,6 +97,7 @@ __all__ = [
     "InstantIrNode",
     "InstructIrNode",
     "LamaNode",
+    "LoadMaskNode",
     "MambaIrNode",
     "MaskFromImageNode",
     "OldPhotosScratchNode",

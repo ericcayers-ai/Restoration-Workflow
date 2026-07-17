@@ -1,5 +1,5 @@
 /*
- * The app shell: mode switch (Simple | Studio), the two screens (both stay
+ * The app shell: mode switch (Simple | Studio | Mask), the screens (stay
  * mounted — hidden, not unmounted, when inactive — so switching modes never
  * discards a half-built Studio pipeline), theme/scale controls, and the
  * command palette. "Both modes share one engine — Simple Mode is not a
@@ -8,6 +8,7 @@
  */
 
 import { useMemo, useRef, useState } from "react";
+import { MaskEditor, type MaskExportPayload } from "./components/mask/MaskEditor";
 import { SimpleMode } from "./components/simple/SimpleMode";
 import { StudioMode, type StudioHandoff } from "./components/studio/StudioMode";
 import { CommandPalette } from "./components/common/CommandPalette";
@@ -19,7 +20,7 @@ import { useT } from "./lib/i18n";
 import type { PipelineJson } from "./lib/types";
 import styles from "./App.module.css";
 
-type Mode = "simple" | "studio";
+type Mode = "simple" | "studio" | "mask";
 
 const OPEN_COMMANDS_EVENT = "rw:open-commands";
 
@@ -32,6 +33,11 @@ export function App() {
   const t = useT();
   const [mode, setMode] = useState<Mode>("simple");
   const [handoff, setHandoff] = useState<StudioHandoff | null>(null);
+  const [simpleHandoff, setSimpleHandoff] = useState<{
+    pipeline: PipelineJson;
+    file: File;
+    token: number;
+  } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const handoffCounter = useRef(0);
   const shortcut = `${modKeyLabel()}+K`;
@@ -40,6 +46,25 @@ export function App() {
     handoffCounter.current += 1;
     setHandoff({ pipeline, file, token: handoffCounter.current });
     setMode("studio");
+  }
+
+  function onMaskExport(payload: MaskExportPayload) {
+    handoffCounter.current += 1;
+    if (payload.target === "studio") {
+      setHandoff({
+        pipeline: payload.pipeline,
+        file: payload.file,
+        token: handoffCounter.current,
+      });
+      setMode("studio");
+      return;
+    }
+    setSimpleHandoff({
+      pipeline: payload.pipeline,
+      file: payload.file,
+      token: handoffCounter.current,
+    });
+    setMode("simple");
   }
 
   const commands = useMemo(
@@ -57,6 +82,13 @@ export function App() {
         category: "General",
         icon: "flow" as const,
         run: () => setMode("studio"),
+      },
+      {
+        id: "app.switch-mask",
+        label: t("app.switchToMask"),
+        category: "General",
+        icon: "splice" as const,
+        run: () => setMode("mask"),
       },
       {
         id: "app.open-settings",
@@ -96,6 +128,15 @@ export function App() {
           >
             {t("app.modeStudio")}
           </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "mask"}
+            className={mode === "mask" ? styles.modeActive : styles.modeTab}
+            onClick={() => setMode("mask")}
+          >
+            {t("app.modeMask")}
+          </button>
         </div>
         <div className={styles.spacer} />
         <div className={styles.utilities}>
@@ -127,16 +168,14 @@ export function App() {
       </header>
 
       <main className={styles.main}>
-        {/* Both stay mounted (state-preserving mode switch); `display: none`
-            is set inline so it always wins over `.modePane`'s own
-            `display: flex` — the `hidden` attribute alone does NOT do this,
-            since an author rule setting `display` on the same element beats
-            the `[hidden]` user-agent style at equal specificity. */}
         <div className={styles.modePane} style={{ display: mode === "simple" ? "flex" : "none" }}>
-          <SimpleMode onOpenInStudio={openInStudio} />
+          <SimpleMode onOpenInStudio={openInStudio} maskHandoff={simpleHandoff} />
         </div>
         <div className={styles.modePane} style={{ display: mode === "studio" ? "flex" : "none" }}>
           <StudioMode handoff={handoff} />
+        </div>
+        <div className={styles.modePane} style={{ display: mode === "mask" ? "flex" : "none" }}>
+          <MaskEditor onExport={onMaskExport} />
         </div>
       </main>
 

@@ -100,4 +100,43 @@
   transform: translateX(-50%);
   color: var(--accent-amber);
 }
+
+.portMenu {
+  position: absolute;
+  z-index: var(--z-dropdown);
+  min-width: 10rem;
+  padding: var(--space-2);
+  background: var(--surface-800);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-shadow: none;
+}
+
+.portMenuTitle {
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+  padding: var(--space-1) var(--space-2);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.portMenuItem {
+  text-align: left;
+  padding: var(--space-2);
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.portMenuItem:hover,
+.portMenuItem:focus-visible {
+  background: var(--surface-700);
+  outline: none;
+}
 

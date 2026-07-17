@@ -215,6 +215,18 @@ export function Inspector({
   }
 
   function paramOverrides(name: string): { title?: string; description?: string } {
+    if (described?.id === "blend" && name === "alpha") {
+      return {
+        title: t("studio.inspector.blendMix"),
+        description: t("studio.inspector.blendMixHint"),
+      };
+    }
+    if (described?.id === "blend" && name === "mode") {
+      return {
+        title: t("studio.inspector.blendMode"),
+        description: t("studio.inspector.blendModeHint"),
+      };
+    }
     if (name === "mask_highlights") {
       return {
         title: t("studio.inspector.highlightMask"),
@@ -244,6 +256,9 @@ export function Inspector({
         <p className={styles.masterHint}>{t("studio.inspector.masterRestorerHint")}</p>
       )}
       {isDdcolor && <p className={styles.masterHint}>{t("studio.inspector.ddcolorHint")}</p>}
+      {described.id === "blend" && (
+        <p className={styles.masterHint}>{t("studio.inspector.blendHint")}</p>
+      )}
 
       <section className={styles.licenseSection}>
         <span>{t("studio.inspector.license")}</span>

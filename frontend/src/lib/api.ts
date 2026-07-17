@@ -220,7 +220,51 @@ export function analyzeImage(
   return postForm("/api/analyze", form);
 }
 
+// -- masks (Mask Editor) -------------------------------------------------------
 
+export function uploadMask(mask: Blob): Promise<{ id: string; url: string }> {
+  const form = new FormData();
+  form.append("mask", mask, "mask.png");
+  return postForm("/api/masks", form);
+}
+
+export function maskUrl(maskId: string): string {
+  return `/api/masks/${encodeURIComponent(maskId)}`;
+}
+
+export async function detectScratchMask(image: File | Blob): Promise<Blob> {
+  const form = new FormData();
+  form.append("image", image);
+  const response = await fetch("/api/masks/scratch", { method: "POST", body: form });
+  if (!response.ok) {
+    await unwrap(response);
+  }
+  return response.blob();
+}
+
+export function segmentMask(image: File | Blob): Promise<{ id: string; url: string }> {
+  const form = new FormData();
+  form.append("image", image);
+  return postForm("/api/masks/segment", form);
+}
+
+export async function inpaintWithMask(
+  image: File | Blob,
+  mask: Blob,
+  engine: "lama" | "powerpaint" | "flux_fill" = "lama",
+  prompt = "clean photograph",
+): Promise<Blob> {
+  const form = new FormData();
+  form.append("image", image);
+  form.append("mask", mask, "mask.png");
+  form.append("engine", engine);
+  form.append("prompt", prompt);
+  const response = await fetch("/api/masks/inpaint", { method: "POST", body: form });
+  if (!response.ok) {
+    await unwrap(response);
+  }
+  return response.blob();
+}
 
 export interface SubmitJobOptions {
 
