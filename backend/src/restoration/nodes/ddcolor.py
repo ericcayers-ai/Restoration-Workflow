@@ -48,6 +48,7 @@ class DdColorNode(SpandrelNode):
         source_url="https://github.com/piddnad/DDColor/blob/master/LICENSE",
     )
     vram_tier = VramTier.MID
+    tags = ["colorize"]
     supports_tiling = False
 
     param_schema: dict[str, Any] = {

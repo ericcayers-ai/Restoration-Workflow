@@ -30,6 +30,7 @@ class NodeCategory(str, enum.Enum):
     MASKING = "masking"
     ORCHESTRATION = "orchestration"
     INSTRUCT = "instruct"  # instruction-guided Master Restorer lane
+    LEGACY = "legacy"  # Settings-only; hidden from Studio rail / Auto
 
 
 class VramTier(str, enum.Enum):
@@ -279,6 +280,9 @@ class BaseRestorationNode:
     # and it is the one line a new wrapper sets to slot itself in correctly.
     # See core/ordering.py.
     pipeline_stage: int | None = None
+    # Secondary rail grouping (e.g. "prompt_edit", "generative_upscale", "jpeg").
+    # Keep the category enum lean; tags are free-form strings surfaced via describe().
+    tags: list[str] = []
 
     def supports(self, image: ImageMeta) -> bool:  # noqa: ARG002
         return True
@@ -329,6 +333,7 @@ class BaseRestorationNode:
             "supports_tiling": self.supports_tiling,
             "uses_gpu": self.uses_gpu,
             "pipeline_stage": stage_rank(self),
+            "tags": list(self.tags),
         }
 
 

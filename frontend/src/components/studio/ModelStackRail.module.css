@@ -58,6 +58,16 @@
   flex-shrink: 0;
 }
 
+.subhead {
+  margin: var(--space-1) 0 2px;
+  padding-left: var(--space-2);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+  opacity: 0.85;
+}
+
 .itemList {
   list-style: none;
   margin: 0;

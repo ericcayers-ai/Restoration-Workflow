@@ -234,6 +234,7 @@ class PowerPaintNode(DiffusionNode):
         source_url="https://github.com/open-mmlab/PowerPaint",
     )
     vram_tier = VramTier.MID
+    tags = ["inpaint"]
     _mode = "inpaint"
     _hf_repo = "JunhaoZhuang/PowerPaint-v2-1"
 
@@ -244,36 +245,6 @@ class PowerPaintNode(DiffusionNode):
             sha256="530f2886ef5bcdf199269ec344155a517639ba64219b85eeb23fd86aab93147f",
             hf_repo_id="JunhaoZhuang/PowerPaint-v2-1",
             hf_filename="PowerPaint_Brushnet/diffusion_pytorch_model.safetensors",
-        ),
-    ]
-
-
-class DiffBirNode(DiffusionNode):
-    id = "diffbir"
-    category = NodeCategory.GENERATIVE
-    pipeline_stage = STAGE_UPSCALE
-    display_name = "DiffBIR"
-    description = (
-        "Blind image restoration via diffusion; equal-tier generative peer "
-        "(Apache-2.0). Requires Hugging Face access to ai-forever/DiffBIR-v2."
-    )
-    license = LicenseInfo(
-        spdx_id="Apache-2.0",
-        kind=LicenseKind.PERMISSIVE,
-        source_url="https://github.com/XPixelGroup/DiffBIR",
-    )
-    vram_tier = VramTier.HIGH
-    _mode = "restore"
-    _local_weight = "DiffBIR_v2.pt"
-    _hf_repo = "ai-forever/DiffBIR-v2"
-
-    weight_manifest = [
-        WeightFile(
-            filename="DiffBIR_v2.pt",
-            size_bytes=3_500_000_000,
-            sha256=None,
-            hf_repo_id="ai-forever/DiffBIR-v2",
-            hf_filename="DiffBIR_v2.pt",
         ),
     ]
 
@@ -294,6 +265,7 @@ class SupirNode(DiffusionNode):
         source_url="https://github.com/Fanghua-Yu/SUPIR",
     )
     vram_tier = VramTier.VERY_HIGH
+    tags = ["generative_upscale"]
     _mode = "restore"
     # Official weights are Drive/Baidu-hosted; camenduru mirrors the published
     # SUPIR-v0Q.ckpt on the Hub. Fanghua-Yu/SUPIR is not a public file repo.
@@ -313,7 +285,7 @@ class SupirNode(DiffusionNode):
 
 class FluxFillNode(DiffusionNode):
     id = "flux_fill"
-    category = NodeCategory.GENERATIVE
+    category = NodeCategory.MASKING
     pipeline_stage = STAGE_INPAINT
     display_name = "FLUX Fill"
     description = "FLUX.1-Fill text-guided inpaint/outpaint (non-commercial)."
@@ -323,6 +295,7 @@ class FluxFillNode(DiffusionNode):
         source_url="https://huggingface.co/black-forest-labs/FLUX.1-Fill-dev",
     )
     vram_tier = VramTier.VERY_HIGH
+    tags = ["inpaint"]
     _mode = "fill"
     _hf_repo = "black-forest-labs/FLUX.1-Fill-dev"
 

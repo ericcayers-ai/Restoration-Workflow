@@ -68,6 +68,7 @@ class LamaNode(SpandrelNode):
     # fourier convolutions work on large holes. Better to fail with the
     # executor's lower-tier suggestion than to return a seam-ridden fill.
     supports_tiling = False
+    tags = ["inpaint"]
 
     param_schema: dict[str, Any] = {
         "type": "object",

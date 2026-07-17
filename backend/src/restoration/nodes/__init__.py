@@ -9,6 +9,10 @@ to retrofit anything.
 Importing this module must stay cheap and torch-free: the API, CLI and analyzer
 all start without the ``[inference]`` extra installed, and a node only reports
 itself unrunnable when someone actually tries to run it.
+
+DiffBIR and HAT were removed permanently (not Legacy). Former defaults such as
+SCUNet, SwinIR, GFPGAN, and BiRefNet remain registered under
+``NodeCategory.LEGACY`` for Settings → Legacy only.
 """
 
 from __future__ import annotations
@@ -20,13 +24,11 @@ from .ddcolor import DdColorNode
 from .exposure import ExposureCorrectNode
 from .face_nodes import GfpganNode, RestoreFormerNode
 from .fbcnn import FbcnnNode
-from .hat import HatNode
 from .instructir import InstructIrNode
 from .lama import LamaNode
 from .masks import BlendNode, MaskFromImageNode
 from .old_photos import OldPhotosScratchNode
 from .phase4 import (
-    DiffBirNode,
     FluxFillNode,
     GpenNode,
     OsdFaceNode,
@@ -34,6 +36,7 @@ from .phase4 import (
     SupirNode,
 )
 from .realesrgan import RealEsrganNode
+from .rmbg2 import Rmbg2Node
 from .scunet import ScunetNode
 from .stretch import (
     DarkIrNode,
@@ -48,34 +51,34 @@ from .swinir import SwinIrDenoiseNode, SwinIrJpegNode, SwinIrSrNode
 BUILTIN_NODES: list[type[BaseRestorationNode]] = [
     ExposureCorrectNode,
     RealEsrganNode,
-    HatNode,
-    SwinIrSrNode,
     FbcnnNode,
-    SwinIrJpegNode,
-    ScunetNode,
-    SwinIrDenoiseNode,
     DdColorNode,
-    DiffBirNode,
     MambaIrNode,
     DarkIrNode,
     InstructIrNode,
-    GfpganNode,
-    RestoreFormerNode,
-    CodeFormerNode,
-    GpenNode,
     OsdFaceNode,
-    BiRefNetNode,
+    Rmbg2Node,
     PowerPaintNode,
     LamaNode,
-    MaskFromImageNode,
     BlendNode,
-    OldPhotosScratchNode,
     SupirNode,
     FluxFillNode,
     InstantIrNode,
     DreamClearNode,
     UniRestoreNode,
     RealRestorerNode,
+    # --- Legacy (Settings only; hidden from Studio rail / Auto) ---
+    ScunetNode,
+    SwinIrSrNode,
+    SwinIrJpegNode,
+    SwinIrDenoiseNode,
+    OldPhotosScratchNode,
+    GfpganNode,
+    RestoreFormerNode,
+    CodeFormerNode,
+    GpenNode,
+    BiRefNetNode,
+    MaskFromImageNode,
 ]
 
 __all__ = [
@@ -85,13 +88,11 @@ __all__ = [
     "CodeFormerNode",
     "DarkIrNode",
     "DdColorNode",
-    "DiffBirNode",
     "DreamClearNode",
     "ExposureCorrectNode",
     "FbcnnNode",
     "FluxFillNode",
     "GpenNode",
-    "HatNode",
     "InstantIrNode",
     "InstructIrNode",
     "LamaNode",
@@ -103,6 +104,7 @@ __all__ = [
     "RealEsrganNode",
     "RealRestorerNode",
     "RestoreFormerNode",
+    "Rmbg2Node",
     "ScunetNode",
     "SupirNode",
     "SwinIrDenoiseNode",

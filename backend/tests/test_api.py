@@ -110,9 +110,12 @@ def test_analyze_returns_profile_routing_and_pipeline(client):
     assert body["pipeline"]["nodes"]
     # The real models aren't downloaded in tests, so the auto-pipeline reports
     # exactly what a first-run user would see. A 32px upload is well under the
-    # 800px band, so the default routes to SwinIR's quality upscaler.
-    assert "swinir" in body["routing"]["chain"]
-    assert "swinir" in body["missing_weights"]
+    # 800px band, so the default routes to RealESRGAN.
+    assert "realesrgan" in body["routing"]["chain"]
+    assert "realesrgan" in body["missing_weights"]
+    assert "swinir" not in body["routing"]["chain"]
+    assert "diffbir" not in body["routing"]["chain"]
+    assert "hat" not in body["routing"]["chain"]
 
 
 def test_analyze_rejects_an_empty_upload(client):
@@ -120,12 +123,12 @@ def test_analyze_rejects_an_empty_upload(client):
     assert response.status_code == 400
 
 
-def test_analyze_draft_quality_trades_swinir_for_the_faster_realesrgan(client):
-    """The 32px test upload routes to swinir at the default (balanced) tier —
-    draft should trade it for the faster realesrgan instead."""
+def test_analyze_draft_quality_keeps_realesrgan(client):
+    """Draft no longer swaps away SwinIR (Legacy); small images already use RealESRGAN."""
     body = client.post("/api/analyze", **upload(data={"quality_tier": "draft"})).json()
-    assert "swinir" not in body["routing"]["chain"]
     assert "realesrgan" in body["routing"]["chain"]
+    assert "mambair" not in body["routing"]["chain"]
+    assert "swinir" not in body["routing"]["chain"]
 
 
 def test_analyze_rejects_an_unknown_quality_tier(client):
@@ -136,7 +139,7 @@ def test_analyze_rejects_an_unknown_quality_tier(client):
 def test_job_submission_honours_quality_tier_for_the_auto_pipeline(client):
     """The real nodes' weights aren't installed in tests, so this 409s before a
     job is created — that's fine, the point is confirming the quality-tier
-    swap already happened before the missing-weights check runs against it."""
+    path already resolved against the active stack."""
     response = client.post("/api/jobs", **upload(data={"quality_tier": "draft"}))
     assert response.status_code == 409
     assert "swinir" not in response.json()["detail"]

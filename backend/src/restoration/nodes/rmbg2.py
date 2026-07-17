@@ -1,9 +1,8 @@
-"""BiRefNet — high-resolution matting (MODEL_STACK.md Phase 2).
+"""RMBG-2.0 — Bria background removal / matting (gated non-commercial).
 
-MIT-licensed dichotomous segmentation / matting model. Outputs an RGBA image with
-a refined alpha matte suitable for compositing and background removal. Weights are
-loaded from the author's Hugging Face repo via ``transformers`` (trust_remote_code)
-because BiRefNet is not in spandrel's MAIN_REGISTRY.
+Replaces BiRefNet as the active matting node. Weights are gated on Hugging Face
+(``briaai/RMBG-2.0``, CC BY-NC 4.0) and require the same licence acknowledgement
+path as other non-commercial models — never on the unacked Auto path.
 """
 
 from __future__ import annotations
@@ -27,26 +26,27 @@ from ..core.types import (
 )
 from ._torch import require_torch, to_numpy, to_tensor
 
-_BIREFNET_LICENSE = LicenseInfo(
-    spdx_id="MIT",
-    kind=LicenseKind.PERMISSIVE,
-    source_url="https://huggingface.co/ZhengPeng7/BiRefNet-matting",
+_RMBG2_LICENSE = LicenseInfo(
+    spdx_id="CC-BY-NC-4.0",
+    kind=LicenseKind.NON_COMMERCIAL,
+    source_url="https://huggingface.co/briaai/RMBG-2.0",
 )
 
 
-class BiRefNetNode(BaseRestorationNode):
-    id = "birefnet"
-    category = NodeCategory.LEGACY
+class Rmbg2Node(BaseRestorationNode):
+    id = "rmbg2"
+    category = NodeCategory.MASKING
     pipeline_stage = STAGE_MASK
-    display_name = "BiRefNet"
+    display_name = "RMBG 2.0"
     description = (
-        "High-resolution matting for hair, fur, and fine edges — outputs RGBA "
-        "with a refined alpha channel."
+        "Bria RMBG-2.0 high-quality background removal — outputs RGBA with a "
+        "refined alpha matte. Non-commercial (CC BY-NC); gated on Hugging Face."
     )
-    license = _BIREFNET_LICENSE
+    license = _RMBG2_LICENSE
     vram_tier = VramTier.MID
     uses_gpu = True
     supports_tiling = False
+    tags = ["matting"]
 
     param_schema: dict[str, Any] = {
         "type": "object",
@@ -61,12 +61,14 @@ class BiRefNetNode(BaseRestorationNode):
         "additionalProperties": False,
     }
 
+    # Primary weight file; transformers also needs config + remote code from the
+    # same repo (snapshot_download fills those when missing).
     weight_manifest = [
         WeightFile(
             filename="model.safetensors",
-            size_bytes=444_000_000,
-            sha256="9ab37426bf4de0567af6b5d21b16151357149139362e6e8992021b8ce356a154",
-            hf_repo_id="ZhengPeng7/BiRefNet-matting",
+            size_bytes=176_581_976,
+            sha256=None,
+            hf_repo_id="briaai/RMBG-2.0",
             hf_filename="model.safetensors",
         ),
     ]
@@ -97,12 +99,12 @@ class BiRefNetNode(BaseRestorationNode):
         except ImportError as exc:
             raise NodeExecutionError(
                 self.id,
-                "BiRefNet requires transformers + huggingface_hub (pip install "
+                "RMBG-2.0 requires transformers + huggingface_hub (pip install "
                 "restoration-workflow[inference])",
             ) from exc
         if not (node_dir / "config.json").exists():
             snapshot_download(
-                "ZhengPeng7/BiRefNet-matting",
+                "briaai/RMBG-2.0",
                 local_dir=str(node_dir),
                 local_dir_use_symlinks=False,
             )
@@ -115,7 +117,7 @@ class BiRefNetNode(BaseRestorationNode):
         except Exception as exc:
             raise NodeExecutionError(
                 self.id,
-                f"could not load BiRefNet weights: {exc}",
+                f"could not load RMBG-2.0 weights: {exc}",
             ) from exc
         device = ctx.device if ctx.device != "cpu" else "cpu"
         model.to(device).eval()

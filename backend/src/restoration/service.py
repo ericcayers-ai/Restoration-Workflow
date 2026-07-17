@@ -126,9 +126,9 @@ class AppServices:
             quality_tier,
             self.hardware.detect(),
             self.registry,
-            quality_upscale_ready=self.weights.is_installed(self.registry.create("swinir")),
+            quality_upscale_ready=self.weights.is_installed(self.registry.create("mambair")),
             quality_face_ready=self.weights.is_installed(
-                self.registry.create("restoreformer")
+                self.registry.create("osdface")
             ),
         )
         chain, params, extra_reasons = self._apply_companion_overlays(profile, chain, params)
@@ -157,7 +157,7 @@ class AppServices:
         chain: list[str],
         params: dict[str, dict[str, Any]],
     ) -> tuple[list[str], dict[str, dict[str, Any]], list[dict[str, str]]]:
-        """Prefer DarkIR / InstructIR / DiffBIR companions when ready.
+        """Prefer DarkIR / InstructIR / SUPIR / OSDFace companions when ready.
 
         Never puts gated models into ``rule_table.json``; overlays only when the
         user already installed (+acked) the companion weights.
@@ -217,13 +217,13 @@ class AppServices:
                 "reason": "low-light — InstructIR companion overlay",
             })
 
-        # Severe blown highlights: InstructIR → DiffBIR → SUPIR (if ready).
+        # Severe blown highlights: InstructIR → SUPIR (if ready).
         severe_clip = profile.blown_highlights and (
             profile.clip_fraction >= 0.04 or profile.over_exposure >= 0.55
         )
         if severe_clip:
             companion = None
-            for cand in ("instructir", "diffbir", "supir"):
+            for cand in ("instructir", "supir"):
                 if self._node_ready(cand):
                     companion = cand
                     break
@@ -252,6 +252,19 @@ class AppServices:
                         f"{companion} companion overlay"
                     ),
                 })
+
+        # Faces: OSDFace only (gated), when weights are installed + acknowledged.
+        if (
+            profile.face_count is not None
+            and profile.face_count >= 1
+            and self._node_ready("osdface")
+            and "osdface" not in chain
+        ):
+            chain.append("osdface")
+            reasons.append({
+                "node": "osdface",
+                "reason": "faces detected — OSDFace companion overlay (licence acknowledged)",
+            })
 
         return chain, params, reasons
 

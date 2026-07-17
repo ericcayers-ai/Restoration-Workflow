@@ -59,6 +59,33 @@
   color: var(--text-primary);
   padding: var(--space-2) 0 var(--space-2);
   border-bottom: 2px solid var(--accent-amber);
+  background: none;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  cursor: pointer;
+}
+
+.tab {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  padding: var(--space-2) 0 var(--space-2);
+  border-bottom: 2px solid transparent;
+  background: none;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  cursor: pointer;
+}
+
+.tab:hover {
+  color: var(--text-primary);
+}
+
+.weightless {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin: 0;
 }
 
 .body {
