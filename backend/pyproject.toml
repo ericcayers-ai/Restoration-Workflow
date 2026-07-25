@@ -46,7 +46,7 @@ inference = [
     # analyzer._detect_faces() calls. An unbounded >=4.9 silently breaks face
     # detection on any fresh install once 5.x is the newest matching release.
     # Revisit once the analyzer is migrated to whatever 5.x's replacement is.
-    "opencv-python-headless>=4.9,<5",
+    "opencv-python-headless>=4.9,<6",
     # LaMa's only checkpoint that torch.load(weights_only=True) will accept.
     "safetensors>=0.4",
 ]
