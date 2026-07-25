@@ -4,18 +4,20 @@
  * badge... so a node the user's hardware can't run is visibly greyed rather
  * than silently failing later." (UI_DESIGN.md section 8)
  *
- * Every entry in the full stack is here, whether its weights are on disk yet
+ * Every entry in the active stack is here, whether its weights are on disk yet
  * or not — this rail is also the "browse everything" list the Advanced
  * pipeline builder is built around: click (or press Enter) to append a stage.
+ * Legacy nodes are Settings-only and never appear here.
  */
 
 import { useMemo, useState } from "react";
-import { useT } from "../../lib/i18n";
+import { useT, type MessageKey } from "../../lib/i18n";
 import { licenseAbbrev } from "../../lib/format";
 import type { DescribedNode, NodeCategory } from "../../lib/types";
 import { Icon } from "../common/Icon";
 import styles from "./ModelStackRail.module.css";
 
+/** Studio rail order — Legacy is intentionally omitted. */
 const CATEGORY_ORDER: NodeCategory[] = [
   "instruct",
   "generative",
@@ -24,6 +26,37 @@ const CATEGORY_ORDER: NodeCategory[] = [
   "masking",
   "orchestration",
 ];
+
+const GENERATIVE_GROUPS: { tag: string; labelKey: MessageKey }[] = [
+  { tag: "prompt_edit", labelKey: "studio.rail.group.promptEdit" },
+  { tag: "generative_upscale", labelKey: "studio.rail.group.generativeUpscale" },
+];
+
+const REGRESSION_GROUPS: { tag: string; labelKey: MessageKey }[] = [
+  { tag: "jpeg", labelKey: "studio.rail.group.jpeg" },
+  { tag: "low_light", labelKey: "studio.rail.group.lowLight" },
+  { tag: "exposure", labelKey: "studio.rail.group.exposure" },
+  { tag: "sr", labelKey: "studio.rail.group.sr" },
+  { tag: "colorize", labelKey: "studio.rail.group.colorize" },
+  { tag: "all_in_one", labelKey: "studio.rail.group.allInOne" },
+];
+
+function partitionByTags(
+  nodes: DescribedNode[],
+  groups: { tag: string; labelKey: MessageKey }[],
+): { labelKey: MessageKey | null; nodes: DescribedNode[] }[] {
+  const used = new Set<string>();
+  const sections: { labelKey: MessageKey | null; nodes: DescribedNode[] }[] = [];
+  for (const g of groups) {
+    const matched = nodes.filter((n) => (n.tags ?? []).includes(g.tag));
+    if (!matched.length) continue;
+    matched.forEach((n) => used.add(n.id));
+    sections.push({ labelKey: g.labelKey, nodes: matched });
+  }
+  const rest = nodes.filter((n) => !used.has(n.id));
+  if (rest.length) sections.push({ labelKey: null, nodes: rest });
+  return sections;
+}
 
 export function ModelStackRail({
   nodes,
@@ -37,11 +70,12 @@ export function ModelStackRail({
 
   const grouped = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    const filtered = needle
+    const filtered = (needle
       ? nodes.filter(
           (n) => n.display_name.toLowerCase().includes(needle) || n.id.includes(needle),
         )
-      : nodes;
+      : nodes
+    ).filter((n) => n.category !== "legacy");
     const map: Partial<Record<NodeCategory, DescribedNode[]>> = {};
     for (const n of filtered) (map[n.category] ??= []).push(n);
     return map;
@@ -63,64 +97,90 @@ export function ModelStackRail({
       </div>
       <div className={styles.groups}>
         {!hasAny && <p className={styles.empty}>{t("studio.rail.empty")}</p>}
-        {CATEGORY_ORDER.filter((cat) => grouped[cat]?.length).map((cat) => (
-          <section key={cat}>
-            <h3
-              className={styles.categoryTitle}
-              style={{ ["--category-swatch" as string]: `var(--category-${cat})` }}
-            >
-              {t(`studio.rail.category.${cat}`)}
-            </h3>
-            <ul className={styles.itemList}>
-              {grouped[cat]!.map((node) => (
-                <li key={node.id}>
-                  <button
-                    type="button"
-                    className={styles.item}
-                    onClick={() => onAddNode(node.id)}
-                    disabled={node.availability.state === "unavailable"}
-                    aria-label={`${node.display_name}${
-                      !node.weights.installed ? `, ${t("studio.rail.notInstalled")}` : ""
-                    }${
-                      node.id === "instructir" ? `, ${t("studio.inspector.masterRestorer")}` : ""
-                    }`}
-                    title={
-                      node.availability.reason
-                        ? t("studio.rail.unavailable", { reason: node.availability.reason })
-                        : undefined
-                    }
-                  >
-                    <span className={styles.itemName}>{node.display_name}</span>
-                    <span className={styles.badges}>
-                      {node.license.requires_acknowledgement && (
-                        <span
-                          className={styles.licenseBadge}
+        {CATEGORY_ORDER.filter((cat) => grouped[cat]?.length).map((cat) => {
+          const list = grouped[cat]!;
+          const subgroups =
+            cat === "generative"
+              ? partitionByTags(list, GENERATIVE_GROUPS)
+              : cat === "regression"
+                ? partitionByTags(list, REGRESSION_GROUPS)
+                : [{ labelKey: null as MessageKey | null, nodes: list }];
+          return (
+            <section key={cat}>
+              <h3
+                className={styles.categoryTitle}
+                style={{ ["--category-swatch" as string]: `var(--category-${cat})` }}
+              >
+                {t(`studio.rail.category.${cat}`)}
+              </h3>
+              {subgroups.map((section, idx) => (
+                <div key={section.labelKey ?? `all-${idx}`}>
+                  {section.labelKey && (
+                    <h4 className={styles.subhead}>{t(section.labelKey)}</h4>
+                  )}
+                  <ul className={styles.itemList}>
+                    {section.nodes.map((node) => (
+                      <li key={node.id}>
+                        <button
+                          type="button"
+                          className={styles.item}
+                          onClick={() => onAddNode(node.id)}
+                          disabled={node.availability.state === "unavailable"}
+                          aria-label={`${node.display_name}${
+                            !node.weights.installed ? `, ${t("studio.rail.notInstalled")}` : ""
+                          }${
+                            node.id === "instructir"
+                              ? `, ${t("studio.inspector.masterRestorer")}`
+                              : ""
+                          }`}
                           title={
-                            node.license.spdx_id +
-                            " — " +
-                            (licenseAbbrev(node.license.kind)
-                              ? t("studio.inspector.licenseBadge.hint")
-                              : "")
+                            node.availability.reason
+                              ? t("studio.rail.unavailable", {
+                                  reason: node.availability.reason,
+                                })
+                              : undefined
                           }
                         >
-                          {licenseAbbrev(node.license.kind)}
-                        </span>
-                      )}
-                      {node.id === "instructir" && (
-                        <span className={styles.masterBadge} title={t("studio.inspector.masterRestorer")}>
-                          MR
-                        </span>
-                      )}
-                      <span className={styles.vramBadge} data-state={node.availability.state}>
-                        {t(`studio.rail.vram.${node.vram_tier}`)}
-                      </span>
-                    </span>
-                  </button>
-                </li>
+                          <span className={styles.itemName}>{node.display_name}</span>
+                          <span className={styles.badges}>
+                            {node.license.requires_acknowledgement && (
+                              <span
+                                className={styles.licenseBadge}
+                                title={
+                                  node.license.spdx_id +
+                                  " — " +
+                                  (licenseAbbrev(node.license.kind)
+                                    ? t("studio.inspector.licenseBadge.hint")
+                                    : "")
+                                }
+                              >
+                                {licenseAbbrev(node.license.kind)}
+                              </span>
+                            )}
+                            {node.id === "instructir" && (
+                              <span
+                                className={styles.masterBadge}
+                                title={t("studio.inspector.masterRestorer")}
+                              >
+                                MR
+                              </span>
+                            )}
+                            <span
+                              className={styles.vramBadge}
+                              data-state={node.availability.state}
+                            >
+                              {t(`studio.rail.vram.${node.vram_tier}`)}
+                            </span>
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               ))}
-            </ul>
-          </section>
-        ))}
+            </section>
+          );
+        })}
       </div>
     </aside>
   );

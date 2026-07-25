@@ -105,19 +105,22 @@ export function dagToPipeline(
 export function dualFaceBlendTemplate(
   describedByType: Record<string, DescribedNode>,
 ): { nodes: DagNode[]; edges: DagEdge[] } | null {
-  const gfpgan = describedByType.gfpgan;
-  const restoreformer = describedByType.restoreformer;
+  const faceA = describedByType.osdface ?? describedByType.gfpgan;
+  const faceB =
+    describedByType.gfpgan && faceA?.id !== "gfpgan"
+      ? describedByType.gfpgan
+      : describedByType.restoreformer ?? describedByType.codeformer;
   const blend = describedByType.blend;
-  if (!gfpgan || !restoreformer || !blend) return null;
-  const nGf = createDagNode(gfpgan, 60, 100);
-  const nRf = createDagNode(restoreformer, 60, 280);
+  if (!faceA || !faceB || !blend) return null;
+  const nA = createDagNode(faceA, 60, 100);
+  const nB = createDagNode(faceB, 60, 280);
   const nBlend = createDagNode(blend, 340, 190);
   nBlend.params = { alpha: 0.5, mode: "normal" };
   return {
-    nodes: [nGf, nRf, nBlend],
+    nodes: [nA, nB, nBlend],
     edges: [
-      { id: "e0", from: nGf.id, to: nBlend.id, toInput: "image" },
-      { id: "e1", from: nRf.id, to: nBlend.id, toInput: "image_b" },
+      { id: "e0", from: nA.id, to: nBlend.id, toInput: "image" },
+      { id: "e1", from: nB.id, to: nBlend.id, toInput: "image_b" },
     ],
   };
 }

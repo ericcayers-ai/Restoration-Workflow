@@ -44,6 +44,7 @@ class RealEsrganNode(SpandrelNode):
     )
     vram_tier = VramTier.LOW
     supports_tiling = True
+    tags = ["sr"]
 
     param_schema: dict[str, Any] = {
         "type": "object",

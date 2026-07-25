@@ -68,12 +68,26 @@ def default_data_dir() -> Path:
     return Path(xdg) / "restoration-workflow"
 
 
-def sha256_of(path: Path) -> str:
+def sha256_of(
+    path: Path,
+    *,
+    check_cancel: Callable[[], None] | None = None,
+) -> str:
     h = hashlib.sha256()
     with path.open("rb") as f:
         for chunk in iter(lambda: f.read(_CHUNK), b""):
+            if check_cancel is not None:
+                check_cancel()
             h.update(chunk)
     return h.hexdigest()
+
+
+def hf_auth_headers() -> dict[str, str]:
+    """Authorization headers for gated Hugging Face Hub downloads."""
+    token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")
+    if not token:
+        return {}
+    return {"Authorization": f"Bearer {token}"}
 
 
 @dataclass
@@ -338,7 +352,9 @@ class WeightManager:
             self._download_hf(wf, dest, progress, check_cancel=check_cancel)
         else:
             self._download_url(wf, dest, progress, check_cancel=check_cancel)
-        self._verify(node_id, wf, dest)
+        if check_cancel is not None:
+            check_cancel()
+        self._verify(node_id, wf, dest, check_cancel=check_cancel)
 
     def _download_hf(
         self, wf: WeightFile, dest: Path,
@@ -356,17 +372,26 @@ class WeightManager:
             sha256=wf.sha256,
             url=url,
         )
-        self._download_url(url_wf, dest, progress, check_cancel=check_cancel)
+        self._download_url(
+            url_wf,
+            dest,
+            progress,
+            check_cancel=check_cancel,
+            extra_headers=hf_auth_headers(),
+        )
 
     def _download_url(
         self, wf: WeightFile, dest: Path,
         progress: Callable[[str, int, int], None] | None,
         *,
         check_cancel: Callable[[], None] | None = None,
+        extra_headers: dict[str, str] | None = None,
     ) -> None:
         part = dest.with_suffix(dest.suffix + ".part")
         done = part.stat().st_size if part.exists() else 0
-        headers = {"Range": f"bytes={done}-"} if done else {}
+        headers = dict(extra_headers or {})
+        if done:
+            headers["Range"] = f"bytes={done}-"
         mode = "ab" if done else "wb"
 
         client_kwargs: dict[str, Any] = {"follow_redirects": True, "timeout": 60.0}
@@ -395,8 +420,15 @@ class WeightManager:
                             progress(wf.filename, done, total)
         part.replace(dest)
 
-    def _verify(self, node_id: str, wf: WeightFile, dest: Path) -> None:
-        actual = sha256_of(dest)
+    def _verify(
+        self,
+        node_id: str,
+        wf: WeightFile,
+        dest: Path,
+        *,
+        check_cancel: Callable[[], None] | None = None,
+    ) -> None:
+        actual = sha256_of(dest, check_cancel=check_cancel)
         expected = self._expected_sha256(node_id, wf)
         if expected is None:
             # Upstream publishes no checksum: pin on first use, verify forever after.

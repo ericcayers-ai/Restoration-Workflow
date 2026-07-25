@@ -7,6 +7,27 @@ include breaking changes to the JSON pipeline shape).
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-07-26
+
+### Added
+- **Phase 5 harvest QA notes** — `docs/screenshots/qa/` includes Scan_12 source, scratch mask overlays, JSON report, and `HARVEST_QA.md` covering DPI advice, Auto plan (heuristic), Mask Editor scratch path, and known GPU/VLM gaps.
+- **Upload hardening** — image-size validation enforced on all upload endpoints; a frontend `ErrorBoundary` catches render-time crashes instead of a blank screen (PR #26).
+- **Connection status indicator** — header widget surfaces backend reachability so a dropped connection is visible instead of a silent stall.
+- **Toast notifications** — Settings actions (VLM install/remove, etc.) now confirm via toast instead of a static banner, and destructive VLM removal requires an explicit confirm step.
+- **Localization** — `es`, `de`, `ja`, `mi` locale catalogs and a Settings → Language tab; `<html lang>`/`dir` now track the active locale (RTL-ready).
+- **VLM reliability** — `VlmManager` now caches the loaded model/processor across calls instead of reloading per photo, verifies downloaded weight files are non-empty before reporting "installed", and reports actionable per-cause messages (not installed / inference deps missing / inference error) instead of a single generic "VLM unavailable" string.
+
+### Changed
+- **UI polish (Mask / Model Stack / Legacy / Vision)** — Distilled copy for Mask Editor, Settings Vision/Legacy tabs, Simple vision offer, and Model Stack category labels. Focus rings and keyboard: Mask shortcuts (B/E/I/[ ]/Esc), Settings tab arrow keys, rail/search focus-within. Fixed PresetBar contrast (`--text-tertiary` → `--text-secondary`). Settings Vision/Legacy panel fragment fix for valid JSX.
+- **Simple Mode drop zone** — folder import moved to its own explicit button/input instead of silently swapping the primary drop target's picker into folder-only mode (previously a single click could no longer pick individual files once `onFiles` was wired up).
+- Removed the experimental, unshipped `src-tauri/` scaffold and all docs claiming/disclaiming a Tauri auto-updater; PyInstaller installers are the sole documented desktop path (matches Phase 8 / 0.6.1 reality).
+- **README** — clearer first-viewport CTA, Simple/Studio comparison, mermaid
+  Drop → Review → Restore flow, larger screenshot presentation, and scannable
+  capability/model tables. Screenshots may still lag the latest Safelight chrome.
+
+### Removed
+- `src-tauri/` (dead experimental scaffold, never a shipping product path).
+
 ## [0.6.1] - 2026-07-17
 
 ### Added

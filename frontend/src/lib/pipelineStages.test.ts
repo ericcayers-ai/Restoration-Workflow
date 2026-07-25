@@ -85,6 +85,16 @@ describe("list/graph round-trip", () => {
     expect(pipeline.edges).toContainEqual({ from: "m", to: "l", to_input: "mask" });
   });
 
+  it("load_mask wires to inpaint consumers", () => {
+    const stages = [
+      stage({ id: "m", nodeType: "load_mask", category: "masking" }),
+      stage({ id: "l", nodeType: "powerpaint", category: "masking" }),
+    ];
+    const { pipeline, error } = stagesToPipeline(stages);
+    expect(error).toBeNull();
+    expect(pipeline.edges).toContainEqual({ from: "m", to: "l", to_input: "mask" });
+  });
+
   it("rejects blend in linear list builder", () => {
     const { error } = stagesToPipeline([stage({ id: "b", nodeType: "blend", displayName: "Blend" })]);
     expect(error).toMatch(/merges two branches/i);

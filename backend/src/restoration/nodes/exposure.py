@@ -69,6 +69,7 @@ class ExposureCorrectNode(BaseRestorationNode):
     vram_tier = VramTier.LOW
     uses_gpu = False
     weight_manifest: list = []
+    tags = ["exposure"]
 
     param_schema: dict[str, Any] = {
         "type": "object",

@@ -30,11 +30,16 @@
 }
 
 :root {
+  --font-display: "Georgia", "Times New Roman", ui-serif, serif;
   --font-ui: "Public Sans", "IBM Plex Sans", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", "JetBrains Mono", ui-monospace, monospace;
 
   --motion-fast: 180ms ease-out;
   --motion-base: 260ms ease-out;
+  --motion-slow: 400ms ease-out;
+  --motion-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-stagger-1: 60ms;
+  --motion-stagger-2: 120ms;
 
   /* In-app UI scale (UI_DESIGN.md section 6) — a multiplier on the base type
      scale, independent of OS/browser zoom, adjustable via the scale control. */
@@ -71,6 +76,7 @@
   --category-masking: #C1953F;
   --category-orchestration: #8A8577;
   --category-instruct: #6B8F71;
+  --category-legacy: #9A8F7A;
 
   /* Breakpoints documented for layout CSS (wide ≥1100, medium, narrow ≤720). */
   --layout-wide: 1100px;
@@ -79,22 +85,22 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --surface-950: #14120F;
-  --surface-900: #1B1815;
-  --surface-800: #242019;
-  --surface-700: #322C22;
-  --border-hairline: #3A3327;
-  --text-primary: #F2EDE4;
-  --text-secondary: #B8AF9E;
-  --accent-amber: #E8873A;
-  --accent-amber-ink: #14120F;
-  --accent-teal: #4FA79A;
-  --accent-brick: #C1523F;
+  --surface-950: #100e0c;
+  --surface-900: #191612;
+  --surface-800: #221e18;
+  --surface-700: #302920;
+  --border-hairline: #3d3528;
+  --border-subtle: #2a241c;
+  --text-primary: #f4efe7;
+  --text-secondary: #bfb5a3;
+  --accent-amber: #f09044;
+  --accent-amber-ink: #100e0c;
+  --accent-teal: #56b7a8;
+  --accent-brick: #c95a47;
   --focus-ring: var(--accent-amber);
-  --grain-opacity: 0.025;
-  /* Master Restorer rail badge — fill+ink pair meets WCAG AA (axe CI). */
-  --badge-master-fg: #14120F;
-  --badge-master-bg: #A8D4B0;
+  --grain-opacity: 0.018;
+  --badge-master-fg: #100e0c;
+  --badge-master-bg: #a8d4b0;
 }
 
 :root[data-theme="light"] {
@@ -104,6 +110,7 @@
   --surface-800: #E5DDC9;
   --surface-700: #DACCAE;
   --border-hairline: #D8CDB4;
+  --border-subtle: #E8E0CE;
   --text-primary: #2B2620;
   --text-secondary: #665D4E;
   /* Darkened vs the previous #B85F19 so amber-on-surface-800 active
@@ -143,6 +150,7 @@
   --category-masking: #F0C96F;
   --category-orchestration: #D8D4C8;
   --category-instruct: #A8D4B0;
+  --category-legacy: #C4B89A;
   --badge-master-fg: #000000;
   --badge-master-bg: #A8D4B0;
 }
@@ -151,6 +159,9 @@
   :root {
     --motion-fast: 0ms;
     --motion-base: 0ms;
+    --motion-slow: 0ms;
+    --motion-stagger-1: 0ms;
+    --motion-stagger-2: 0ms;
   }
 }
 

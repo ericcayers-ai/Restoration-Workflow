@@ -37,12 +37,10 @@ _TILE_BANDS: list[tuple[int, dict[QualityTier, int]]] = [
     (16 * 1024, {QualityTier.DRAFT: 512, QualityTier.BALANCED: 768, QualityTier.HIGH: 0}),
 ]
 
-# The one substitutable pair per role today; a role with only one in-box
-# model (e.g. denoise -> scunet) has nothing to swap and is left alone.
+# Substitutable upscale pair on the active stack (SwinIR is Legacy).
+# Face rail is OSDFace-only (gated overlay); no draft/high face swap.
 _UPSCALE_FAST = "realesrgan"
-_UPSCALE_QUALITY = "swinir"
-_FACE_FAST = "gfpgan"
-_FACE_QUALITY = "restoreformer"
+_UPSCALE_QUALITY = "mambair"
 
 
 def tile_size_for(tier: QualityTier, hardware: HardwareInfo) -> int:
@@ -73,7 +71,13 @@ def apply_quality_tier(
     reflect whether that role's "quality" model is already installed — a
     tier preference is never itself a trigger for a multi-hundred-megabyte
     automatic download, so callers pass ``False`` when it isn't and High tier
-    simply keeps the fast model for that role instead."""
+    simply keeps the fast model for that role instead.
+
+    ``quality_face_ready`` is retained for API compatibility; the active face
+    rail is a single gated model (OSDFace) added via companion overlay, so
+    draft/high no longer swap face nodes.
+    """
+    del quality_face_ready  # OSDFace-only; no dual-face tier swap
     chain = list(chain)
     params = {k: dict(v) for k, v in params.items()}
 
@@ -85,16 +89,9 @@ def apply_quality_tier(
 
     if tier is QualityTier.DRAFT:
         swap(_UPSCALE_QUALITY, _UPSCALE_FAST)
-        # A follow-up quality face pass is a second full model load for a
-        # difference draft mode is explicitly trading away for speed.
-        if _FACE_QUALITY in chain and _FACE_FAST in chain:
-            chain.remove(_FACE_QUALITY)
-            params.pop(_FACE_QUALITY, None)
     elif tier is QualityTier.HIGH:
         if quality_upscale_ready:
             swap(_UPSCALE_FAST, _UPSCALE_QUALITY)
-        if quality_face_ready and _FACE_FAST in chain and _FACE_QUALITY not in chain:
-            chain.insert(chain.index(_FACE_FAST) + 1, _FACE_QUALITY)
     # BALANCED: the rule table's own chain, unchanged.
 
     tile = tile_size_for(tier, hardware)

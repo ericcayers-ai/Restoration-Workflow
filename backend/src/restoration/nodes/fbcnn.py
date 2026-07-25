@@ -50,6 +50,7 @@ class FbcnnNode(SpandrelNode):
         source_url="https://github.com/jiaxi-jiang/FBCNN/blob/main/LICENSE",
     )
     vram_tier = VramTier.LOW
+    tags = ["jpeg"]
     supports_tiling = True
 
     param_schema: dict[str, Any] = {

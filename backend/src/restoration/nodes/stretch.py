@@ -103,6 +103,7 @@ class MambaIrNode(StretchNode):
     description = "Efficient SOTA super-resolution (Mamba architecture, Apache-2.0)."
     license = _APACHE
     vram_tier = VramTier.MID
+    tags = ["sr"]
     _use_mambair = True
     _weight_name = "mambairv2_classicSR_Small_x4.pth"
 
@@ -131,6 +132,7 @@ class DarkIrNode(StretchNode):
         source_url="https://github.com/cidautai/DarkIR",
     )
     vram_tier = VramTier.LOW
+    tags = ["low_light"]
     _weight_name = "darkir_l.pth"
 
     weight_manifest = [
@@ -155,6 +157,7 @@ class InstantIrNode(StretchNode):
         source_url="https://github.com/instantX-research/InstantIR",
     )
     vram_tier = VramTier.HIGH
+    tags = ["prompt_edit"]
     _use_diffusion = True
     _hf_repo = "instantX-research/InstantIR"
     _weight_name = "instantir.safetensors"
@@ -184,6 +187,7 @@ class DreamClearNode(StretchNode):
         source_url="https://github.com/shallowdream204/DreamClear",
     )
     vram_tier = VramTier.VERY_HIGH
+    tags = ["prompt_edit"]
     _use_diffusion = True
     _hf_repo = "shallowdream204/DreamClear"
     _weight_name = "DreamClear-1024.pth"
@@ -209,6 +213,7 @@ class UniRestoreNode(StretchNode):
     )
     license = _MIT
     vram_tier = VramTier.MID
+    tags = ["all_in_one"]
     _weight_name = "unirestore.pth"
     _hf_repo = "unirestore/UniRestore"
 
@@ -236,6 +241,7 @@ class RealRestorerNode(StretchNode):
         source_url="https://github.com/yfyang007/RealRestorer",
     )
     vram_tier = VramTier.VERY_HIGH
+    tags = ["prompt_edit"]
     _use_diffusion = True
     _hf_repo = "yfyang007/RealRestorer"
     _weight_name = "realrestorer.pth"

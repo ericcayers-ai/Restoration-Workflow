@@ -13,6 +13,7 @@ from restoration.core.analyzer import DegradationProfile
 from restoration.core.errors import PipelineValidationError
 from restoration.core.registry import NodeRegistry
 from restoration.core.rules import RuleTable, Stage
+from restoration.core.types import NodeCategory
 
 
 def profile(**overrides) -> DegradationProfile:
@@ -56,18 +57,22 @@ def test_default_table_validates_against_the_real_registry(table, real_registry)
     table.validate(real_registry)
 
 
+def test_default_table_never_references_legacy_nodes(table, real_registry):
+    for node_id in {s.node for s in table.stages} | set(table.fallback_chain):
+        assert real_registry.get_class(node_id).category is not NodeCategory.LEGACY
+
+
 def test_clean_large_image_falls_back_to_the_default_chain(table):
     decision = table.route(profile())
     assert decision.chain == ["realesrgan"]
     assert "no specific degradation" in decision.reasons[0]["reason"]
 
 
-def test_small_image_routes_to_the_quality_upscaler(table):
-    """Below 800px the default reaches for SwinIR's transformer 4x SR, the
-    highest-quality upscale in the permissive stack."""
+def test_small_image_routes_to_realesrgan(table):
+    """Below 800px the default reaches for RealESRGAN 4x (MambaIR is High-tier)."""
     decision = table.route(profile(width=800, height=600))
-    assert decision.chain == ["swinir"]
-    assert decision.params["swinir"] == {"scale": 4}
+    assert decision.chain == ["realesrgan"]
+    assert decision.params["realesrgan"] == {"scale": 4}
 
 
 def test_moderate_resolution_routes_to_the_fast_upscaler(table):
@@ -78,39 +83,33 @@ def test_moderate_resolution_routes_to_the_fast_upscaler(table):
     assert decision.params["realesrgan"] == {"scale": 4}
 
 
-def test_noise_routes_to_the_blind_denoiser(table):
-    """Visible noise adds SCUNet's blind real-world denoise stage; on an already
-    large image that is the whole chain (nothing to upscale)."""
+def test_noise_alone_falls_back_without_legacy_denoise(table):
+    """Blind denoise (SCUNet) is Legacy — noise alone on a large image falls back."""
     decision = table.route(profile(noise_score=0.02))
-    assert decision.chain == ["scunet"]
-    assert decision.params["scunet"] == {"variant": "gan"}
+    assert decision.chain == ["realesrgan"]
 
 
 def test_jpeg_artifacts_run_before_the_upscaler(table):
     """Order matters: cleaning blocks first stops the upscaler amplifying them."""
     decision = table.route(profile(width=800, height=600, jpeg_blockiness=0.3))
-    assert decision.chain == ["fbcnn", "swinir"]
+    assert decision.chain == ["fbcnn", "realesrgan"]
 
 
-def test_faces_append_the_face_nodes_after_the_upscaler(table):
+def test_faces_do_not_enter_rule_table_chain(table):
+    """OSDFace is gated; faces are companion-overlay only, never rule-table."""
     decision = table.route(profile(width=800, height=600, face_count=2))
-    assert decision.chain == ["swinir", "gfpgan"]
+    assert decision.chain == ["realesrgan"]
+    assert "osdface" not in decision.chain
+    assert "gfpgan" not in decision.chain
 
 
-def test_soft_faces_add_the_quality_face_node(table):
-    decision = table.route(profile(width=800, height=600, face_count=1, blur_score=40.0))
-    assert decision.chain == ["swinir", "gfpgan", "restoreformer"]
-
-
-def test_defects_route_to_mask_and_inpaint_stages(table):
+def test_defects_do_not_auto_route_mask_from_image(table):
+    """mask_from_image is Legacy; Auto defers defect masks to Mask Editor."""
     decision = table.route(profile(defect_score=0.03))
-    assert decision.chain == ["mask_from_image", "lama"]
-    assert decision.params["mask_from_image"] == {"source": "defect", "dilate": 2}
+    assert "mask_from_image" not in decision.chain
 
 
-def test_compound_degradation_chains_every_stage(table):
-    """The SOTA default at full stretch: deblock -> denoise -> quality upscale ->
-    fast face -> quality face, five permissive models in one adaptive chain."""
+def test_compound_degradation_chains_active_stages(table):
     decision = table.route(
         profile(
             width=600,
@@ -121,8 +120,7 @@ def test_compound_degradation_chains_every_stage(table):
             blur_score=20.0,
         )
     )
-    assert decision.chain == ["fbcnn", "scunet", "swinir", "gfpgan", "restoreformer"]
-    assert len(decision.reasons) == 5
+    assert decision.chain == ["fbcnn", "realesrgan"]
 
 
 def test_absent_face_detector_never_routes_to_a_face_node(table):
@@ -130,6 +128,7 @@ def test_absent_face_detector_never_routes_to_a_face_node(table):
     decision = table.route(profile(width=800, height=600, face_count=None))
     assert "gfpgan" not in decision.chain
     assert "restoreformer" not in decision.chain
+    assert "osdface" not in decision.chain
 
 
 def test_routing_decision_is_serializable(table):
@@ -169,6 +168,18 @@ def test_validate_checks_the_fallback_chain_too(real_registry):
     real_registry.register(NonCommercialNode)
     bad = RuleTable({"version": 1, "fallback_chain": ["gated"], "stages": []})
     with pytest.raises(PipelineValidationError, match="not permissive"):
+        bad.validate(real_registry)
+
+
+def test_validate_rejects_legacy_nodes(real_registry):
+    bad = RuleTable(
+        {
+            "version": 1,
+            "fallback_chain": ["realesrgan"],
+            "stages": [{"node": "scunet", "when": {}}],
+        }
+    )
+    with pytest.raises(PipelineValidationError, match="legacy"):
         bad.validate(real_registry)
 
 

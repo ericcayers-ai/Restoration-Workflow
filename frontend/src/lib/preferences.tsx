@@ -21,6 +21,9 @@ export type Theme = "dark" | "light" | "high-contrast" | `custom:${string}`;
 
 const THEME_KEY = "restoration:theme";
 const SCALE_KEY = "restoration:ui-scale";
+const LOCALE_KEY = "restoration:locale";
+
+const RTL_LOCALES = new Set<string>(["ar", "he", "fa", "ur"]);
 export const SCALE_MIN = 0.85;
 export const SCALE_MAX = 1.4;
 export const SCALE_STEP = 0.1;
@@ -36,11 +39,22 @@ function readInitialScale(): number {
   return Number.isFinite(raw) && raw > 0 ? raw : 1;
 }
 
+function readInitialLocale(): string {
+  try {
+    const stored = localStorage.getItem(LOCALE_KEY);
+    if (stored) return stored;
+  } catch { /* storage denied */ }
+  const browser = (navigator.language || "en").split("-")[0] ?? "en";
+  return browser === "en" ? "en" : browser;
+}
+
 interface PreferencesValue {
   theme: Theme;
   setTheme: (theme: Theme) => void;
   scale: number;
   setScale: (scale: number) => void;
+  locale: string;
+  setLocale: (locale: string) => void;
 }
 
 const PreferencesContext = createContext<PreferencesValue | null>(null);
@@ -48,35 +62,34 @@ const PreferencesContext = createContext<PreferencesValue | null>(null);
 export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(readInitialTheme);
   const [scale, setScaleState] = useState<number>(readInitialScale);
+  const [locale, setLocaleState] = useState<string>(readInitialLocale);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    try {
-      localStorage.setItem(THEME_KEY, theme);
-    } catch {
-      // Private-browsing storage denial must not break theming — the
-      // in-memory state above still works for the rest of the session.
-    }
+    try { localStorage.setItem(THEME_KEY, theme); } catch { /* storage denied */ }
   }, [theme]);
 
   useEffect(() => {
     document.documentElement.style.setProperty("--ui-scale", String(scale));
-    try {
-      localStorage.setItem(SCALE_KEY, String(scale));
-    } catch {
-      // See above.
-    }
+    try { localStorage.setItem(SCALE_KEY, String(scale)); } catch { /* storage denied */ }
   }, [scale]);
+
+  useEffect(() => {
+    document.documentElement.lang = locale;
+    document.documentElement.dir = RTL_LOCALES.has(locale) ? "rtl" : "ltr";
+    try { localStorage.setItem(LOCALE_KEY, locale); } catch { /* storage denied */ }
+  }, [locale]);
 
   const setTheme = useCallback((next: Theme) => setThemeState(next), []);
   const setScale = useCallback(
     (next: number) => setScaleState(Math.min(SCALE_MAX, Math.max(SCALE_MIN, next))),
     [],
   );
+  const setLocale = useCallback((next: string) => setLocaleState(next), []);
 
   const value = useMemo(
-    () => ({ theme, setTheme, scale, setScale }),
-    [theme, setTheme, scale, setScale],
+    () => ({ theme, setTheme, scale, setScale, locale, setLocale }),
+    [theme, setTheme, scale, setScale, locale, setLocale],
   );
 
   return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>;

@@ -31,7 +31,7 @@ export interface Stage extends Record<string, unknown> {
 }
 
 const MASK_CONSUMERS = new Set(["lama", "powerpaint", "flux_fill"]);
-const MASK_PROVIDER = "mask_from_image";
+const MASK_PROVIDERS = new Set(["mask_from_image", "load_mask"]);
 const MASK_INPUT = "mask";
 const IMAGE_INPUT = "image";
 const UNSUPPORTED_LINEAR = new Set(["blend"]);
@@ -120,12 +120,12 @@ export function stagesToPipeline(stages: Stage[]): { pipeline: PipelineJson; err
     }
   }
 
-  const maskStage = stages.find((s) => s.nodeType === MASK_PROVIDER);
+  const maskStage = stages.find((s) => MASK_PROVIDERS.has(s.nodeType));
   const hasMaskConsumer = stages.some((s) => MASK_CONSUMERS.has(s.nodeType));
   if (maskStage && !hasMaskConsumer) {
     return {
       pipeline: { version: 1, nodes: [], edges: [] },
-      error: `"Mask from image" produces a mask but nothing in the workflow uses it — add an inpaint node (LaMa / PowerPaint / FLUX Fill), or remove it.`,
+      error: `"${maskStage.displayName}" produces a mask but nothing in the workflow uses it — add an inpaint node (LaMa / PowerPaint / FLUX Fill), or remove it.`,
     };
   }
 
@@ -142,9 +142,10 @@ export function stagesToPipeline(stages: Stage[]): { pipeline: PipelineJson; err
   for (const s of stages) {
     if (MASK_CONSUMERS.has(s.nodeType)) {
       if (maskStage) edges.push({ from: maskStage.id, to: s.id, to_input: MASK_INPUT });
-      else error ??= `"${s.displayName}" needs a "Mask from image" stage somewhere in the workflow to fill from.`;
+      else
+        error ??= `"${s.displayName}" needs a mask stage (Load mask / Mask from image) somewhere in the workflow to fill from.`;
     }
-    if (s.nodeType === MASK_PROVIDER) {
+    if (MASK_PROVIDERS.has(s.nodeType)) {
       // Feeds a consumer's named input, not the main chain — the node right
       // after it in the list still chains from whatever came before this one.
       continue;

@@ -36,7 +36,7 @@ _BIREFNET_LICENSE = LicenseInfo(
 
 class BiRefNetNode(BaseRestorationNode):
     id = "birefnet"
-    category = NodeCategory.MASKING
+    category = NodeCategory.LEGACY
     pipeline_stage = STAGE_MASK
     display_name = "BiRefNet"
     description = (

@@ -26,7 +26,7 @@ _MIT = LicenseInfo(
 
 class OldPhotosScratchNode(BaseRestorationNode):
     id = "old_photos_scratch"
-    category = NodeCategory.REGRESSION
+    category = NodeCategory.LEGACY
     pipeline_stage = STAGE_INPAINT
     display_name = "Old photo scratch restore"
     description = (

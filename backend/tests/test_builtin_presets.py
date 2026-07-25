@@ -31,10 +31,12 @@ def test_builtin_preset_definitions_cover_all_lanes():
         "Colorize BW",
         "Blown Highlight Rescue",
         "InstructIR Solo",
-        "DiffBIR Polish",
+        "SUPIR Maximum",
+        "RMBG Matte",
         "Night DarkIR",
     ):
         assert required in names
+    assert "DiffBIR Polish" not in names
 
 
 def test_seed_builtin_presets_writes_catalog(tmp_path: Path, registry: NodeRegistry):

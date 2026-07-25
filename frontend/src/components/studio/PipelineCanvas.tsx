@@ -2,6 +2,7 @@
  * DAG pipeline canvas (ROADMAP.md Phase 3) — branch/merge editing without
  * re-introducing the full React Flow dependency removed in 0.2.0. Nodes are
  * keyboard-addressable cards; arrow keys nudge, Delete removes, Enter connects.
+ * Incoming connections pick a port (image | image_b | mask) for blend / inpaint.
  */
 
 import { useCallback, useRef, useState } from "react";
@@ -10,6 +11,14 @@ import type { DagEdge, DagNode } from "../../lib/pipelineDag";
 import styles from "./PipelineCanvas.module.css";
 
 const NUDGE = 12;
+const PORTS = ["image", "image_b", "mask"] as const;
+type Port = (typeof PORTS)[number];
+
+function defaultPortFor(nodeType: string): Port {
+  if (nodeType === "blend") return "image_b";
+  if (nodeType === "lama" || nodeType === "powerpaint" || nodeType === "flux_fill") return "mask";
+  return "image";
+}
 
 export function PipelineCanvas({
   nodes,
@@ -31,6 +40,9 @@ export function PipelineCanvas({
   const t = useT();
   const canvasRef = useRef<HTMLDivElement>(null);
   const [connectFrom, setConnectFrom] = useState<string | null>(null);
+  const [portPicker, setPortPicker] = useState<{ toId: string; x: number; y: number } | null>(
+    null,
+  );
   const [drag, setDrag] = useState<{ id: string; ox: number; oy: number } | null>(null);
 
   const onPointerDown = useCallback(
@@ -58,6 +70,23 @@ export function PipelineCanvas({
 
   const nodeById = Object.fromEntries(nodes.map((n) => [n.id, n]));
 
+  function beginConnectTo(node: DagNode, clientX: number, clientY: number) {
+    if (!connectFrom || connectFrom === node.id) return;
+    const rect = canvasRef.current?.getBoundingClientRect();
+    setPortPicker({
+      toId: node.id,
+      x: clientX - (rect?.left ?? 0),
+      y: clientY - (rect?.top ?? 0),
+    });
+  }
+
+  function completeConnect(port: Port) {
+    if (!connectFrom || !portPicker) return;
+    onConnect(connectFrom, portPicker.toId, port);
+    setConnectFrom(null);
+    setPortPicker(null);
+  }
+
   function onCanvasKeyDown(e: React.KeyboardEvent) {
     if (!selectedId) return;
     const node = nodeById[selectedId];
@@ -66,13 +95,15 @@ export function PipelineCanvas({
       e.preventDefault();
       onRemoveNode(selectedId);
       setConnectFrom(null);
+      setPortPicker(null);
       return;
     }
     if (e.key === "Enter") {
       e.preventDefault();
       if (connectFrom && connectFrom !== selectedId) {
-        onConnect(connectFrom, selectedId, "image");
+        onConnect(connectFrom, selectedId, defaultPortFor(node.nodeType));
         setConnectFrom(null);
+        setPortPicker(null);
       } else {
         setConnectFrom(selectedId);
       }
@@ -96,7 +127,10 @@ export function PipelineCanvas({
       className={styles.canvas}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
-      onClick={() => onSelect(null)}
+      onClick={() => {
+        onSelect(null);
+        setPortPicker(null);
+      }}
       onKeyDown={onCanvasKeyDown}
       role="application"
       aria-label={t("studio.canvas.dagLabel")}
@@ -153,6 +187,7 @@ export function PipelineCanvas({
               aria-label={t("studio.canvas.connectOut")}
               onClick={(e) => {
                 e.stopPropagation();
+                setPortPicker(null);
                 setConnectFrom(connectFrom === node.id ? null : node.id);
               }}
             >
@@ -166,8 +201,7 @@ export function PipelineCanvas({
               onClick={(e) => {
                 e.stopPropagation();
                 if (connectFrom && connectFrom !== node.id) {
-                  onConnect(connectFrom, node.id, "image");
-                  setConnectFrom(null);
+                  beginConnectTo(node, e.clientX, e.clientY);
                 }
               }}
             >
@@ -188,9 +222,31 @@ export function PipelineCanvas({
         </div>
       ))}
 
+      {portPicker && (
+        <div
+          className={styles.portMenu}
+          style={{ left: portPicker.x, top: portPicker.y }}
+          role="menu"
+          aria-label={t("studio.canvas.portPicker")}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <p className={styles.portMenuTitle}>{t("studio.canvas.portPicker")}</p>
+          {PORTS.map((port) => (
+            <button
+              key={port}
+              type="button"
+              role="menuitem"
+              className={styles.portMenuItem}
+              onClick={() => completeConnect(port)}
+            >
+              {t(`studio.canvas.port.${port}`)}
+            </button>
+          ))}
+        </div>
+      )}
+
       {nodes.length === 0 && <p className={styles.empty}>{t("studio.canvas.empty")}</p>}
-      {connectFrom && <p className={styles.hint}>{t("studio.canvas.addEdgeHint")}</p>}
+      {connectFrom && !portPicker && <p className={styles.hint}>{t("studio.canvas.addEdgeHint")}</p>}
     </div>
   );
 }
-

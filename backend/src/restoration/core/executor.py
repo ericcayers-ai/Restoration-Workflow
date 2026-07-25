@@ -268,10 +268,12 @@ class PipelineExecutor:
         device: str = "cpu",
         gpu_slots: int = 1,
         cache: OutputCache | None = None,
+        data_dir: str | None = None,
     ):
         self.registry = registry
         self.weights = weights
         self.device = device
+        self.data_dir = data_dir
         # Raised above 1 only if multi-GPU is detected and the user opts in.
         self._gpu_lock = asyncio.Semaphore(gpu_slots)
         self.cache = cache if cache is not None else OutputCache()
@@ -416,6 +418,7 @@ class PipelineExecutor:
             node_id=node_spec.id,
             device=self.device,
             weights_dir=weights_dir,
+            data_dir=self.data_dir,
             inputs=inputs,
             _emit=emit,
             _is_cancelled=is_cancelled,

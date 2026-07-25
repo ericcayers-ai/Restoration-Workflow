@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "restoration-workflow"
-version = "0.6.1"
+version = "0.6.2"
 description = "Local-first photo restoration engine: DAG pipeline executor, restoration node plugins, weight manager, and REST/WebSocket API."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -85,7 +85,7 @@ restoration-workflow = "restoration.launcher:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-restoration = ["core/data/*.json"]
+restoration = ["core/data/*.json", "core/data/*.md"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

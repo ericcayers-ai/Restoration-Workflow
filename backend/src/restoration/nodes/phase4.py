@@ -191,17 +191,25 @@ class DiffusionNode(BaseRestorationNode):
     ) -> ImageArray:
         weights_dir = Path(ctx.weights_dir)
         if self._local_weight:
-            try:
-                return run_spandrel_checkpoint(
-                    self.id,
-                    image,
-                    params,
-                    ctx,
-                    weights_dir=weights_dir,
-                    filename=self._local_weight,
-                )
-            except NodeExecutionError:
-                pass
+            local_path = weights_dir / self._local_weight
+            if local_path.is_file():
+                try:
+                    return run_spandrel_checkpoint(
+                        self.id,
+                        image,
+                        params,
+                        ctx,
+                        weights_dir=weights_dir,
+                        filename=self._local_weight,
+                    )
+                except NodeExecutionError as exc:
+                    if self.id == "supir":
+                        raise NodeExecutionError(
+                            self.id,
+                            "Downloaded SUPIR-v0Q.ckpt is present but the full SUPIR "
+                            "architecture is not yet vendored for inference. The weight "
+                            f"file is at {local_path}.",
+                        ) from exc
         return run_diffusion_restore(
             self.id,
             image,
@@ -226,6 +234,7 @@ class PowerPaintNode(DiffusionNode):
         source_url="https://github.com/open-mmlab/PowerPaint",
     )
     vram_tier = VramTier.MID
+    tags = ["inpaint"]
     _mode = "inpaint"
     _hf_repo = "JunhaoZhuang/PowerPaint-v2-1"
 
@@ -240,57 +249,35 @@ class PowerPaintNode(DiffusionNode):
     ]
 
 
-class DiffBirNode(DiffusionNode):
-    id = "diffbir"
-    category = NodeCategory.GENERATIVE
-    pipeline_stage = STAGE_UPSCALE
-    display_name = "DiffBIR"
-    description = (
-        "Blind image restoration via diffusion; equal-tier generative peer "
-        "(Apache-2.0). Requires Hugging Face access to ai-forever/DiffBIR-v2."
-    )
-    license = LicenseInfo(
-        spdx_id="Apache-2.0",
-        kind=LicenseKind.PERMISSIVE,
-        source_url="https://github.com/XPixelGroup/DiffBIR",
-    )
-    vram_tier = VramTier.HIGH
-    _mode = "restore"
-    _local_weight = "DiffBIR_v2.pt"
-    _hf_repo = "ai-forever/DiffBIR-v2"
-
-    weight_manifest = [
-        WeightFile(
-            filename="DiffBIR_v2.pt",
-            size_bytes=3_500_000_000,
-            sha256=None,
-            hf_repo_id="ai-forever/DiffBIR-v2",
-            hf_filename="DiffBIR_v2.pt",
-        ),
-    ]
-
-
 class SupirNode(DiffusionNode):
     id = "supir"
     category = NodeCategory.GENERATIVE
     pipeline_stage = STAGE_UPSCALE
     display_name = "SUPIR"
-    description = "Best-in-class generative upscale/restoration (non-commercial)."
+    description = (
+        "Best-in-class generative upscale/restoration (non-commercial). "
+        "Downloads the official SUPIR-v0Q checkpoint mirror; full vendor "
+        "pipeline beyond the local ckpt is still a stretch path."
+    )
     license = LicenseInfo(
         spdx_id="SUPIR-NC",
         kind=LicenseKind.NON_COMMERCIAL,
         source_url="https://github.com/Fanghua-Yu/SUPIR",
     )
     vram_tier = VramTier.VERY_HIGH
+    tags = ["generative_upscale"]
     _mode = "restore"
-    _hf_repo = "Fanghua-Yu/SUPIR"
+    # Official weights are Drive/Baidu-hosted; camenduru mirrors the published
+    # SUPIR-v0Q.ckpt on the Hub. Fanghua-Yu/SUPIR is not a public file repo.
+    _hf_repo = "camenduru/SUPIR"
+    _local_weight = "SUPIR-v0Q.ckpt"
 
     weight_manifest = [
         WeightFile(
             filename="SUPIR-v0Q.ckpt",
-            size_bytes=5_000_000_000,
-            sha256=None,
-            hf_repo_id="Fanghua-Yu/SUPIR",
+            size_bytes=5_329_810_432,
+            sha256="d7f418398bb024d0d3c779c4ee4e9f171eb072306093f5bcfb2bf096aa2738f8",
+            hf_repo_id="camenduru/SUPIR",
             hf_filename="SUPIR-v0Q.ckpt",
         ),
     ]
@@ -298,7 +285,7 @@ class SupirNode(DiffusionNode):
 
 class FluxFillNode(DiffusionNode):
     id = "flux_fill"
-    category = NodeCategory.GENERATIVE
+    category = NodeCategory.MASKING
     pipeline_stage = STAGE_INPAINT
     display_name = "FLUX Fill"
     description = "FLUX.1-Fill text-guided inpaint/outpaint (non-commercial)."
@@ -308,6 +295,7 @@ class FluxFillNode(DiffusionNode):
         source_url="https://huggingface.co/black-forest-labs/FLUX.1-Fill-dev",
     )
     vram_tier = VramTier.VERY_HIGH
+    tags = ["inpaint"]
     _mode = "fill"
     _hf_repo = "black-forest-labs/FLUX.1-Fill-dev"
 

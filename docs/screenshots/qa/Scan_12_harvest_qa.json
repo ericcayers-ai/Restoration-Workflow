@@ -1,0 +1,188 @@
+{
+  "source": "docs\\screenshots\\qa\\Scan_12_harvest_source.png",
+  "image_size": {
+    "width": 1024,
+    "height": 716
+  },
+  "exif_dpi": null,
+  "print_dpi_advice": {
+    "4in_at_300dpi_needs_px": 1200,
+    "5in_at_300dpi_needs_px": 1500,
+    "6in_at_300dpi_needs_px": 1800,
+    "8in_at_300dpi_needs_px": 2400
+  },
+  "print_note": "Scan is 1024\u00d7716px. At 300 DPI that prints ~3.4\u00d72.4 in; downscale only if the target print is smaller than that native size.",
+  "vlm_status": {
+    "id": "vlm",
+    "model_id": "Qwen/Qwen2.5-VL-7B-Instruct",
+    "display_name": "Qwen2.5-VL-7B-Instruct",
+    "license_spdx": "Apache-2.0",
+    "installed": false,
+    "path": "C:\\Users\\ericc\\AppData\\Local\\Temp\\tmp50r53gz4\\weights\\vlm\\qwen2.5-vl-7b-instruct",
+    "size_bytes": 15500000000,
+    "size_on_disk": 0,
+    "missing_size_bytes": 15500000000,
+    "inference_available": true
+  },
+  "describe_heuristic": {
+    "content_type": "unknown",
+    "is_grayscale": false,
+    "is_bw_intended": false,
+    "has_faces": false,
+    "face_count": 0,
+    "degradations": [],
+    "severity": {},
+    "highlights_blown": false,
+    "scratches_likely": false,
+    "grain_or_noise": false,
+    "width": 1024,
+    "height": 716,
+    "recommended_print_dpi": 150,
+    "downscale_advice": "Long edge is 1024px \u2014 upscale before a large print; target ~300 DPI at final print size.",
+    "summary": "clean photo \u2014 light restore",
+    "source": "heuristic",
+    "confidence": 0.55,
+    "profile": {
+      "width": 1024,
+      "height": 716,
+      "min_dimension": 716,
+      "blur_score": 537.9783,
+      "noise_score": 0.0,
+      "jpeg_blockiness": 0.1117,
+      "mean_luma": 0.6651,
+      "dark_fraction": 0.0,
+      "bright_fraction": 0.0,
+      "face_count": 0,
+      "low_light": false,
+      "blown_highlights": false,
+      "defect_score": 0.0,
+      "blur_anisotropy": 0.1259,
+      "under_exposure": 0.0,
+      "over_exposure": 0.013,
+      "clip_fraction": 0.0,
+      "mean_saturation": 0.1464,
+      "is_grayscale": false,
+      "chroma_blockiness": 0.8765,
+      "confidence": {
+        "blur": 0.95,
+        "noise": 0.95,
+        "jpeg": 0.383,
+        "exposure": 0.25,
+        "faces": 0.5,
+        "grayscale": 0.7,
+        "defects": 0.95
+      }
+    }
+  },
+  "plan_archival": {
+    "pipeline_nodes": [
+      "realesrgan"
+    ],
+    "reasons": [
+      {
+        "node": "realesrgan",
+        "reason": "upscale / sharpen"
+      },
+      {
+        "node": "dpi",
+        "reason": "Long edge is 1024px \u2014 upscale before a large print; target ~300 DPI at final print size."
+      }
+    ],
+    "keys": [
+      "description",
+      "goal",
+      "missing_weights",
+      "pipeline",
+      "planner",
+      "profile",
+      "routing",
+      "skill_path",
+      "suggestions",
+      "vlm"
+    ]
+  },
+  "plan_colorize": {
+    "pipeline_nodes": [
+      "ddcolor",
+      "realesrgan"
+    ]
+  },
+  "suggest": {
+    "names": [
+      "Auto Restore",
+      "Archival B&W",
+      "Colorize",
+      "Maximum Quality"
+    ],
+    "vlm": {
+      "id": "vlm",
+      "model_id": "Qwen/Qwen2.5-VL-7B-Instruct",
+      "display_name": "Qwen2.5-VL-7B-Instruct",
+      "license_spdx": "Apache-2.0",
+      "installed": false,
+      "path": "C:\\Users\\ericc\\AppData\\Local\\Temp\\tmp50r53gz4\\weights\\vlm\\qwen2.5-vl-7b-instruct",
+      "size_bytes": 15500000000,
+      "size_on_disk": 0,
+      "missing_size_bytes": 15500000000,
+      "inference_available": true
+    }
+  },
+  "analyze": {
+    "profile": {
+      "width": 1024,
+      "height": 716,
+      "min_dimension": 716,
+      "blur_score": 537.9783,
+      "noise_score": 0.0,
+      "jpeg_blockiness": 0.1117,
+      "mean_luma": 0.6651,
+      "dark_fraction": 0.0,
+      "bright_fraction": 0.0,
+      "face_count": 0,
+      "low_light": false,
+      "blown_highlights": false,
+      "defect_score": 0.0,
+      "blur_anisotropy": 0.1259,
+      "under_exposure": 0.0,
+      "over_exposure": 0.013,
+      "clip_fraction": 0.0,
+      "mean_saturation": 0.1464,
+      "is_grayscale": false,
+      "chroma_blockiness": 0.8765,
+      "confidence": {
+        "blur": 0.95,
+        "noise": 0.95,
+        "jpeg": 0.383,
+        "exposure": 0.25,
+        "faces": 0.5,
+        "grayscale": 0.7,
+        "defects": 0.95
+      }
+    },
+    "pipeline_nodes": [
+      "fbcnn",
+      "realesrgan"
+    ],
+    "reasons": [
+      {
+        "node": "fbcnn",
+        "reason": "visible JPEG block artifacts \u2014 remove compression artifacts first so later stages don't amplify them"
+      },
+      {
+        "node": "realesrgan",
+        "reason": "small image \u2014 RealESRGAN 4x super-resolution (MambaIR may swap in via High quality tier when installed)"
+      }
+    ]
+  },
+  "scratch_mask_mean": 0.0,
+  "artifacts": [
+    "Scan_12_harvest_source.png",
+    "Scan_12_scratch_mask.png",
+    "Scan_12_scratch_overlay.png"
+  ],
+  "gaps": [
+    "Full GPU E2E (denoise/OSDFace/inpaint weights) not run \u2014 CPU heuristic path only.",
+    "Qwen2.5-VL weights not installed \u2014 describe/plan used force_heuristic=True.",
+    "No true before/after restore pixels from LaMa/RealESRGAN (weights may be missing)."
+  ]
+}

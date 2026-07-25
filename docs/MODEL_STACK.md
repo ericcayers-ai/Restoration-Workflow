@@ -10,11 +10,15 @@ redistribution decision. Sources are linked inline. Treat this document as a sna
 - **v0.6.0 addenda** (InstructIR, DDColor, analyzer v2 companions): documented in the
   “Instruction-guided Master Restorer” section below — re-verify HF filenames and licences
   before each release that changes those manifests.
+- **Stack taxonomy (Phase 2 overhaul):** DiffBIR and HAT are **removed permanently**. Legacy
+  (Settings → Legacy only; hidden from Studio rail / Auto): SCUNet, SwinIR family,
+  old_photos_scratch, GFPGAN, RestoreFormer, CodeFormer, GPEN, BiRefNet, mask_from_image.
+  Active face rail: **OSDFace only**. Active matting: **RMBG-2.0** (`rmbg2`, gated NC,
+  `briaai/RMBG-2.0`). FLUX Fill lives under **masking**. Generative rail tags split
+  prompt/instruct edit vs generative upscale (SUPIR).
 - Before shipping a new default Auto node or promoting a gated model, re-verify licences and
   repo activity — `GRAPHIFY_WORKFLOW.md` explains how to fold that re-check into the graphify
   loop instead of redoing it from scratch.
-- HAT shipping status was corrected after the 2026-07-09 snapshot: see the regression-models
-  table note (HF mirror on Acly/hat).
 
 **Two corrections to the original README worth flagging up front:**
 - **"DarkIRv2" does not exist.** DarkIR ships size variants (`-m`/`-l`), not a v2 release.
@@ -41,10 +45,11 @@ the app can ship:
 
 | Tier | Meaning | Members |
 |---|---|---|
-| **Permissive** (Apache-2.0 / MIT / BSD) | Safe to bundle, redistribute, and use commercially | RealESRGAN, HAT, MambaIRv2, FBCNN, LaMa, PowerPaint, BiRefNet, DiffBIR, RestoreFormer++, GFPGAN, UniRestore, DreamClear* |
-| **Non-commercial only** | App can download/run locally with license acknowledgement; cannot be bundled into a paid product or offered as a hosted commercial service without a separate deal | SUPIR, FLUX.1-Fill-dev + tile ControlNet, CodeFormer (S-Lab NTU 1.0), GPEN (Alibaba academic) |
+| **Permissive** (Apache-2.0 / MIT / BSD) | Safe to bundle, redistribute, and use commercially | RealESRGAN, MambaIRv2, FBCNN, LaMa, PowerPaint, UniRestore, DreamClear*, InstructIR, DDColor, exposure_correct; *Legacy still registered:* SCUNet, SwinIR, BiRefNet, GFPGAN, RestoreFormer |
+| **Non-commercial only** | App can download/run locally with license acknowledgement; cannot be bundled into a paid product or offered as a hosted commercial service without a separate deal | SUPIR, FLUX.1-Fill-dev, RMBG-2.0 (CC BY-NC), CodeFormer (S-Lab NTU 1.0), GPEN (Alibaba academic) |
 | **Unclear / unverified** | No LICENSE file found — do not ship until confirmed directly with the author | OSDFace, DarkIR, RealRestorer (Apache-2.0 claimed on the HF card, but the GitHub repo itself has no LICENSE file) |
 | **Restricted upstream base** | Code license is permissive but the base checkpoint it fine-tunes carries its own restrictions | InstantIR (Apache-2.0 code, SDXL RAIL++-M base), DreamClear (Apache-2.0 claimed, PixArt-α base — re-verify) |
+| **Removed forever** | Not Legacy — deleted from the registry | DiffBIR, HAT |
 
 **Product implication:** the orchestration engine, plugin SDK, and UI are the app's own code
 and can be licensed however the user wants (Apache-2.0 recommended, matching the README's
@@ -67,15 +72,16 @@ best available quality.
 | Defusion / AutoDIR / PromptIR | 2025 research | Watch — packaging/licence/weights not yet at this repo’s bar; `InstructionRestorer` protocol is ready for a swap |
 
 Studio Mode: Instruct category on the Model Stack, Inspector prompt library, and
-“Build guided ensemble”. Simple Mode Auto stays rule-table-first (permissive); companions
-(DarkIR, InstructIR, DiffBIR, SUPIR) overlay only when installed (+acked).
+“Build guided ensemble”. Simple Mode Auto stays rule-table-first (permissive active
+stack); companions (DarkIR, InstructIR, SUPIR, OSDFace) overlay only when installed
+(+acked). DiffBIR is no longer a companion.
 
 **Colourization:** [DDColor](https://github.com/piddnad/DDColor) (Apache-2.0, HF
 `piddnad/DDColor-models`) ships as a first-class CNN peer; Auto routes when
 `is_grayscale`. DeOldify remains out of scope.
 
 **Highlight regeneration:** analyzer v2 clip masks + soft blend; preference InstructIR →
-DiffBIR → SUPIR → classical dual-tone when companions are ready.
+SUPIR → classical dual-tone when companions are ready.
 
 ---
 
@@ -88,7 +94,10 @@ DiffBIR → SUPIR → classical dual-tone when companions are ready.
 | [InstantIR](https://github.com/instantX-research/InstantIR) | 531★, **stale since Nov 2024** | Apache-2.0 code / SDXL RAIL++-M base | ~12-16GB+ | [smthemex wrapper](https://github.com/smthemex/ComfyUI_InstantIR_Wrapper) | Blind restoration + text-guided "creative" mode; dormant upstream, low priority |
 | [DreamClear](https://github.com/shallowdream204/DreamClear) | 1.2k★ | Apache-2.0 (PixArt-α base — verify) | Not documented (1024px DiT) | None found | Degradation-routed DiT restoration; would need a custom node written from scratch |
 | [UniRestore](https://github.com/unirestore/UniRestore) | 95★ | MIT | Not documented | None found | Unifies perceptual + task-oriented restoration; most permissive license here, least production-hardened |
-| FLUX Fill / Tile | [FLUX.1-Fill-dev](https://huggingface.co/black-forest-labs/FLUX.1-Fill-dev), [jasperai tile upscaler](https://huggingface.co/jasperai/Flux.1-dev-Controlnet-Upscaler) | Non-commercial | ~24GB fp16 / ~12GB quantized | **Native** in ComfyUI core | Best text-guided inpaint/outpaint + tile super-res; non-commercial blocks default-tier use |
+| FLUX Fill / Tile | [FLUX.1-Fill-dev](https://huggingface.co/black-forest-labs/FLUX.1-Fill-dev), [jasperai tile upscaler](https://huggingface.co/jasperai/Flux.1-dev-Controlnet-Upscaler) | Non-commercial | ~24GB fp16 / ~12GB quantized | **Native** in ComfyUI core | Best text-guided inpaint/outpaint + tile super-res; **shipped under Masking** (not Generative). Non-commercial blocks default-tier use |
+
+**Generative rail grouping:** nodes carry `tags` on `describe()` —
+`prompt_edit` (InstantIR, DreamClear, RealRestorer) vs `generative_upscale` (SUPIR).
 
 **Recommended default for this category:** none of these are cheap enough or permissively
 licensed enough to be Simple Mode's default. Gate the entire "Generative & Diffusion" category
@@ -102,19 +111,17 @@ of licensing.
 
 | Model | Repo | License | VRAM/Speed | ComfyUI node | Role |
 |---|---|---|---|---|---|
-| [DiffBIR](https://github.com/XPixelGroup/DiffBIR) | 4.1k★ | Apache-2.0 | Diffusion, slow, tileable | [jtscmw01](https://github.com/jtscmw01/ComfyUI-DiffBIR) | **Not face-specific** — use as a general/background pre-stage feeding into the face nodes below, not as a face-stack member itself |
-| [OSDFace](https://github.com/jkwang28/OSDFace) | 284★, active | Unclear — verify before shipping | One-step diffusion, near-GAN speed | None found | The diffusion-quality-at-GAN-speed tier; needs a custom node and a license answer before it can ship |
+| [DiffBIR](https://github.com/XPixelGroup/DiffBIR) | 4.1k★ | Apache-2.0 | Diffusion, slow, tileable | [jtscmw01](https://github.com/jtscmw01/ComfyUI-DiffBIR) | **Removed permanently** from this app (not Legacy) |
+| [OSDFace](https://github.com/jkwang28/OSDFace) | 284★, active | Unclear — verify before shipping | One-step diffusion, near-GAN speed | None found | **Active face rail (only)** — gated until licence confirmed |
 | SDFace | No installable repo (NTIRE 2025 challenge entry) | N/A | — | — | Real but unreleased — **use OSDFace instead**, do not plan around this name |
-| [CodeFormer](https://github.com/sczhou/CodeFormer) | 17.9k★ | **Non-commercial** (S-Lab NTU 1.0) | Fast, ~2-3GB | [mav-rik/facerestore_cf](https://github.com/mav-rik/facerestore_cf), ReActor | Most popular/controllable face restorer; license blocks it from Simple Mode's default path |
-| [RestoreFormer / RestoreFormer++](https://github.com/wzhouxiff/RestoreFormerPlusPlus) | 284★, stale since 2023 | **Apache-2.0** | GAN-class speed | None found | Same codebook-transformer family as CodeFormer, commercial-safe — **the default "quality" face node**. See the implementation note below: **v1 ships, ++ does not (yet)** |
-| [GFPGAN](https://github.com/TencentARC/GFPGAN) | 37.5k★, unmaintained since Apr 2024 | Apache-2.0 | Fast, ~2-4GB, real-time | [comfyorg](https://github.com/comfyorg/comfyui_gfpgan), ReActor | Most battle-tested baseline — **the default "fast" face node** for Simple Mode |
-| [GPEN](https://github.com/yangxy/GPEN) | 2.6k★ | Non-commercial (Alibaba academic) | Fast, high-res variants (1024/2048) | Bundled in ReActor | Useful for severely degraded high-res faces; opt-in only |
+| [CodeFormer](https://github.com/sczhou/CodeFormer) | 17.9k★ | **Non-commercial** (S-Lab NTU 1.0) | Fast, ~2-3GB | [mav-rik/facerestore_cf](https://github.com/mav-rik/facerestore_cf), ReActor | **Legacy** — Settings only |
+| [RestoreFormer / RestoreFormer++](https://github.com/wzhouxiff/RestoreFormerPlusPlus) | 284★, stale since 2023 | **Apache-2.0** | GAN-class speed | None found | **Legacy** — Settings only (v1 ships; ++ still stretch) |
+| [GFPGAN](https://github.com/TencentARC/GFPGAN) | 37.5k★, unmaintained since Apr 2024 | Apache-2.0 | Fast, ~2-4GB, real-time | [comfyorg](https://github.com/comfyorg/comfyui_gfpgan), ReActor | **Legacy** — Settings only |
+| [GPEN](https://github.com/yangxy/GPEN) | 2.6k★ | Non-commercial (Alibaba academic) | Fast, high-res variants (1024/2048) | Bundled in ReActor | **Legacy** — Settings only |
 
-**Recommended default:** **GFPGAN → RestoreFormer** as the Simple Mode default face path
-(both Apache-2.0), with CodeFormer/GPEN/OSDFace available as opt-in "try alternate face model"
-choices in Studio Mode once their license/verification status is accepted. DiffBIR sits in the
-*general* regression category functionally, despite the README grouping it with faces —
-reclassify it there in the plugin registry.
+**Recommended default:** **OSDFace** when faces are detected and the user has acknowledged
+its licence (Simple Mode companion overlay). GFPGAN / RestoreFormer / CodeFormer / GPEN remain
+downloadable under Settings → Legacy for existing Studio pipelines.
 
 **Implementation note — RestoreFormer v1 vs. ++ (found during Phase 1, 2026-07-10).**
 This document originally named RestoreFormer**++** the default quality face node. That was
@@ -140,19 +147,17 @@ module. The node strips both.
 |---|---|---|---|---|---|
 | [RealESRGAN](https://github.com/xinntao/Real-ESRGAN) | 36.1k★ | BSD-3-Clause | ~2-4GB, tiled | **Native** (Spandrel) | De-facto standard blind SR — fast general upscaler |
 | [SwinIR](https://github.com/JingyunLiang/SwinIR) | 4.6k★ | Apache-2.0 | ~4-8GB (MID tier), tiled | Native via Spandrel | Transformer restoration family shipped as **three** nodes from one architecture: `swinir` (real-SR x2/x4, the quality alternative to RealESRGAN), `swinir_denoise` (fixed-level colour denoise), `swinir_jpeg` (JPEG artifact removal, the transformer counterpart to FBCNN). Author's own GitHub release, no Google-Drive-only weights |
-| [SCUNet](https://github.com/cszn/SCUNet) | 500★ | Apache-2.0 | ~2-4GB (LOW tier) | Native via Spandrel | Blind real-world denoising (gan/psnr variants) — no noise-level knob needed, which is why it's the rule table's default denoise stage ahead of any upscaler |
-| [HAT](https://github.com/XPixelGroup/HAT) | 1.6k★ | Apache-2.0 | ~6-8GB+ | Native via Spandrel | SOTA SR quality. **Shipped in 0.4.0+** via Hugging Face mirror [`Acly/hat`](https://huggingface.co/Acly/hat) with sha256 pin (author’s primary Google Drive/Baidu hosts are not used). Not on Simple Mode Auto by default — Studio / manual pick. |
-| [MambaIRv2](https://github.com/csguoh/MambaIR) | 1.1k★ | Apache-2.0 | ~4-6GB | None — not in Spandrel, needs custom node work | Efficient SOTA SR; real engineering cost to integrate, defer past initial launch |
+| [SCUNet](https://github.com/cszn/SCUNet) | 500★ | Apache-2.0 | ~2-4GB (LOW tier) | Native via Spandrel | **Legacy** — was the rule-table denoise default |
+| [HAT](https://github.com/XPixelGroup/HAT) | 1.6k★ | Apache-2.0 | ~6-8GB+ | Native via Spandrel | **Removed permanently** (was Acly/hat HF mirror) |
+| [MambaIRv2](https://github.com/csguoh/MambaIR) | 1.1k★ | Apache-2.0 | ~4-6GB | None — not in Spandrel, needs custom node work | Active quality upscale (High tier swap vs RealESRGAN) |
 | BioIR | No public code (NeurIPS'25 poster only) | Unknown | Unknown | None | Real, distinct project — **do not plan around a repo that doesn't exist yet**; revisit later |
 | [FBCNN](https://github.com/jiaxi-jiang/FBCNN) | 522★ | Apache-2.0 | <2GB, fast | [ComfyUI-FBCNN](https://www.runcomfy.com/comfyui-nodes/ComfyUI-FBCNN) | Reference model for adjustable-strength JPEG artifact removal — ship as default |
 | [DarkIR](https://github.com/cidautai/DarkIR) | — | Unconfirmed — verify LICENSE directly | ~2-4GB (m/l variants) | None found | All-in-one low-light/noise/blur; needs a custom node and a license check. **"DarkIRv2" does not exist** — this is v1 only |
 
-**Recommended default:** the shipped rule table chains FBCNN (deblock) → SCUNet (blind
-denoise) → SwinIR or RealESRGAN (quality-vs-speed upscale band) → GFPGAN → RestoreFormer
-(face), all permissive, all weights sourced from author hosting or verified mirrors with a
-sha256 pin. **HAT** ships as an opt-in Studio quality upscaler using the Acly/hat HF mirror
-(see table). MambaIRv2, BioIR, and DarkIR still need extra care (custom stacks / unclear
-licence) — treat as opt-in or stretch, not Auto defaults.
+**Recommended default:** the shipped rule table chains FBCNN (deblock) → RealESRGAN
+(upscale bands) → optional DDColor / exposure_correct, all permissive and active.
+High quality tier may swap RealESRGAN → MambaIRv2 when installed. SCUNet / SwinIR / HAT
+are Legacy or removed — not Auto defaults.
 
 ---
 
@@ -162,10 +167,12 @@ licence) — treat as opt-in or stretch, not Auto defaults.
 |---|---|---|---|---|---|
 | [LaMa](https://github.com/advimman/lama) | 10.1k★ | Apache-2.0 | ~2-4GB, fast | [Acly/comfyui-inpaint-nodes](https://github.com/Acly/comfyui-inpaint-nodes) | Fast large-mask object removal — **default inpaint/fill node** |
 | [PowerPaint](https://github.com/open-mmlab/PowerPaint) | 1.1k★ | MIT | ~6-8GB (SD1.5-based) | [BrushNet PowerPaint node](https://www.runcomfy.com/comfyui-nodes/ComfyUI-BrushNet/PowerPaint) | Text-guided inpaint/removal/outpaint/shape-fill in one model — the "advanced" inpaint option |
-| [BiRefNet](https://github.com/ZhengPeng7/BiRefNet) | 3.9k★, active | MIT | ~2-6GB | Multiple forks ([viperyl](https://github.com/viperyl/ComfyUI-BiRefNet), [rubi-du](https://github.com/rubi-du/ComfyUI-BiRefNet-Super)) | High-resolution matting (hair/fur/fine edges), outperforms rembg — **default matting node** |
+| [RMBG-2.0](https://huggingface.co/briaai/RMBG-2.0) | — | **CC BY-NC 4.0** (gated) | ~2-6GB | Bria Comfy / API | **Active matting node** (`rmbg2`) — replaces BiRefNet; never on unacked Auto |
+| [BiRefNet](https://github.com/ZhengPeng7/BiRefNet) | 3.9k★, active | MIT | ~2-6GB | Multiple forks | **Legacy** — Settings only |
+| FLUX Fill | see Generative table | Non-commercial | VERY_HIGH | Native Comfy | Shipped under **Masking** |
 
-All three are permissively licensed with real, maintained ComfyUI precedent — this is the
-easiest category to ship early and completely.
+Active masking is LaMa + PowerPaint + RMBG-2.0 + FLUX Fill. `mask_from_image` is Legacy
+(Mask Editor supersedes for Auto).
 
 **Implementation note — LaMa weight distribution (found during Phase 1, 2026-07-10).**
 LaMa's code and weights are Apache-2.0, but neither of its two commonly-cited weight

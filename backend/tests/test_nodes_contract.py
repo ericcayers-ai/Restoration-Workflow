@@ -96,10 +96,10 @@ def test_weight_manifest_entries_have_exactly_one_source(cls):
 
 
 _TOFU_PHASE4_IDS = {
-    "diffbir",
     "supir",
     "flux_fill",
     "osdface",
+    "rmbg2",
     "darkir",
     "instantir",
     "dreamclear",
@@ -121,6 +121,7 @@ _GATED_BUILTIN_IDS = {
     "osdface",
     "supir",
     "flux_fill",
+    "rmbg2",
     "darkir",
     "realrestorer",
 }
@@ -165,6 +166,55 @@ def test_face_nodes_do_not_claim_tiling():
 
     assert GfpganNode.supports_tiling is False
     assert RestoreFormerNode.supports_tiling is False
+
+
+def test_active_face_rail_is_osdface_only():
+    face = [cls for cls in BUILTIN_NODES if cls.category is NodeCategory.FACE]
+    assert [cls.id for cls in face] == ["osdface"]
+
+
+def test_diffbir_and_hat_are_removed_forever():
+    assert "diffbir" not in ALL_IDS
+    assert "hat" not in ALL_IDS
+
+
+def test_legacy_category_covers_culled_defaults():
+    by_id = {cls.id: cls for cls in BUILTIN_NODES}
+    for node_id in (
+        "scunet",
+        "swinir",
+        "swinir_denoise",
+        "swinir_jpeg",
+        "old_photos_scratch",
+        "gfpgan",
+        "restoreformer",
+        "codeformer",
+        "gpen",
+        "birefnet",
+        "mask_from_image",
+    ):
+        assert by_id[node_id].category is NodeCategory.LEGACY, node_id
+
+
+def test_rmbg2_is_gated_matting_replacement():
+    by_id = {cls.id: cls for cls in BUILTIN_NODES}
+    node = by_id["rmbg2"]
+    assert node.category is NodeCategory.MASKING
+    assert node.license.kind is LicenseKind.NON_COMMERCIAL
+    assert node.license.requires_acknowledgement is True
+
+
+def test_flux_fill_lives_in_masking():
+    by_id = {cls.id: cls for cls in BUILTIN_NODES}
+    assert by_id["flux_fill"].category is NodeCategory.MASKING
+    assert "generative_upscale" in by_id["supir"].tags
+    assert "prompt_edit" in by_id["instantir"].tags
+
+
+def test_describe_includes_tags():
+    desc = {cls.id: cls().describe() for cls in BUILTIN_NODES}
+    assert "tags" in desc["supir"]
+    assert desc["supir"]["tags"] == ["generative_upscale"]
 
 
 def test_realesrgan_selects_its_checkpoint_by_scale():

@@ -47,15 +47,17 @@ see [`../docs/MODEL_STACK.md`](../docs/MODEL_STACK.md). Core permissive examples
 | Node | Model | Licence | Role |
 |---|---|---|---|
 | `fbcnn` | FBCNN | Apache-2.0 | JPEG artifacts |
-| `scunet` | SCUNet | Apache-2.0 | Blind denoise |
-| `swinir` / `_denoise` / `_jpeg` | SwinIR | Apache-2.0 | Transformer SR / denoise / JPEG |
 | `realesrgan` | RealESRGAN | BSD-3-Clause | Fast general upscaler |
-| `hat` | HAT | Apache-2.0 | Higher-quality SR (HF mirror) |
-| `gfpgan` / `restoreformer` | GFPGAN / RestoreFormer | Apache-2.0 | Face restoration |
+| `mambair` | MambaIRv2 | Apache-2.0 | Quality upscale (High tier) |
 | `lama` | LaMa | Apache-2.0 | Large-mask inpainting |
 | `ddcolor` | DDColor | Apache-2.0 | Grayscale colourization |
 | `instructir` | InstructIR | MIT | Master Restorer / ensembles |
-| `mask_from_image` / `blend` / `exposure_correct` | — | Apache-2.0 | Orchestration / classical |
+| `rmbg2` | RMBG-2.0 | CC BY-NC (gated) | Background removal / matting |
+| `osdface` | OSDFace | Unclear (gated) | Active face rail |
+| `flux_fill` | FLUX Fill | NC (gated) | Text-guided inpaint (masking) |
+| `blend` / `exposure_correct` | — | Apache-2.0 | Orchestration / classical |
+| *Legacy* | SCUNet, SwinIR*, GFPGAN, … | various | Settings → Legacy only |
+| *Removed* | DiffBIR, HAT | — | Not registered |
 
 Face detection uses OpenCV YuNet (MIT) — a detector, not a restoration model. Full registry:
 `restore nodes` or `nodes/__init__.py` (`BUILTIN_NODES`).

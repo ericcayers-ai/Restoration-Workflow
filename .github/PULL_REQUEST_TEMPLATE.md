@@ -13,8 +13,7 @@
 - [ ] If this touches weight loading (`nodes/_torch.py`), checkpoints are still never
       unpickled — see `SECURITY.md`
 - [ ] User-visible behaviour: `CHANGELOG.md` updated (Keep a Changelog)
-- [ ] Docs do not claim a shipping Tauri auto-updater (desktop installers are the
-      supported path — `RELEASING.md`)
+- [ ] Docs reference PyInstaller-based desktop installers only (`RELEASING.md`)
 
 ## Testing
 

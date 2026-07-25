@@ -25,6 +25,7 @@ from typing import Any
 
 import numpy as np
 
+from ..core.ordering import STAGE_FACE
 from ..core.types import (
     ImageArray,
     ImageMeta,
@@ -106,7 +107,10 @@ _FACE_PARAMS: dict[str, Any] = {
 class FaceRestorationNode(SpandrelNode):
     """detect -> align -> restore -> paste back, for any FFHQ-512 face model."""
 
-    category = NodeCategory.FACE
+    # GFPGAN / RestoreFormer / CodeFormer / GPEN live under Settings → Legacy;
+    # the active face rail is OSDFace only.
+    category = NodeCategory.LEGACY
+    pipeline_stage = STAGE_FACE
     vram_tier = VramTier.LOW
     # A face model always sees exactly one 512x512 crop, so tiling is meaningless
     # here: there is nothing for the executor's OOM fallback to subdivide.

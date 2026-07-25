@@ -45,7 +45,7 @@ _FILE_FOR_VARIANT = {
 
 class ScunetNode(SpandrelNode):
     id = "scunet"
-    category = NodeCategory.REGRESSION
+    category = NodeCategory.LEGACY
     pipeline_stage = STAGE_DENOISE
     display_name = "SCUNet"
     description = "Blind real-world denoising; robust when the noise level is unknown."

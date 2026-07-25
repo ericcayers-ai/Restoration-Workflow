@@ -2,6 +2,9 @@
  * "A single full-bleed drop target, centered, minimal chrome"
  * (UI_DESIGN.md section 7). Keyboard-operable per section 6: focusable
  * label opens the file picker on Enter/Space, exactly like a click would.
+ *
+ * Batch folder picking uses a separate webkitdirectory input so the primary
+ * click stays a normal photo picker (Studio already separates these).
  */
 
 import { useCallback, useRef, useState } from "react";
@@ -22,6 +25,7 @@ export function DropZone({
   const t = useT();
   const [active, setActive] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const folderRef = useRef<HTMLInputElement>(null);
 
   const handleFiles = useCallback(
     (files: FileList | null) => {
@@ -61,18 +65,49 @@ export function DropZone({
       <p className={styles.title}>{t("simple.dropTitle")}</p>
       <p className={styles.subtitle}>{t("simple.dropSubtitle")}</p>
       <p className={styles.hint}>{onFiles ? t("simple.dropHintBatch") : t("simple.dropHint")}</p>
+      {onFiles && (
+        <button
+          type="button"
+          className={styles.folderButton}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            folderRef.current?.click();
+          }}
+        >
+          {t("simple.dropFolder")}
+        </button>
+      )}
       <input
         ref={inputRef}
         className={styles.input}
         type="file"
         accept={ACCEPTED}
-        {...(onFiles ? { webkitdirectory: "", multiple: true } : {})}
+        multiple={Boolean(onFiles)}
         tabIndex={-1}
         onChange={(e) => {
           handleFiles(e.target.files);
           e.target.value = "";
         }}
       />
+      {onFiles && (
+        <input
+          ref={folderRef}
+          className={styles.input}
+          type="file"
+          accept={ACCEPTED}
+          multiple
+          // @ts-expect-error webkitdirectory is non-standard but widely supported
+          webkitdirectory=""
+          tabIndex={-1}
+          aria-label={t("simple.dropFolder")}
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => {
+            handleFiles(e.target.files);
+            e.target.value = "";
+          }}
+        />
+      )}
     </label>
   );
 }
