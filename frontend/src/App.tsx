@@ -15,6 +15,7 @@ import { CommandPalette } from "./components/common/CommandPalette";
 import { ScaleControl, ThemeToggle } from "./components/common/PreferencesBar";
 import { SettingsPanel } from "./components/common/SettingsPanel";
 import { Icon } from "./components/common/Icon";
+import { ConnectionStatus } from "./components/common/ConnectionStatus";
 import { useRegisterCommands } from "./lib/commands";
 import { useT } from "./lib/i18n";
 import type { PipelineJson } from "./lib/types";
@@ -153,6 +154,8 @@ export function App() {
             </kbd>
           </button>
           <span className={styles.divider} aria-hidden />
+          <ConnectionStatus />
+          <span className={styles.divider} aria-hidden />
           <ThemeToggle />
           <ScaleControl />
           <button
@@ -168,13 +171,25 @@ export function App() {
       </header>
 
       <main className={styles.main}>
-        <div className={styles.modePane} style={{ display: mode === "simple" ? "flex" : "none" }}>
+        <div
+          className={styles.modePane}
+          data-mode-pane="simple"
+          style={{ display: mode === "simple" ? "flex" : "none" }}
+        >
           <SimpleMode onOpenInStudio={openInStudio} maskHandoff={simpleHandoff} />
         </div>
-        <div className={styles.modePane} style={{ display: mode === "studio" ? "flex" : "none" }}>
+        <div
+          className={styles.modePane}
+          data-mode-pane="studio"
+          style={{ display: mode === "studio" ? "flex" : "none" }}
+        >
           <StudioMode handoff={handoff} />
         </div>
-        <div className={styles.modePane} style={{ display: mode === "mask" ? "flex" : "none" }}>
+        <div
+          className={styles.modePane}
+          data-mode-pane="mask"
+          style={{ display: mode === "mask" ? "flex" : "none" }}
+        >
           <MaskEditor onExport={onMaskExport} />
         </div>
       </main>

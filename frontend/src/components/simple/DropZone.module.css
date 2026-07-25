@@ -68,6 +68,27 @@
   margin-top: var(--space-1);
 }
 
+.folderButton {
+  margin-top: var(--space-2);
+  min-height: var(--control-height);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  transition:
+    background-color var(--motion-fast),
+    color var(--motion-fast),
+    border-color var(--motion-fast);
+}
+
+.folderButton:hover {
+  color: var(--text-primary);
+  background: var(--surface-800);
+  border-color: var(--accent-amber);
+}
+
 .input {
   position: absolute;
   width: 1px;

@@ -42,7 +42,7 @@ from ..core.errors import (
     WeightsNotInstalledError,
 )
 from ..core.executor import parse_pipeline
-from ..core.images import encode_png, load_image_bytes
+from ..core.images import load_image_bytes
 from ..core.ordering import auto_order_pipeline
 from ..core.quality import QualityTier
 from ..core.workflow_text import parse_workflow, serialize_workflow
@@ -194,6 +194,16 @@ def create_app(services: AppServices | None = None) -> FastAPI:
         except Exception as exc:
             raise HTTPException(status_code=400, detail=f"unreadable image: {exc}") from exc
 
+    @staticmethod
+    def _validate_image_size(array: Any) -> None:
+        max_pixels = 100_000_000
+        h, w = array.shape[:2]
+        if h * w > max_pixels:
+            raise HTTPException(
+                status_code=400,
+                detail=f"image too large ({w}×{h} = {h * w} px; max {max_pixels})",
+            )
+
     def _parse_quality_tier(raw: str) -> QualityTier:
         try:
             return QualityTier(raw)
@@ -207,6 +217,7 @@ def create_app(services: AppServices | None = None) -> FastAPI:
         image: UploadFile = File(...), quality_tier: str = Form("balanced")
     ) -> dict[str, Any]:
         array = await _read_image(image)
+        _validate_image_size(array)
         tier = _parse_quality_tier(quality_tier)
         auto = await asyncio.to_thread(services.analyze, array, tier)
         payload = auto.to_dict()
@@ -256,6 +267,7 @@ def create_app(services: AppServices | None = None) -> FastAPI:
     async def mask_scratch(image: UploadFile = File(...)) -> FileResponse:
         """Classical scratch/dust detect → greyscale mask PNG (not saved)."""
         array = await _read_image(image)
+        _validate_image_size(array)
         mask = await asyncio.to_thread(defect_mask_rgb, array[..., :3])
         import tempfile  # noqa: PLC0415
 
@@ -276,6 +288,7 @@ def create_app(services: AppServices | None = None) -> FastAPI:
         import numpy as np  # noqa: PLC0415
 
         array = await _read_image(image)
+        _validate_image_size(array)
         rgb = array[..., :3]
         try:
             node = services.registry.create("rmbg2")
@@ -313,8 +326,9 @@ def create_app(services: AppServices | None = None) -> FastAPI:
         prompt: str = Form("clean photograph"),
     ) -> FileResponse:
         """Run an inpaint node inside the Mask Editor (image + mask → result)."""
-        import numpy as np  # noqa: PLC0415
         import tempfile  # noqa: PLC0415
+
+        import numpy as np  # noqa: PLC0415
 
         from ..core.images import save_image  # noqa: PLC0415
         from ..core.types import RunContext  # noqa: PLC0415
@@ -322,6 +336,7 @@ def create_app(services: AppServices | None = None) -> FastAPI:
         if engine not in {"lama", "powerpaint", "flux_fill"}:
             raise HTTPException(400, "engine must be lama, powerpaint, or flux_fill")
         array = await _read_image(image)
+        _validate_image_size(array)
         mask_data = await mask.read()
         if not mask_data:
             raise HTTPException(400, "empty mask upload")
@@ -384,6 +399,7 @@ def create_app(services: AppServices | None = None) -> FastAPI:
         force_heuristic: str = Form("false"),
     ) -> dict[str, Any]:
         array = await _read_image(image)
+        _validate_image_size(array)
         force = str(force_heuristic).lower() in ("1", "true", "yes")
         description = await asyncio.to_thread(
             services.describe_photo, array, force_heuristic=force
@@ -403,6 +419,7 @@ def create_app(services: AppServices | None = None) -> FastAPI:
     ) -> dict[str, Any]:
         """Skill-driven Auto plan (VLM describe when installed; rule_table on request)."""
         array = await _read_image(image)
+        _validate_image_size(array)
         tier = _parse_quality_tier(quality_tier)
         mode = (fallback or "skill").strip().lower()
         if mode not in ("skill", "rule_table"):
@@ -425,6 +442,7 @@ def create_app(services: AppServices | None = None) -> FastAPI:
     ) -> dict[str, Any]:
         """Dynamic Studio preset suggestions from describe + goal."""
         array = await _read_image(image)
+        _validate_image_size(array)
         force = str(force_heuristic).lower() in ("1", "true", "yes")
         return await asyncio.to_thread(
             services.suggest_auto_presets,
@@ -447,6 +465,7 @@ def create_app(services: AppServices | None = None) -> FastAPI:
         ``quality_tier`` only affects that automatic pick; an explicit pipeline
         or preset already says exactly what to run."""
         array = await _read_image(image)
+        _validate_image_size(array)
 
         analysis: dict[str, Any] | None = None
         if pipeline and preset:

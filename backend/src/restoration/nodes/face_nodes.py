@@ -25,6 +25,7 @@ from typing import Any
 
 import numpy as np
 
+from ..core.ordering import STAGE_FACE
 from ..core.types import (
     ImageArray,
     ImageMeta,
@@ -35,7 +36,6 @@ from ..core.types import (
     VramTier,
     WeightFile,
 )
-from ..core.ordering import STAGE_FACE
 from ._faces import (
     FACE_SIZE,
     YUNET_FILENAME,

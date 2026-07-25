@@ -792,16 +792,20 @@ export function SimpleMode({
               alt=""
             />
           )}
-          <ModelStackRail nodes={addableNodes} onAddNode={onAddReviewStage} />
-          <StageList
-            stages={reviewStages}
-            selectedId={reviewSelectedId}
-            onSelect={setReviewSelectedId}
-            onMove={onMoveReviewStage}
-            onRemove={onRemoveReviewStage}
-            onAutoOrder={onAutoOrderReview}
-            error={reviewError}
-          />
+          <div className={styles.reviewRail}>
+            <ModelStackRail nodes={addableNodes} onAddNode={onAddReviewStage} />
+          </div>
+          <div className={styles.reviewStages}>
+            <StageList
+              stages={reviewStages}
+              selectedId={reviewSelectedId}
+              onSelect={setReviewSelectedId}
+              onMove={onMoveReviewStage}
+              onRemove={onRemoveReviewStage}
+              onAutoOrder={onAutoOrderReview}
+              error={reviewError}
+            />
+          </div>
           <div className={styles.reviewInspector}>
             <Inspector
               selectedStage={reviewSelected}

@@ -33,7 +33,10 @@ restoration pipeline. Reply with ONLY valid JSON matching this schema:
   "is_bw_intended": bool,
   "has_faces": bool,
   "face_count": int,
-  "degradations": ["jpeg"|"blur"|"noise"|"grain"|"scratches"|"low_light"|"blown_highlights"|"fade"|"stain"],
+  "degradations": [
+    "jpeg", "blur", "noise", "grain", "scratches",
+    "low_light", "blown_highlights", "fade", "stain"
+  ],
   "severity": {"jpeg":0-1, "blur":0-1, "noise":0-1, "scratches":0-1, "exposure":0-1},
   "highlights_blown": bool,
   "scratches_likely": bool,
@@ -242,12 +245,19 @@ class VlmManager:
         self.model_dir = self.root / VLM_DIR_NAME
         self._free_space_margin = free_space_margin
         self._analyzer = DegradationAnalyzer()
+        self._model_cache: dict[str, Any] = {}
+        self._processor_cache: Any = None
 
     def is_installed(self) -> bool:
         cfg = self.model_dir / "config.json"
         if not cfg.is_file():
             return False
-        return any(self.model_dir.glob("*.safetensors")) or any(self.model_dir.glob("*.bin"))
+        safetensors = list(self.model_dir.glob("*.safetensors"))
+        bins = list(self.model_dir.glob("*.bin"))
+        weight_files = safetensors + bins
+        if not weight_files:
+            return False
+        return all(f.stat().st_size > 0 for f in weight_files)
 
     def status(self) -> dict[str, Any]:
         installed = self.is_installed()
@@ -272,8 +282,8 @@ class VlmManager:
     @staticmethod
     def _inference_deps_available() -> bool:
         try:
-            import torch  # noqa: F401
-            import transformers  # noqa: F401
+            import torch  # noqa: F401, PLC0415
+            import transformers  # noqa: F401, PLC0415
         except ImportError:
             return False
         return True
@@ -343,10 +353,16 @@ class VlmManager:
         return self.model_dir
 
     def remove(self) -> bool:
+        self.clear_cache()
         if self.model_dir.exists():
             shutil.rmtree(self.model_dir)
             return True
         return False
+
+    def clear_cache(self) -> None:
+        """Release cached model and processor to free memory."""
+        self._model_cache.clear()
+        self._processor_cache = None
 
     def describe_photo(
         self,
@@ -357,22 +373,44 @@ class VlmManager:
     ) -> PhotoDescription:
         """Return a structured restoration description for ``image``."""
         profile = profile or self._analyzer.analyze(image)
-        if force_heuristic or not self.is_installed() or not self._inference_deps_available():
-            return description_from_profile(profile)
+
+        if force_heuristic:
+            desc = description_from_profile(profile)
+            desc.summary = f"{desc.summary} (heuristic forced)"
+            return desc
+
+        if not self.is_installed():
+            desc = description_from_profile(profile)
+            desc.summary = (
+                f"{desc.summary} (VLM not installed — download in Settings → Vision)"
+            )
+            return desc
+
+        if not self._inference_deps_available():
+            desc = description_from_profile(profile)
+            desc.summary = (
+                f"{desc.summary} (inference deps missing — "
+                "pip install -e .[inference])"
+            )
+            return desc
 
         try:
             raw = self._run_vlm(image)
             return _merge_vlm_payload(raw, profile)
-        except Exception:
+        except Exception as exc:
             desc = description_from_profile(profile)
-            desc.summary = f"{desc.summary} (VLM unavailable — heuristic)"
+            exc_msg = str(exc)[:80]
+            desc.summary = f"{desc.summary} (VLM error: {exc_msg})"
             return desc
 
     def _run_vlm(self, image: ImageArray) -> dict[str, Any]:
         import numpy as np  # noqa: PLC0415
         import torch  # noqa: PLC0415
         from PIL import Image  # noqa: PLC0415
-        from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration  # noqa: PLC0415
+        from transformers import (  # noqa: PLC0415
+            AutoProcessor,
+            Qwen2_5_VLForConditionalGeneration,
+        )
 
         rgb = image[..., :3] if image.ndim == 3 and image.shape[-1] >= 3 else image
         if rgb.dtype != np.uint8:
@@ -396,14 +434,22 @@ class VlmManager:
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
         dtype = torch.float16 if device == "cuda" else torch.float32
-        model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-            str(self.model_dir),
-            torch_dtype=dtype,
-            device_map="auto" if device == "cuda" else None,
-        )
-        if device == "cpu":
-            model = model.to(device)
-        processor = AutoProcessor.from_pretrained(str(self.model_dir))
+        cache_key = f"{device}_{dtype}"
+
+        if cache_key in self._model_cache:
+            model = self._model_cache[cache_key]
+            processor = self._processor_cache
+        else:
+            model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+                str(self.model_dir),
+                torch_dtype=dtype,
+                device_map="auto" if device == "cuda" else None,
+            )
+            if device == "cpu":
+                model = model.to(device)
+            processor = AutoProcessor.from_pretrained(str(self.model_dir))
+            self._model_cache[cache_key] = model
+            self._processor_cache = processor
 
         messages = [
             {

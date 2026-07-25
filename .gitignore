@@ -31,3 +31,5 @@ src-tauri/updater.key
 
 .worktrees/
 
+
+debug-*.log

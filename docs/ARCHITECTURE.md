@@ -36,8 +36,7 @@ flowchart LR
 **As shipped (0.6.1+):** supported desktop artefacts are **PyInstaller onedir** wraps —
 Windows Inno Setup installer, macOS DMG (unsigned `.app`), and Linux AppImage — each
 launching the local FastAPI process and opening a browser. `restore serve` is the same
-stack without the wrapper. An experimental `src-tauri/` tree may exist; it is **not** a
-shipping multi-OS updater shell — see [`RELEASING.md`](../RELEASING.md).
+stack without the wrapper — see [`RELEASING.md`](../RELEASING.md).
 
 ---
 
@@ -47,8 +46,7 @@ Three logical pieces:
 
 1. **Desktop / browser shell (as shipped: installer + browser)** —
    Windows Setup / macOS `.app` / Linux AppImage start the backend and open a
-   browser tab. There is no required native WebView shell for day-one use. An optional
-   Tauri scaffold under `src-tauri/` is experimental only — not a product updater path.
+   browser tab. There is no required native WebView shell for day-one use.
 2. **Backend (Python / FastAPI)** — bound to `127.0.0.1` only (fixed default port `8765` in
    current builds, overridable). Owns the pipeline executor, model plugins, weight manager,
    hardware detection, and job state.
@@ -252,9 +250,7 @@ Each starts a local server + browser UI. CPU wheels are enough to start; CUDA
 accelerates when present. Model **weights are not** in the installer — they download
 on demand through the Weight Manager. Builds are not code-signed.
 
-**Not supported as a product:** Tauri / Electron auto-updater narratives. A `src-tauri/`
-scaffold may remain for experiments; do not document or market it as a shipping multi-OS
-updater. Prefer documenting Releases installers or `restore serve` from source/Docker.
+Prefer documenting Releases installers or `restore serve` from source/Docker.
 
 **Licence bundle:** ship `LICENSE`, `NOTICE`, and `THIRD_PARTY_NOTICES.md` with binary
 artefacts when packaging includes them; keep downloadable-weight terms in
