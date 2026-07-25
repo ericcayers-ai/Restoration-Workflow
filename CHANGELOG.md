@@ -21,6 +21,9 @@ include breaking changes to the JSON pipeline shape).
 - **UI polish (Mask / Model Stack / Legacy / Vision)** — Distilled copy for Mask Editor, Settings Vision/Legacy tabs, Simple vision offer, and Model Stack category labels. Focus rings and keyboard: Mask shortcuts (B/E/I/[ ]/Esc), Settings tab arrow keys, rail/search focus-within. Fixed PresetBar contrast (`--text-tertiary` → `--text-secondary`). Settings Vision/Legacy panel fragment fix for valid JSX.
 - **Simple Mode drop zone** — folder import moved to its own explicit button/input instead of silently swapping the primary drop target's picker into folder-only mode (previously a single click could no longer pick individual files once `onFiles` was wired up).
 - Removed the experimental, unshipped `src-tauri/` scaffold and all docs claiming/disclaiming a Tauri auto-updater; PyInstaller installers are the sole documented desktop path (matches Phase 8 / 0.6.1 reality).
+- **README** — clearer first-viewport CTA, Simple/Studio comparison, mermaid
+  Drop → Review → Restore flow, larger screenshot presentation, and scannable
+  capability/model tables. Screenshots may still lag the latest Safelight chrome.
 
 ### Removed
 - `src-tauri/` (dead experimental scaffold, never a shipping product path).
