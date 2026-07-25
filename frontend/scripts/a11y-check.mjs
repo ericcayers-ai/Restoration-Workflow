@@ -277,10 +277,12 @@ try {
     () => !document.querySelector('[role="dialog"][aria-label="Settings"]'),
   );
 
-  // 3) Simple review after analyze — inject a File (webkitdirectory inputs
-  // resist Puppeteer's uploadFile for a single PNG path).
+  // 3) Simple review after analyze — inject a File on the primary photo picker.
   await page.evaluate(async () => {
-    const input = document.querySelector('input[type="file"]');
+    const input =
+      document.querySelector(
+        '[data-mode-pane="simple"] input[type="file"]:not([webkitdirectory])',
+      ) || document.querySelector('input[type="file"]');
     if (!input) throw new Error("no file input");
     const bytes = Uint8Array.from(
       atob(

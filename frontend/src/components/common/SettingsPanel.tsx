@@ -20,13 +20,16 @@ import { useT } from "../../lib/i18n";
 import { useFocusTrap } from "../../lib/useFocusTrap";
 import type { DescribedNode, VlmStatus } from "../../lib/types";
 import { useWeightDownloads } from "../../lib/useWeightDownloads";
+import { usePreferences } from "../../lib/preferences";
+import { AVAILABLE_LOCALES } from "../../lib/i18n";
+import { useToast } from "./Toast";
 import { Button } from "./Button";
 import { DownloadRow } from "./DownloadRow";
 import { Icon } from "./Icon";
 import styles from "./SettingsPanel.module.css";
 
 type Filter = "all" | "missing" | "installed" | "restricted";
-type Tab = "downloads" | "legacy" | "vision";
+type Tab = "downloads" | "legacy" | "vision" | "language";
 
 export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const t = useT();
@@ -34,6 +37,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
   const [nodes, setNodes] = useState<DescribedNode[]>([]);
   const [cacheDir, setCacheDir] = useState("");
   const [banner, setBanner] = useState<string | null>(null);
+  const [confirmingRemoveVlm, setConfirmingRemoveVlm] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
@@ -46,6 +50,8 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
     grand: { count: number; bytes: number };
   } | null>(null);
   const downloads = useWeightDownloads();
+  const { locale, setLocale } = usePreferences();
+  const toast = useToast();
 
   useFocusTrap(open, panelRef, onClose);
 
@@ -240,10 +246,10 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
   function onRemoveVlm() {
     removeVlm()
       .then(() => {
-        setBanner(t("settings.vision.removed"));
+        toast(t("settings.vision.removed"), "success");
         refresh();
       })
-      .catch((err) => setBanner(err instanceof ApiError ? err.message : String(err)));
+      .catch((err) => toast(err instanceof ApiError ? err.message : String(err), "error"));
   }
   const emptyLabel =
     tab === "legacy" ? t("settings.legacy.empty") : t("settings.downloads.empty");
@@ -278,6 +284,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
             [
               ["downloads", "settings.tab.downloads"],
               ["vision", "settings.tab.vision"],
+              ["language", "settings.tab.language"],
               ["legacy", "settings.tab.legacy"],
             ] as const
           ).map(([value, key], index, list) => (
@@ -329,6 +336,11 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
           {cacheDir && tab !== "vision" && (
             <p className={styles.cacheDir}>{t("settings.downloads.cacheDir", { path: cacheDir })}</p>
           )}
+          {tab === "vision" && !vlm && (
+            <p className={styles.subtitle}>
+              {t("settings.vision.subtitle")}
+            </p>
+          )}
           {tab === "vision" && vlm && <p className={styles.cacheDir}>{vlm.path}</p>}
 
           {tab === "vision" && vlm && (
@@ -361,9 +373,29 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
                       size: formatBytes(vlm.size_on_disk || vlm.size_bytes),
                     })}
                   </span>
-                  <Button variant="ghost" size="small" icon="trash" onClick={onRemoveVlm}>
-                    {t("settings.vision.remove")}
-                  </Button>
+                  {!vlm.inference_available && (
+                    <span className={styles.warningLabel}>
+                      <Icon name="warning" size={12} />
+                      {t("settings.vision.inferenceMissing")}
+                    </span>
+                  )}
+                  {confirmingRemoveVlm ? (
+                    <>
+                      <Button variant="secondary" size="small" icon="trash" onClick={() => {
+                        onRemoveVlm();
+                        setConfirmingRemoveVlm(false);
+                      }}>
+                        {t("settings.vision.confirmRemove")}
+                      </Button>
+                      <Button variant="ghost" size="small" onClick={() => setConfirmingRemoveVlm(false)}>
+                        {t("common.cancel")}
+                      </Button>
+                    </>
+                  ) : (
+                    <Button variant="ghost" size="small" icon="trash" onClick={() => setConfirmingRemoveVlm(true)}>
+                      {t("settings.vision.remove")}
+                    </Button>
+                  )}
                 </div>
               ) : (
                 <div className={styles.downloadActions}>
@@ -374,6 +406,26 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
                   </Button>
                 </div>
               )}
+            </div>
+          )}
+
+          {tab === "language" && (
+            <div className={styles.languageSection}>
+              <p className={styles.cacheDir}>{t("settings.language.subtitle")}</p>
+              <div className={styles.localeList} role="radiogroup" aria-label={t("settings.language.title")}>
+                {AVAILABLE_LOCALES.map((loc) => (
+                  <label key={loc.code} className={styles.localeOption}>
+                    <input
+                      type="radio"
+                      name="locale"
+                      value={loc.code}
+                      checked={locale === loc.code}
+                      onChange={() => setLocale(loc.code)}
+                    />
+                    <span>{loc.label}</span>
+                  </label>
+                ))}
+              </div>
             </div>
           )}
 

@@ -98,8 +98,7 @@ downloads until you ask for a model.
 **Linux:** `chmod +x` the AppImage, then run it.
 
 > Builds are **not code-signed** yet — Windows SmartScreen / macOS Gatekeeper may
-> warn on first run. A `src-tauri/` scaffold may exist for experiments; it is
-> **not** a shipping multi-OS updater product.
+> warn on first run.
 
 ### From source
 

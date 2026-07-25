@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
+import httpx
 import numpy as np
 import pytest
 from fastapi.testclient import TestClient
@@ -33,8 +34,6 @@ from restoration.service import AppServices
 from .conftest import ALL_FAKE_NODES
 from .test_api import upload
 from .test_weights import DIGEST, PAYLOAD, _manager, _url_weight
-
-import httpx
 
 # ---------------------------------------------------------------------------
 # Variant-aware weights

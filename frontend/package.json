@@ -1,7 +1,7 @@
 {
   "name": "restoration-workflow-frontend",
   "private": true,
-  "version": "0.6.1",
+  "version": "0.6.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "typecheck": "tsc -b",
     "test": "vitest run",
-    "a11y": "node scripts/a11y-check.mjs"
+    "a11y": "node scripts/a11y-check.mjs",
+    "gen-types": "node scripts/gen-types.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",
@@ -22,6 +23,7 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
+    "openapi-typescript": "^7.13.0",
     "puppeteer": "^25.3.0",
     "typescript": "^5.6.3",
     "vite": "^6.4.3",

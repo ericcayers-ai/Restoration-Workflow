@@ -413,7 +413,7 @@ assistance.
 
 ---
 
-## Phase 8 — Packaging & Distribution — *Win/macOS/Linux installers + Docker; Tauri updater de-scoped*
+## Phase 8 — Packaging & Distribution — *Win/macOS/Linux installers + Docker*
 
 **Goal:** the "double-click and it works" experience from Phase 2, finished properly.
 
@@ -426,9 +426,7 @@ Tasks:
 - Licence-compliance bundle: `NOTICE` + `THIRD_PARTY_NOTICES.md` for bundled code/fonts;
   downloadable-weight tiers stay in `docs/MODEL_STACK.md`.
 - Contribution / community docs: CONTRIBUTING, SUPPORT, RELEASING, CoC — *see repo root*.
-- **De-scoped:** shipping a Tauri multi-OS auto-updater. `src-tauri/` may remain as an
-  experiment; do not wire release marketing or CI around `latest.json` updater artefacts
-  until that path is deliberately rebuilt and verified.
+- Desktop distribution handled entirely via PyInstaller installers — see [`RELEASING.md`](../RELEASING.md).
 
 **Acceptance criteria:** a clean machine with no pre-existing Python reaches a working
 Simple Mode first-drop from a desktop installer in a reasonable, clearly-communicated
@@ -477,7 +475,7 @@ the FastAPI / React / CLI / PyInstaller architecture, and record truthful status
 - **Quality tiers in Simple Mode** — draft / balanced / high surface the existing Phase 4.5.4 engine.
 - **Packaging & docs** — Windows zip packs LICENSE / notices; Docker installs advertised inference extra;
   community set refreshed (README, CoC, CONTRIBUTING, SUPPORT, RELEASING, issue/PR templates,
-  THIRD_PARTY_NOTICES). `src-tauri/` stays an **experiment**, not a shipping updater.
+  THIRD_PARTY_NOTICES).
 
 ### Explicitly still open (honest remaining items)
 
@@ -488,7 +486,7 @@ the FastAPI / React / CLI / PyInstaller architecture, and record truthful status
 | Defusion / AutoDIR / PromptIR as Master Restorer backends | Watch list; protocol ready, packaging/licence bar not met |
 | Restore-R1 / learned Phase 5 router | No usable public code; keep v1 analyzer (`docs/PHASE5_DECISION.md`) |
 | NVDA / VoiceOver manual screen-reader certification | Checklist exists; live pass remains release-QA |
-| Native macOS/Linux desktop installers + Tauri auto-updater | De-scoped; use source, `restore serve`, or Docker |
+| ~~Native macOS/Linux desktop installers~~ | Shipped in 0.6.1 via PyInstaller + Inno Setup/DMG/AppImage |
 | Structured external beta loop / full VRAM-matrix certification | Process in `docs/QA_LAUNCH.md`; not claimed finished by 0.6 alone |
 
 **Acceptance for 0.6.0:** CI green on ruff/pytest (non-inference + inference where installed), frontend

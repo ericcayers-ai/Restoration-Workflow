@@ -8,12 +8,24 @@
 
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
 import en from "../locales/en.json";
+import es from "../locales/es.json";
+import de from "../locales/de.json";
+import ja from "../locales/ja.json";
+import mi from "../locales/mi.json";
 
 type Catalog = typeof en;
+type PartialCatalog = Partial<Catalog>;
 export type MessageKey = keyof Catalog;
 type Vars = Record<string, string | number>;
 
-const catalogs: Record<string, Catalog> = { en };
+const catalogs: Record<string, PartialCatalog> = { en, es, de, ja, mi };
+export const AVAILABLE_LOCALES = [
+  { code: "en", label: "English" },
+  { code: "es", label: "Español" },
+  { code: "de", label: "Deutsch" },
+  { code: "ja", label: "日本語" },
+  { code: "mi", label: "Te Reo Māori" },
+];
 
 type TranslateFn = (key: MessageKey, vars?: Vars) => string;
 
@@ -35,7 +47,7 @@ export function I18nProvider({
 }) {
   // "en" is always present in `catalogs` (it's the literal object above), so
   // this fallback can never actually be undefined.
-  const catalog = catalogs[locale] ?? catalogs.en!;
+  const catalog = (catalogs[locale] ?? catalogs.en) as PartialCatalog;
 
   const t = useCallback<TranslateFn>(
     (key, vars) => interpolate(catalog[key] ?? key, vars),

@@ -123,9 +123,8 @@ class DownloadManager:
             node = self.services.registry.create(node_id)  # raises on unknown node
             # Surface the licence gate synchronously, so the caller gets a 403 rather
             # than a background task that fails invisibly a moment later.
-            if node.license.requires_acknowledgement and not self.services.weights.is_acknowledged(
-                node_id
-            ):
+            acknowledged = self.services.weights.is_acknowledged(node_id)
+            if node.license.requires_acknowledgement and not acknowledged:
                 from ..core.errors import LicenseNotAcknowledgedError  # noqa: PLC0415
 
                 raise LicenseNotAcknowledgedError(node_id, node.license.spdx_id)
