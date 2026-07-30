@@ -33,3 +33,7 @@ src-tauri/updater.key
 
 
 debug-*.log
+
+# graphify state (branch/worktree-specific, never commit)
+.graphify/
+.graphify_claude_hook_installed

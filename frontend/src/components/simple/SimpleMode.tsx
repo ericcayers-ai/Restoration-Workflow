@@ -331,6 +331,9 @@ export function SimpleMode({
         setStatus("review");
       } else {
         const result = await autoPlan(selected, { qualityTier });
+        if (!result?.routing?.reasons || !result.pipeline) {
+          throw new Error(t("simple.error.malformedPlan"));
+        }
         setAuto(result);
         setReviewStages(pipelineToStages(result.pipeline, describedByType));
         setStatus("review");

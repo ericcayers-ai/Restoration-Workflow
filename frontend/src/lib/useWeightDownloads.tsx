@@ -94,7 +94,10 @@ function useWeightDownloadsStore(): WeightDownloadsApi {
     const tick = async () => {
       try {
         const rows = await listDownloads();
-        if (cancelled || rows.length === 0) return;
+        // Guard against a malformed/legacy response shape: `for...of` inside a
+        // setState updater throws during React's render phase, which escapes
+        // this try/catch and crashes the whole app to the ErrorBoundary.
+        if (cancelled || !Array.isArray(rows) || rows.length === 0) return;
         setTracker((prev) => {
           const next = { ...prev };
           for (const row of rows) {

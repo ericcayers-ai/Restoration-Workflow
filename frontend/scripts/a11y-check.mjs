@@ -159,6 +159,7 @@ async function installApiMocks(page) {
       return node ? json(node) : json({ detail: "unknown" }, 400);
     }
     if (pathOnly === "/api/presets" && method === "GET") return json([]);
+    if (pathOnly === "/api/weights/downloads" && method === "GET") return json([]);
     if (pathOnly === "/api/weights" && method === "GET") {
       return json({
         cache_dir: "/tmp/weights",
@@ -178,7 +179,7 @@ async function installApiMocks(page) {
       return json({ status: "ok", version: "0.6.1", api_version: "1.0.0", plugin_errors: [] });
     }
     if (pathOnly === "/api/instructir/prompts" && method === "GET") return json(MOCK_PROMPTS);
-    if (pathOnly === "/api/analyze" && method === "POST") {
+    if ((pathOnly === "/api/analyze" || pathOnly === "/api/auto/plan") && method === "POST") {
       return json({
         profile: {
           width: 64,

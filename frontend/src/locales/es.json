@@ -125,6 +125,7 @@
   "simple.error.backToReview": "Volver a revisar",
   "simple.error.batchPreflight": "Descargando {{count}} modelo(s) antes del lote: {{nodes}}",
   "simple.error.connectionLost": "Conexión perdida con el servidor.",
+  "simple.error.malformedPlan": "El servidor devolvió una respuesta inesperada al planificar la restauración. Inténtalo de nuevo.",
   "simple.error.detail": "{{message}}",
   "simple.error.downloadFailed": "Una o más descargas fallaron.",
   "simple.error.licenceGate": "Este preset requiere aceptación de licencia para: {{nodes}}",

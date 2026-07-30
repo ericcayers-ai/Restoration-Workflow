@@ -125,6 +125,7 @@
   "simple.error.backToReview": "Back to review",
   "simple.error.batchPreflight": "Downloading {{count}} model(s) before batch: {{nodes}}",
   "simple.error.connectionLost": "Lost connection to the server. Check that it is still running.",
+  "simple.error.malformedPlan": "The server returned an unexpected response while planning your restoration. Please try again.",
   "simple.error.detail": "{{message}}",
   "simple.error.downloadFailed": "One or more model downloads failed.",
   "simple.error.licenceGate": "This preset needs a licence acknowledgement for: {{nodes}}",

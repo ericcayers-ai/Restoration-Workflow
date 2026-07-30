@@ -19,6 +19,7 @@ import pytest
 from restoration.core.errors import (
     ChecksumMismatchError,
     InsufficientDiskSpaceError,
+    JobCancelled,
     LicenseNotAcknowledgedError,
     WeightsError,
     WeightsNotInstalledError,
@@ -245,6 +246,102 @@ def test_resume_restarts_when_the_server_ignores_range(tmp_path: Path):
 
     manager.download(node)
     assert manager.file_path(node.id, weight).read_bytes() == PAYLOAD
+
+
+# ---------------------------------------------------------------------------
+# cancellation
+# ---------------------------------------------------------------------------
+
+def test_cancel_mid_download_leaves_a_resumable_part_file(tmp_path: Path, monkeypatch):
+    import restoration.core.weights as weights_module
+
+    # Force multiple small chunks so cancellation lands after some bytes have
+    # already landed on disk, rather than on the very first chunk.
+    monkeypatch.setattr(weights_module, "_CHUNK", 32)
+
+    manager = _manager(tmp_path)
+    node = _node(_url_weight())
+    weight = node.weight_manifest[0]
+
+    calls = {"n": 0}
+
+    def check_cancel() -> None:
+        calls["n"] += 1
+        if calls["n"] == 3:
+            raise JobCancelled("user cancelled")
+
+    with pytest.raises(JobCancelled):
+        manager.download(node, check_cancel=check_cancel)
+
+    dest = manager.file_path(node.id, weight)
+    part = dest.with_suffix(".bin.part")
+    assert not dest.exists()
+    assert part.exists()
+    assert 0 < part.stat().st_size < len(PAYLOAD)
+
+    # A fresh download (no cancellation) resumes from the partial bytes and
+    # completes normally — cancelling never corrupts the resume state.
+    manager.download(node)
+    assert dest.read_bytes() == PAYLOAD
+    assert not part.exists()
+
+
+def test_cancel_before_any_bytes_land_raises_without_writing_the_part_file(
+    tmp_path: Path,
+):
+    manager = _manager(tmp_path)
+    node = _node(_url_weight())
+    weight = node.weight_manifest[0]
+
+    def check_cancel() -> None:
+        raise JobCancelled("cancelled before start")
+
+    with pytest.raises(JobCancelled):
+        manager.download(node, check_cancel=check_cancel)
+
+    assert not manager.file_path(node.id, weight).exists()
+
+
+# ---------------------------------------------------------------------------
+# batch downloads
+# ---------------------------------------------------------------------------
+
+def test_multiple_nodes_can_be_downloaded_independently_in_one_batch(
+    tmp_path: Path,
+):
+    """Simulates the UI queuing several weight downloads back to back: each
+    node's files land in its own directory and none interferes with another's
+    progress callbacks or resume state."""
+    manager = _manager(tmp_path)
+    weight_a = WeightFile(
+        filename="a.bin", size_bytes=len(PAYLOAD), sha256=DIGEST,
+        url="https://example.invalid/a.bin",
+    )
+    weight_b = WeightFile(
+        filename="b.bin", size_bytes=len(PAYLOAD), sha256=DIGEST,
+        url="https://example.invalid/b.bin",
+    )
+    node_a = _node(weight_a)
+    node_a.id = "node_a"
+    node_b = _node(weight_b)
+    node_b.id = "node_b"
+
+    progress_events: list[tuple[str, str, int, int]] = []
+
+    def make_progress(node_id: str):
+        def progress(filename: str, done: int, total: int) -> None:
+            progress_events.append((node_id, filename, done, total))
+        return progress
+
+    manager.download(node_a, progress=make_progress(node_a.id))
+    manager.download(node_b, progress=make_progress(node_b.id))
+
+    assert manager.file_path(node_a.id, weight_a).read_bytes() == PAYLOAD
+    assert manager.file_path(node_b.id, weight_b).read_bytes() == PAYLOAD
+    assert manager.node_dir(node_a.id) != manager.node_dir(node_b.id)
+    assert {e[0] for e in progress_events} == {"node_a", "node_b"}
+    assert any(e[0] == "node_a" and e[3] == len(PAYLOAD) for e in progress_events)
+    assert any(e[0] == "node_b" and e[3] == len(PAYLOAD) for e in progress_events)
 
 
 # ---------------------------------------------------------------------------
